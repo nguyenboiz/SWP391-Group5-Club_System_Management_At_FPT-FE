@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { mockDb } from '../../utils/mockDb';
-import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, ChevronRight } from 'lucide-react';
+import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, ChevronRight, UserPlus, Users } from 'lucide-react';
 
 export default function CreateClub({ dbData, triggerNotification }) {
-  const { clubs, users } = dbData;
+  const { clubs, users, memberships } = dbData;
 
   const [form, setForm] = useState({
     name: '',
@@ -17,10 +17,43 @@ export default function CreateClub({ dbData, triggerNotification }) {
   const [selectedManagerId, setSelectedManagerId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // For Assign Manager to existing club
+  const [assignClubId, setAssignClubId] = useState('');
+  const [assignManagerId, setAssignManagerId] = useState('');
+  const [isAssigningExisting, setIsAssigningExisting] = useState(false);
+
   // Users eligible to be manager (not admin, not already a leader of this club)
   const eligibleUsers = users.filter(u =>
     u.status === 'Active' && (u.role === 'MEMBER' || u.role === 'MANAGER')
   );
+
+  const getClubManager = (clubId) => {
+    const leaderMembership = memberships.find(
+      m => m.clubId === clubId && m.role === 'Leader' && m.status === 'Active'
+    );
+    if (leaderMembership) {
+      const u = users.find(user => user.id === leaderMembership.userId);
+      return u ? `${u.fullName} (${u.id})` : leaderMembership.userId;
+    }
+    return 'Chưa có';
+  };
+
+  const handleAssignExistingClubManager = async (e) => {
+    e.preventDefault();
+    if (!assignClubId || !assignManagerId) {
+      triggerNotification('Vui lòng chọn đầy đủ CLB và người dùng!', 'warning');
+      return;
+    }
+    setIsAssigningExisting(true);
+    await new Promise(r => setTimeout(r, 300));
+    mockDb.assignManager(assignClubId, assignManagerId);
+    const club = clubs.find(c => c.id === assignClubId);
+    const user = users.find(u => u.id === assignManagerId);
+    triggerNotification(`Đã gán ${user?.fullName} làm Manager cho CLB ${club?.name.split(' - ')[0]}!`, 'success');
+    setAssignClubId('');
+    setAssignManagerId('');
+    setIsAssigningExisting(false);
+  };
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -213,30 +246,90 @@ export default function CreateClub({ dbData, triggerNotification }) {
           )}
         </div>
 
-        {/* Right: Existing clubs list */}
-        <div className="glass-card">
-          <div className="glass-card-header">
-            <h3 className="glass-card-title"><Landmark size={18} /> CLB hiện có ({clubs.length})</h3>
+        {/* Right: Existing clubs list + Assign Manager panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Assign Manager to existing club */}
+          <div className="glass-card">
+            <div className="glass-card-header">
+              <h3 className="glass-card-title"><UserPlus size={18} /> Gán Manager cho CLB hiện có</h3>
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
+              Chỉ định người dùng làm Leader quản lý một câu lạc bộ đang hoạt động.
+            </p>
+            <form onSubmit={handleAssignExistingClubManager} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Chọn Câu lạc bộ</label>
+                <select
+                  className="select-field"
+                  value={assignClubId}
+                  onChange={e => setAssignClubId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Chọn CLB --</option>
+                  {clubs.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name.split(' - ')[0]} — {getClubManager(c.id)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Chọn Người dùng</label>
+                <select
+                  className="select-field"
+                  value={assignManagerId}
+                  onChange={e => setAssignManagerId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Chọn người dùng --</option>
+                  {eligibleUsers.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.fullName} ({u.id}) – {u.role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isAssigningExisting}
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px' }}
+              >
+                {isAssigningExisting ? <span className="login-spinner" /> : <><UserPlus size={14} /> Gán Quyền &amp; Chỉ Định Leader</>}
+              </button>
+            </form>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {clubs.map(c => (
-              <div key={c.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <img
-                  src={c.logo}
-                  alt={c.name}
-                  style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px solid var(--border)', objectFit: 'cover', flexShrink: 0 }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-heading)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {c.name}
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                    <span className="badge badge-manager" style={{ fontSize: '10px' }}>{c.category}</span>
+
+          {/* Existing clubs list */}
+          <div className="glass-card">
+            <div className="glass-card-header">
+              <h3 className="glass-card-title"><Landmark size={18} /> CLB hiện có ({clubs.length})</h3>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {clubs.map(c => (
+                <div key={c.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <img
+                    src={c.logo}
+                    alt={c.name}
+                    style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px solid var(--border)', objectFit: 'cover', flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-heading)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {c.name}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
+                      <span className="badge badge-manager" style={{ fontSize: '10px' }}>{c.category}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{getClubManager(c.id)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+
         </div>
       </div>
     </div>

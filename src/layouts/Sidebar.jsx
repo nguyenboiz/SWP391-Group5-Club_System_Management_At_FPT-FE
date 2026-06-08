@@ -48,7 +48,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         onClick={() => setActiveTab('create-club')}
       >
         <PlusSquare size={18} />
-        <span>Tạo CLB mới</span>
+        <span>Quản lý CLB</span>
       </div>
     </>
   );

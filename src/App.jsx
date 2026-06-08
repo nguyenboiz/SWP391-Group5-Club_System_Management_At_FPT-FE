@@ -41,7 +41,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, dbData, trig
     if (role === 'ADMIN') {
       if (activeTab === 'semester-config') return 'Cài đặt học kỳ';
       if (activeTab === 'evidence-approval') return 'Duyệt tham gia';
-      if (activeTab === 'create-club') return 'Tạo CLB mới';
+      if (activeTab === 'create-club') return 'Quản lý CLB';
       if (activeTab === 'report-appraisal') return 'Chấm điểm báo cáo';
       if (activeTab === 'event-approval') return 'Duyệt sự kiện';
       return 'Quản lý người dùng';
