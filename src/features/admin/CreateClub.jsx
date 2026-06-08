@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { mockDb } from '../../utils/mockDb';
-import { PlusCircle, Landmark, Image, Link, Tag } from 'lucide-react';
+import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, ChevronRight } from 'lucide-react';
 
 export default function CreateClub({ dbData, triggerNotification }) {
-  const { clubs } = dbData;
+  const { clubs, users } = dbData;
 
   const [form, setForm] = useState({
     name: '',
@@ -13,6 +13,14 @@ export default function CreateClub({ dbData, triggerNotification }) {
     intro: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdClubId, setCreatedClubId] = useState(null);
+  const [selectedManagerId, setSelectedManagerId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  // Users eligible to be manager (not admin, not already a leader of this club)
+  const eligibleUsers = users.filter(u =>
+    u.status === 'Active' && (u.role === 'MEMBER' || u.role === 'MANAGER')
+  );
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -26,10 +34,32 @@ export default function CreateClub({ dbData, triggerNotification }) {
     }
     setIsSubmitting(true);
     await new Promise(r => setTimeout(r, 400));
-    mockDb.addClub({ ...form });
+    const newClubId = 'club-' + Date.now();
+    mockDb.addClub({ id: newClubId, ...form });
+    setCreatedClubId(newClubId);
     triggerNotification(`Đã tạo câu lạc bộ "${form.name}" thành công!`, 'success');
     setForm({ name: '', category: 'Academic', logo: '', fanpage: '', intro: '' });
     setIsSubmitting(false);
+  };
+
+  const handleAssignManager = async () => {
+    if (!selectedManagerId) {
+      triggerNotification('Vui lòng chọn người dùng để gán làm Manager!', 'warning');
+      return;
+    }
+    setIsAssigning(true);
+    await new Promise(r => setTimeout(r, 300));
+    mockDb.assignManager(createdClubId, selectedManagerId);
+    const user = users.find(u => u.id === selectedManagerId);
+    triggerNotification(`Đã gán ${user?.fullName || selectedManagerId} làm Manager!`, 'success');
+    setSelectedManagerId('');
+    setCreatedClubId(null);
+    setIsAssigning(false);
+  };
+
+  const handleSkipAssign = () => {
+    setCreatedClubId(null);
+    setSelectedManagerId('');
   };
 
   return (
@@ -130,6 +160,57 @@ export default function CreateClub({ dbData, triggerNotification }) {
               )}
             </button>
           </form>
+
+          {/* Assign Manager Section – appears after club is created */}
+          {createdClubId && (
+            <div style={{
+              marginTop: '24px',
+              padding: '20px',
+              background: 'rgba(var(--primary-rgb, 99, 102, 241), 0.08)',
+              borderRadius: '12px',
+              border: '1px solid rgba(var(--primary-rgb, 99, 102, 241), 0.3)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <UserCheck size={18} style={{ color: 'var(--primary)' }} />
+                <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '14px' }}>
+                  Gán Manager cho CLB vừa tạo
+                </span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                Chọn người dùng để gán làm người quản lý (Leader) của câu lạc bộ này.
+              </p>
+              <select
+                className="select-field"
+                value={selectedManagerId}
+                onChange={e => setSelectedManagerId(e.target.value)}
+                style={{ marginBottom: '12px' }}
+              >
+                <option value="">-- Chọn người dùng --</option>
+                {eligibleUsers.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} ({u.id}) – {u.role}
+                  </option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleAssignManager}
+                  disabled={isAssigning}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 16px' }}
+                >
+                  {isAssigning ? <span className="login-spinner" /> : <><UserCheck size={14} /> Gán Manager</>}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleSkipAssign}
+                  style={{ fontSize: '13px', padding: '8px 16px' }}
+                >
+                  Bỏ qua
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Existing clubs list */}

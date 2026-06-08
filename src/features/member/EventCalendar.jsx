@@ -2,8 +2,13 @@ import React from 'react';
 import { mockDb } from '../../utils/mockDb';
 import { Calendar, MapPin, Check, UserCheck, AlertCircle } from 'lucide-react';
 
-export default function EventCalendar({ dbData, currentUserId, triggerNotification }) {
+export default function EventCalendar({ dbData, currentUserId, triggerNotification, selectedClubId }) {
   const { events, participants, clubs } = dbData;
+
+  // Filter events to selected club only (if set)
+  const filteredEvents = selectedClubId
+    ? events.filter(e => e.clubId === selectedClubId)
+    : events;
 
   const handleRegister = (eventId, eventName) => {
     if (!currentUserId) {
@@ -37,7 +42,7 @@ export default function EventCalendar({ dbData, currentUserId, triggerNotificati
       </div>
 
       <div className="calendar-grid">
-        {events.map(e => {
+        {filteredEvents.map(e => {
           const registered = isRegistered(e.id);
           return (
             <div key={e.id} className="glass-card calendar-card">

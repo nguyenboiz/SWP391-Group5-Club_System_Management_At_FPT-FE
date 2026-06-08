@@ -1,7 +1,7 @@
 import React from 'react';
 import { Landmark, ExternalLink, Users, Calendar } from 'lucide-react';
 
-export default function ClubDirectory({ dbData, currentUserId }) {
+export default function ClubDirectory({ dbData, currentUserId, selectedClubId }) {
   const { clubs, memberships } = dbData;
 
   // Chỉ lấy các CLB mà user hiện tại đang là thành viên Active
@@ -9,7 +9,12 @@ export default function ClubDirectory({ dbData, currentUserId }) {
     m => m.userId === currentUserId && m.status === 'Active'
   );
   const myClubIds = myMemberships.map(m => m.clubId);
-  const myClubs = clubs.filter(c => myClubIds.includes(c.id));
+
+  // If a specific club is selected (from ClubSelectorPage), show only that one
+  const myClubs = selectedClubId
+    ? clubs.filter(c => c.id === selectedClubId && myClubIds.includes(c.id))
+    : clubs.filter(c => myClubIds.includes(c.id));
+
 
   if (myClubs.length === 0) {
     return (
@@ -31,12 +36,9 @@ export default function ClubDirectory({ dbData, currentUserId }) {
       <div className="glass-card" style={{ marginBottom: '24px', padding: '20px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h3 className="glass-card-title" style={{ marginBottom: '4px' }}>
-              <Landmark size={18} /> Danh sách CLB của tôi
+            <h3 className="glass-card-title" style={{ marginBottom: '0' }}>
+              <Landmark size={18} /> CLB của tôi
             </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-              Bạn đang là thành viên của <strong style={{ color: 'var(--primary)' }}>{myClubs.length}</strong> câu lạc bộ
-            </p>
           </div>
         </div>
       </div>

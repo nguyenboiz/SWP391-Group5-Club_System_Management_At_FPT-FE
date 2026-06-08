@@ -1,5 +1,5 @@
 // FPT Club System Management Mock Database
-const STORAGE_KEY = 'fpt_club_system_db_v2';
+const STORAGE_KEY = 'fpt_club_system_db_v4';
 
 const defaultSemesters = [
   { id: 'SP26', name: 'Spring 2026', startDate: '2026-01-05', endDate: '2026-04-25', status: 'Finished' },
@@ -45,51 +45,130 @@ const defaultClubs = [
     logo: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?auto=format&fit=crop&w=120&h=120&q=80',
     fanpage: 'https://facebook.com/fptchess.fptu',
     intro: 'Nơi tập hợp các kỳ thủ đam mê cờ vua, cờ tướng, cờ vây tại Đại học FPT. Tổ chức huấn luyện tư duy chiến thuật và các giải đấu cờ mở rộng thường niên.'
+  },
+  {
+    id: 'fsa',
+    name: 'FSA - FPT Software Architecture Club',
+    category: 'Academic',
+    logo: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=120&h=120&q=80',
+    fanpage: 'https://facebook.com/fsaclub.fptu',
+    intro: 'FSA là CLB chuyên sâu về kiến trúc phần mềm, cloud computing và DevOps. Nơi sinh viên rèn luyện tư duy thiết kế hệ thống và chuẩn bị cho con đường trở thành Software Architect.'
+  },
+  {
+    id: 'dance',
+    name: 'FPT Dance Club',
+    category: 'Arts',
+    logo: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=120&h=120&q=80',
+    fanpage: 'https://facebook.com/fptdance.fptu',
+    intro: 'FPT Dance Club là sân chơi dành cho các bạn đam mê nhảy múa — từ Hip-Hop, Breaking, Popping đến Contemporary. Đội tuyển thường xuyên tham dự các cuộc thi vũ đạo toàn quốc.'
   }
 ];
 
+// ===================== USERS =====================
+// Cross-role accounts (Manager in 1 CLB, Member in another):
+//   SE170111 (MANAGER): Leader JS Club  +  Member FSA
+//   SE180222 (MANAGER): Leader F-Code   +  Member JS  +  Member FSA
+//   SE180333 (MANAGER): Leader Chess    +  Member Melody
+//   SE190400 (MANAGER): Leader Melody   +  Member Dance  +  Member F-Code
+//   SE190501 (MANAGER): Leader FSA      +  Member F-Code  +  Member JS
+//   SE200600 (MANAGER): Leader Dance    +  Member Melody
 const defaultUsers = [
-  // PDP Staff (Admin)
+  // ── Admin ──
   { id: 'PDP01', username: 'pdp.hoangnv', fullName: 'Nguyễn Việt Hoàng', email: 'hoangnv.pdp@fe.edu.vn', role: 'ADMIN', status: 'Active', isAlumni: false, cohort: 'Staff', facebook: 'fb.com/hoangnv.pdp', currentJob: 'Cán bộ phòng IC-PDP', phone: '0987654321' },
   { id: 'PDP02', username: 'pdp.khanhtq', fullName: 'Trần Quốc Khánh', email: 'khanhtq.pdp@fe.edu.vn', role: 'ADMIN', status: 'Active', isAlumni: false, cohort: 'Staff', facebook: 'fb.com/khanhtq.pdp', currentJob: 'Cán bộ quản lý CLB', phone: '0912345678' },
-  
-  // Managers
-  { id: 'SE170111', username: 'khoi.ld', fullName: 'Lê Quang Khôi', email: 'khoildse170111@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K17', facebook: 'fb.com/lequangkhoi', currentJob: 'Sinh viên', phone: '0901234567' },
-  { id: 'SE180222', username: 'fcode.lead', fullName: 'Phạm Minh Đức', email: 'ducmpse180222@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K18', facebook: 'fb.com/pmduc.fcode', currentJob: 'Sinh viên', phone: '0934567890' },
-  { id: 'SE180333', username: 'chess.lead', fullName: 'Nguyễn Hà Hải', email: 'hainhse180333@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K18', facebook: 'fb.com/chess.hai', currentJob: 'Sinh viên', phone: '0977665544' },
-  
-  // Members
+  { id: 'PDP03', username: 'pdp.linhnt', fullName: 'Nguyễn Thị Linh', email: 'linhnt.pdp@fe.edu.vn', role: 'ADMIN', status: 'Active', isAlumni: false, cohort: 'Staff', facebook: 'fb.com/linhnt.pdp', currentJob: 'Trưởng phòng IC-PDP', phone: '0978123456' },
+
+  // ── Managers (Là Leader ở ít nhất 1 CLB) ──
+  { id: 'SE170111', username: 'khoi.lq', fullName: 'Lê Quang Khôi', email: 'khoilqse170111@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K17', facebook: 'fb.com/lequangkhoi', currentJob: 'Sinh viên', phone: '0901234567' },
+  { id: 'SE180222', username: 'duc.pm', fullName: 'Phạm Minh Đức', email: 'ducpmse180222@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K18', facebook: 'fb.com/pmduc.fcode', currentJob: 'Sinh viên', phone: '0934567890' },
+  { id: 'SE180333', username: 'hai.nh', fullName: 'Nguyễn Hà Hải', email: 'hainhse180333@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K18', facebook: 'fb.com/chess.hai', currentJob: 'Sinh viên', phone: '0977665544' },
+  { id: 'SE190400', username: 'lan.tt', fullName: 'Trần Thị Lan', email: 'lantts190400@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K19', facebook: 'fb.com/tranthilan', currentJob: 'Sinh viên', phone: '0909876543' },
+  { id: 'SE190501', username: 'son.nv', fullName: 'Nguyễn Văn Sơn', email: 'sonnvse190501@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K19', facebook: 'fb.com/nvson.arch', currentJob: 'Sinh viên', phone: '0918765432' },
+  { id: 'SE200600', username: 'trang.nd', fullName: 'Nguyễn Diệu Trang', email: 'trangndse200600@fpt.edu.vn', role: 'MANAGER', status: 'Active', isAlumni: false, cohort: 'K20', facebook: 'fb.com/ndtrang.dance', currentJob: 'Sinh viên', phone: '0927654321' },
+
+  // ── Members ──
   { id: 'SE180001', username: 'khoa.nd', fullName: 'Nguyễn Đình Khoa', email: 'khoandse180001@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K18', facebook: 'fb.com/ndkhoa', currentJob: 'Sinh viên', phone: '0966554433' },
   { id: 'SE180002', username: 'duong.dk', fullName: 'Đường Đình Khôi', email: 'khoiddse180002@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K18', facebook: 'fb.com/ddkhoi', currentJob: 'Sinh viên', phone: '0955443322' },
   { id: 'SE190003', username: 'ngoc.bm', fullName: 'Bùi Minh Ngọc', email: 'ngocbmse190003@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K19', facebook: 'fb.com/bmngoc', currentJob: 'Sinh viên', phone: '0944332211' },
   { id: 'SE190123', username: 'tu.ha', fullName: 'Hoàng Anh Tú', email: 'tuahse190123@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K19', facebook: 'fb.com/tuhoanganh', currentJob: 'Sinh viên', phone: '0933221100' },
-  
-  // Alumni
+  { id: 'SE200010', username: 'an.lv', fullName: 'Lê Văn An', email: 'anlvse200010@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K20', facebook: 'fb.com/lvan.an', currentJob: 'Sinh viên', phone: '0922110099' },
+  { id: 'SE200011', username: 'binh.tv', fullName: 'Trần Văn Bình', email: 'binhtvsE200011@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K20', facebook: 'fb.com/tvbinh', currentJob: 'Sinh viên', phone: '0911009988' },
+  { id: 'SE200012', username: 'chi.lh', fullName: 'Lê Hoàng Chi', email: 'chilhse200012@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K20', facebook: 'fb.com/lhchi', currentJob: 'Sinh viên', phone: '0900998877' },
+  { id: 'SE200013', username: 'dung.pt', fullName: 'Phạm Tiến Dũng', email: 'dungptse200013@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K20', facebook: 'fb.com/ptdung', currentJob: 'Sinh viên', phone: '0989887766' },
+  { id: 'SE210020', username: 'em.nk', fullName: 'Nguyễn Khánh Em', email: 'emnkse210020@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K21', facebook: 'fb.com/nkem', currentJob: 'Sinh viên', phone: '0978776655' },
+  { id: 'SE210021', username: 'phuc.hv', fullName: 'Hồ Văn Phúc', email: 'phuchvse210021@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K21', facebook: 'fb.com/hvphuc', currentJob: 'Sinh viên', phone: '0967665544' },
+  { id: 'SE210022', username: 'giang.nt', fullName: 'Nguyễn Thúy Giang', email: 'giangntse210022@fpt.edu.vn', role: 'MEMBER', status: 'Blocked', isAlumni: false, cohort: 'K21', facebook: 'fb.com/ntgiang', currentJob: 'Sinh viên', phone: '0956554433' },
+  { id: 'SE210023', username: 'hung.pq', fullName: 'Phùng Quang Hùng', email: 'hungpqse210023@fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: false, cohort: 'K21', facebook: 'fb.com/pqhung', currentJob: 'Sinh viên', phone: '0945443322' },
+
+  // ── Alumni ──
   { id: 'SE140101', username: 'anh.nh', fullName: 'Nguyễn Hoàng Anh', email: 'anhnhse140101@alumni.fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: true, cohort: 'K14', facebook: 'fb.com/nha.solutions', currentJob: 'Solutions Architect tại FPT Software', phone: '0911223344' },
   { id: 'SE150202', username: 'chi.tb', fullName: 'Trần Bảo Chi', email: 'chitbse150202@alumni.fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: true, cohort: 'K15', facebook: 'fb.com/chitb.frontend', currentJob: 'Senior Front-End Dev tại VNG Corporation', phone: '0922334455' },
-  { id: 'SE160303', username: 'quan.pm', fullName: 'Phạm Minh Quân', email: 'quanpmse160303@alumni.fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: true, cohort: 'K16', facebook: 'fb.com/pmquan.pm', currentJob: 'Product Manager tại Shopee Vietnam', phone: '0933445566' }
+  { id: 'SE160303', username: 'quan.pm', fullName: 'Phạm Minh Quân', email: 'quanpmse160303@alumni.fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: true, cohort: 'K16', facebook: 'fb.com/pmquan.pm', currentJob: 'Product Manager tại Shopee Vietnam', phone: '0933445566' },
+  { id: 'SE160404', username: 'mai.lt', fullName: 'Lê Thị Mai', email: 'mailtse160404@alumni.fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: true, cohort: 'K16', facebook: 'fb.com/ltmai.dev', currentJob: 'Tech Lead tại Tiki', phone: '0944556677' },
+  { id: 'SE170505', username: 'long.nq', fullName: 'Nguyễn Quốc Long', email: 'longnqse170505@alumni.fpt.edu.vn', role: 'MEMBER', status: 'Active', isAlumni: true, cohort: 'K17', facebook: 'fb.com/nqlong.devops', currentJob: 'DevOps Engineer tại Grab Vietnam', phone: '0955667788' }
 ];
 
+// ===================== MEMBERSHIPS =====================
+// Cross-role demo:
+//   SE170111: Leader @js  + Member @fsa
+//   SE180222: Leader @fcode  + Member @js  + Member @fsa
+//   SE180333: Leader @chess  + Member @melody
+//   SE190400: Leader @melody  + Member @dance  + Member @fcode
+//   SE190501: Leader @fsa  + Member @fcode  + Member @js
+//   SE200600: Leader @dance  + Member @melody
 const defaultMemberships = [
-  // JS Club Members
-  { id: 'ms1', clubId: 'js', userId: 'SE170111', joinedSemester: 'FA23', role: 'Leader', status: 'Active' },
-  { id: 'ms2', clubId: 'js', userId: 'SE180001', joinedSemester: 'SP24', role: 'Member', status: 'Active' },
-  { id: 'ms3', clubId: 'js', userId: 'SE180002', joinedSemester: 'SP24', role: 'Member', status: 'Active' },
-  { id: 'ms4', clubId: 'js', userId: 'SE140101', joinedSemester: 'FA18', role: 'Leader', status: 'Resigned' }, // Former Leader (Alumni)
+  // ── JS Club ──
+  { id: 'ms-js-1', clubId: 'js', userId: 'SE170111', joinedSemester: 'FA23', role: 'Leader', status: 'Active' },
+  { id: 'ms-js-2', clubId: 'js', userId: 'SE180222', joinedSemester: 'SP24', role: 'Member', status: 'Active' },   // Cross: F-Code Leader
+  { id: 'ms-js-3', clubId: 'js', userId: 'SE190501', joinedSemester: 'FA25', role: 'Member', status: 'Active' },   // Cross: FSA Leader
+  { id: 'ms-js-4', clubId: 'js', userId: 'SE180001', joinedSemester: 'SP24', role: 'Member', status: 'Active' },
+  { id: 'ms-js-5', clubId: 'js', userId: 'SE180002', joinedSemester: 'SP24', role: 'Member', status: 'Active' },
+  { id: 'ms-js-6', clubId: 'js', userId: 'SE200010', joinedSemester: 'SU26', role: 'Member', status: 'Active' },
+  { id: 'ms-js-7', clubId: 'js', userId: 'SE140101', joinedSemester: 'FA18', role: 'Leader', status: 'Resigned' },
 
-  // F-Code Members
-  { id: 'ms5', clubId: 'fcode', userId: 'SE180222', joinedSemester: 'SP24', role: 'Leader', status: 'Active' },
-  { id: 'ms6', clubId: 'fcode', userId: 'SE180002', joinedSemester: 'SP24', role: 'Member', status: 'Active' },
-  { id: 'ms7', clubId: 'fcode', userId: 'SE190123', joinedSemester: 'FA25', role: 'Member', status: 'Active' },
-  { id: 'ms8', clubId: 'fcode', userId: 'SE150202', joinedSemester: 'FA19', role: 'Leader', status: 'Resigned' }, // Former Leader (Alumni)
+  // ── F-Code Club ──
+  { id: 'ms-fc-1', clubId: 'fcode', userId: 'SE180222', joinedSemester: 'SP22', role: 'Leader', status: 'Active' },
+  { id: 'ms-fc-2', clubId: 'fcode', userId: 'SE190501', joinedSemester: 'FA24', role: 'Member', status: 'Active' }, // Cross: FSA Leader
+  { id: 'ms-fc-3', clubId: 'fcode', userId: 'SE190400', joinedSemester: 'SP25', role: 'Member', status: 'Active' }, // Cross: Melody Leader
+  { id: 'ms-fc-4', clubId: 'fcode', userId: 'SE180002', joinedSemester: 'SP24', role: 'Member', status: 'Active' },
+  { id: 'ms-fc-5', clubId: 'fcode', userId: 'SE190123', joinedSemester: 'FA25', role: 'Member', status: 'Active' },
+  { id: 'ms-fc-6', clubId: 'fcode', userId: 'SE200011', joinedSemester: 'SU26', role: 'Member', status: 'Active' },
+  { id: 'ms-fc-7', clubId: 'fcode', userId: 'SE200012', joinedSemester: 'SU26', role: 'Member', status: 'Active' },
+  { id: 'ms-fc-8', clubId: 'fcode', userId: 'SE150202', joinedSemester: 'FA19', role: 'Leader', status: 'Resigned' },
 
-  // Melody Members
-  { id: 'ms9', clubId: 'melody', userId: 'SE190003', joinedSemester: 'SU25', role: 'Member', status: 'Active' },
-  { id: 'ms10', clubId: 'melody', userId: 'SE160303', joinedSemester: 'FA20', role: 'Leader', status: 'Resigned' }, // Former Leader (Alumni)
+  // ── Melody Club ──
+  { id: 'ms-me-1', clubId: 'melody', userId: 'SE190400', joinedSemester: 'SU24', role: 'Leader', status: 'Active' },
+  { id: 'ms-me-2', clubId: 'melody', userId: 'SE180333', joinedSemester: 'FA24', role: 'Member', status: 'Active' }, // Cross: Chess Leader
+  { id: 'ms-me-3', clubId: 'melody', userId: 'SE200600', joinedSemester: 'SP25', role: 'Member', status: 'Active' }, // Cross: Dance Leader
+  { id: 'ms-me-4', clubId: 'melody', userId: 'SE190003', joinedSemester: 'SU25', role: 'Member', status: 'Active' },
+  { id: 'ms-me-5', clubId: 'melody', userId: 'SE200013', joinedSemester: 'FA25', role: 'Member', status: 'Active' },
+  { id: 'ms-me-6', clubId: 'melody', userId: 'SE210020', joinedSemester: 'SU26', role: 'Member', status: 'Active' },
+  { id: 'ms-me-7', clubId: 'melody', userId: 'SE160303', joinedSemester: 'FA20', role: 'Leader', status: 'Resigned' },
 
-  // Chess Members
-  { id: 'ms11', clubId: 'chess', userId: 'SE180333', joinedSemester: 'SP24', role: 'Leader', status: 'Active' },
-  { id: 'ms12', clubId: 'chess', userId: 'SE180001', joinedSemester: 'SU25', role: 'Member', status: 'Active' }
+  // ── Chess Club ──
+  { id: 'ms-ch-1', clubId: 'chess', userId: 'SE180333', joinedSemester: 'SP24', role: 'Leader', status: 'Active' },
+  { id: 'ms-ch-2', clubId: 'chess', userId: 'SE180001', joinedSemester: 'SU25', role: 'Member', status: 'Active' },
+  { id: 'ms-ch-3', clubId: 'chess', userId: 'SE200010', joinedSemester: 'SU25', role: 'Member', status: 'Active' },
+  { id: 'ms-ch-4', clubId: 'chess', userId: 'SE210021', joinedSemester: 'FA25', role: 'Member', status: 'Active' },
+  { id: 'ms-ch-5', clubId: 'chess', userId: 'SE210023', joinedSemester: 'SU26', role: 'Member', status: 'Active' },
+
+  // ── FSA Club ──
+  { id: 'ms-fsa-1', clubId: 'fsa', userId: 'SE190501', joinedSemester: 'FA23', role: 'Leader', status: 'Active' },
+  { id: 'ms-fsa-2', clubId: 'fsa', userId: 'SE170111', joinedSemester: 'SP25', role: 'Member', status: 'Active' }, // Cross: JS Leader
+  { id: 'ms-fsa-3', clubId: 'fsa', userId: 'SE190123', joinedSemester: 'SU25', role: 'Member', status: 'Active' },
+  { id: 'ms-fsa-4', clubId: 'fsa', userId: 'SE200011', joinedSemester: 'FA25', role: 'Member', status: 'Active' },
+  { id: 'ms-fsa-5', clubId: 'fsa', userId: 'SE200012', joinedSemester: 'FA25', role: 'Member', status: 'Active' },
+  { id: 'ms-fsa-6', clubId: 'fsa', userId: 'SE210023', joinedSemester: 'SU26', role: 'Member', status: 'Active' },
+  { id: 'ms-fsa-7', clubId: 'fsa', userId: 'SE170505', joinedSemester: 'FA20', role: 'Leader', status: 'Resigned' },
+
+  // ── Dance Club ──
+  { id: 'ms-da-1', clubId: 'dance', userId: 'SE200600', joinedSemester: 'SP24', role: 'Leader', status: 'Active' },
+  { id: 'ms-da-2', clubId: 'dance', userId: 'SE190400', joinedSemester: 'FA24', role: 'Member', status: 'Active' }, // Cross: Melody Leader
+  { id: 'ms-da-3', clubId: 'dance', userId: 'SE190003', joinedSemester: 'SU25', role: 'Member', status: 'Active' },
+  { id: 'ms-da-4', clubId: 'dance', userId: 'SE210020', joinedSemester: 'FA25', role: 'Member', status: 'Active' },
+  { id: 'ms-da-5', clubId: 'dance', userId: 'SE210021', joinedSemester: 'SU26', role: 'Member', status: 'Active' },
+  { id: 'ms-da-6', clubId: 'dance', userId: 'SE200013', joinedSemester: 'SU26', role: 'Member', status: 'Active' },
+  { id: 'ms-da-7', clubId: 'dance', userId: 'SE160404', joinedSemester: 'FA21', role: 'Leader', status: 'Resigned' }
 ];
 
 const defaultClubBoards = [
@@ -608,6 +687,32 @@ export const mockDb = {
     saveDb(db);
   },
 
+  // Assign Manager to club (Admin only)
+  assignManager: (clubId, userId) => {
+    const db = getDb();
+    // Upgrade user role to MANAGER if they are MEMBER
+    const userIdx = db.users.findIndex(u => u.id === userId);
+    if (userIdx !== -1 && db.users[userIdx].role === 'MEMBER') {
+      db.users[userIdx].role = 'MANAGER';
+    }
+    // Create or activate Leader membership
+    const existingIdx = db.memberships.findIndex(m => m.clubId === clubId && m.userId === userId);
+    if (existingIdx !== -1) {
+      db.memberships[existingIdx].role = 'Leader';
+      db.memberships[existingIdx].status = 'Active';
+    } else {
+      db.memberships.push({
+        id: 'ms-' + Date.now(),
+        clubId,
+        userId,
+        joinedSemester: 'SU26',
+        role: 'Leader',
+        status: 'Active'
+      });
+    }
+    saveDb(db);
+  },
+
   // Event Approval (Admin only)
   approveEvent: (eventId, remark = '') => {
     const db = getDb();
@@ -628,5 +733,26 @@ export const mockDb = {
       db.events[idx].approvedAt = new Date().toISOString();
       saveDb(db);
     }
+  },
+  registerUser: (id, fullName, email, cohort) => {
+    const db = getDb();
+    const exists = db.users.some(u => u.id === id);
+    if (exists) return false;
+
+    db.users.push({
+      id,
+      username: email.split('@')[0],
+      fullName,
+      email,
+      role: 'MEMBER',
+      status: 'Active',
+      isAlumni: false,
+      cohort,
+      facebook: '',
+      currentJob: 'Sinh viên',
+      phone: ''
+    });
+    saveDb(db);
+    return true;
   }
 };

@@ -1,51 +1,59 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut } from 'lucide-react';
+import { LogOut, ArrowLeftRight } from 'lucide-react';
 
 export default function Header({ 
   currentRole, 
-  selectedClubId, 
-  setSelectedClubId,
+  selectedClubId,
   dbData, 
   pageTitle,
-  triggerNotification
+  triggerNotification,
+  onSwitchClub
 }) {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    sessionStorage.removeItem('fpt_selected_club');
     logout();
     triggerNotification('Đã đăng xuất khỏi hệ thống.', 'info');
     navigate('/login');
   };
 
+  // Get current club name for display
+  const selectedClub = dbData?.clubs?.find(c => c.id === selectedClubId);
+
   return (
     <header className="top-header">
       <div className="page-title-section">
         <h2>{pageTitle}</h2>
+        {/* Show current club chip for MEMBER and MANAGER */}
+        {(currentRole === 'MANAGER' || currentRole === 'MEMBER') && selectedClub && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+            <img
+              src={selectedClub.logo}
+              alt={selectedClub.name}
+              style={{ width: '18px', height: '18px', borderRadius: '4px', objectFit: 'cover' }}
+            />
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {selectedClub.name.split(' - ')[0]}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="header-actions">
-        {/* Manager: select which club to manage */}
-        {currentRole === 'MANAGER' && setSelectedClubId && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>CLB đang quản lý:</span>
-            <select 
-              className="select-field" 
-              value={selectedClubId}
-              onChange={e => {
-                setSelectedClubId(e.target.value);
-                const name = dbData.clubs.find(c => c.id === e.target.value)?.name.split(' - ')[0];
-                triggerNotification(`Đang xem CLB: ${name}`, 'info');
-              }}
-              style={{ width: '140px', padding: '4px 8px', fontSize: '12px' }}
-            >
-              {dbData.clubs.map(c => (
-                <option key={c.id} value={c.id}>{c.name.split(' - ')[0]}</option>
-              ))}
-            </select>
-          </div>
+        {/* Switch club button for MEMBER and MANAGER */}
+        {(currentRole === 'MANAGER' || currentRole === 'MEMBER') && onSwitchClub && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={onSwitchClub}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', fontSize: '12px' }}
+            title="Đổi câu lạc bộ"
+          >
+            <ArrowLeftRight size={13} /> Đổi CLB
+          </button>
         )}
 
         {/* Current user info + Logout */}

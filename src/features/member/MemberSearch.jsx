@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Users, Landmark, Mail, Phone } from 'lucide-react';
 
-export default function MemberSearch({ dbData, currentUserId }) {
+export default function MemberSearch({ dbData, currentUserId, selectedClubId: initialClubId }) {
   const { users, memberships, clubs } = dbData;
 
   // Lấy danh sách CLB mà user hiện tại tham gia (Active)
@@ -12,7 +12,7 @@ export default function MemberSearch({ dbData, currentUserId }) {
     .map(m => clubs.find(c => c.id === m.clubId))
     .filter(Boolean);
 
-  const [selectedClubId, setSelectedClubId] = useState(myClubs[0]?.id || '');
+  const [selectedClubId, setSelectedClubId] = useState(initialClubId || myClubs[0]?.id || '');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Khi club thay đổi, reset search
@@ -69,20 +69,28 @@ export default function MemberSearch({ dbData, currentUserId }) {
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          {/* Club selector */}
+          {/* Club selector (Locked based on selected club) */}
           <div>
             <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Chọn câu lạc bộ
+              Câu lạc bộ đang chọn
             </label>
-            <select
-              className="select-field"
-              value={selectedClubId}
-              onChange={e => setSelectedClubId(e.target.value)}
+            <div 
+              className="input-field" 
+              style={{ 
+                backgroundColor: 'rgba(255,255,255,0.03)', 
+                color: 'var(--text-main)', 
+                cursor: 'not-allowed', 
+                display: 'flex', 
+                alignItems: 'center', 
+                height: '42px',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '0 12px',
+                fontWeight: 600
+              }}
             >
-              {myClubs.map(c => (
-                <option key={c.id} value={c.id}>{c.name.split(' - ')[0]}</option>
-              ))}
-            </select>
+              {selectedClub ? selectedClub.name.split(' - ')[0] : 'N/A'}
+            </div>
           </div>
 
           {/* Search input */}

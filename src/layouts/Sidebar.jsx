@@ -13,7 +13,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         onClick={() => setActiveTab('semester-config')}
       >
         <Calendar size={18} />
-        <span>Cấu hình Học kỳ</span>
+        <span>Cài đặt Kỳ học</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'evidence-approval' ? 'active' : ''}`}
@@ -27,7 +27,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         onClick={() => setActiveTab('report-appraisal')}
       >
         <ClipboardList size={18} />
-        <span>Thẩm định Báo cáo</span>
+        <span>Chấm điểm Báo cáo</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'event-approval' ? 'active' : ''}`}
@@ -41,7 +41,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         onClick={() => setActiveTab('user-management')}
       >
         <UserCheck size={18} />
-        <span>Quản lý Tài khoản</span>
+        <span>Quản lý Người dùng</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'create-club' ? 'active' : ''}`}
@@ -81,14 +81,14 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         onClick={() => setActiveTab('document-archive')}
       >
         <FolderOpen size={18} />
-        <span>Kho tài liệu</span>
+        <span>Tài liệu CLB</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'submit-report' ? 'active' : ''}`}
         onClick={() => setActiveTab('submit-report')}
       >
         <ClipboardList size={18} />
-        <span>Gửi Báo cáo kỳ</span>
+        <span>Nộp Báo cáo</span>
       </div>
     </>
   );
@@ -121,7 +121,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         onClick={() => setActiveTab('knowledge-sharing')}
       >
         <BookOpen size={18} />
-        <span>Chia sẻ Tri thức</span>
+        <span>Tài nguyên & Đề xuất</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'member-search' ? 'active' : ''}`}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { mockDb } from './utils/mockDb';
 import { useAuth } from './contexts/AuthContext';
 
@@ -8,6 +8,7 @@ import Header from './layouts/Header';
 import Toast from './components/Toast';
 import ProtectedRoute from './routes/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
+import ClubSelectorPage from './pages/ClubSelectorPage';
 
 // Admin Pages
 import SemesterConfigPage from './pages/admin/SemesterConfigPage';
@@ -34,31 +35,37 @@ import MemberSearchPage from './pages/member/MemberSearchPage';
 // Shared Dashboard Layout
 function DashboardLayout({ role, activeTab, setActiveTab, children, dbData, triggerNotification, selectedClubId, setSelectedClubId }) {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const getPageTitle = () => {
     if (role === 'ADMIN') {
-      if (activeTab === 'semester-config') return 'Cấu hình Thời gian học kỳ & Báo cáo';
-      if (activeTab === 'evidence-approval') return 'Phê duyệt Minh chứng Sinh viên';
-      if (activeTab === 'report-appraisal') return 'Thẩm định Báo cáo & Lời phê';
+      if (activeTab === 'semester-config') return 'Cài đặt Kỳ học & Báo cáo';
+      if (activeTab === 'evidence-approval') return 'Duyệt Minh chứng Sinh viên';
+      if (activeTab === 'report-appraisal') return 'Chấm điểm Báo cáo CLB';
       if (activeTab === 'event-approval') return 'Duyệt Sự kiện CLB';
       if (activeTab === 'create-club') return 'Tạo Câu lạc bộ mới';
-      return 'Quản trị Tài khoản người dùng';
+      return 'Quản lý Người dùng';
     }
     if (role === 'MANAGER') {
       const c = dbData.clubs.find(club => club.id === selectedClubId);
       const cName = c ? c.name.split(' - ')[0] : (selectedClubId || '').toUpperCase();
       if (activeTab === 'club-info') return `Thông tin CLB ${cName}`;
-      if (activeTab === 'member-management') return `Quản lý Thành viên CLB ${cName}`;
-      if (activeTab === 'event-manager') return `Quản lý Sự kiện CLB ${cName}`;
-      if (activeTab === 'document-archive') return `Kho tài liệu CLB ${cName}`;
-      return `Báo cáo hoạt động CLB ${cName}`;
+      if (activeTab === 'member-management') return `Quản lý Thành viên — ${cName}`;
+      if (activeTab === 'event-manager') return `Quản lý Sự kiện — ${cName}`;
+      if (activeTab === 'document-archive') return `Tài liệu CLB ${cName}`;
+      return `Nộp Báo cáo — ${cName}`;
     }
     // MEMBER
     if (activeTab === 'club-directory') return 'CLB của tôi';
-    if (activeTab === 'event-calendar') return 'Đăng ký Tham gia Sự kiện';
-    if (activeTab === 'member-workspace') return 'Không gian cá nhân & Minh chứng';
-    if (activeTab === 'knowledge-sharing') return 'Chia sẻ Tài nguyên & Proposal mẫu';
+    if (activeTab === 'event-calendar') return 'Danh sách Sự kiện';
+    if (activeTab === 'member-workspace') return 'Hoạt động của tôi';
+    if (activeTab === 'knowledge-sharing') return 'Tài nguyên & Đề xuất';
     return 'Tìm thành viên CLB';
+  };
+
+  const handleSwitchClub = () => {
+    sessionStorage.removeItem('fpt_selected_club');
+    navigate('/select-club');
   };
 
   return (
@@ -73,10 +80,10 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, dbData, trig
         <Header
           currentRole={role}
           selectedClubId={selectedClubId}
-          setSelectedClubId={setSelectedClubId}
           dbData={dbData}
           pageTitle={getPageTitle()}
           triggerNotification={triggerNotification}
+          onSwitchClub={handleSwitchClub}
         />
         <div className="content-wrapper">
           {children}
@@ -106,11 +113,28 @@ function ManagerDashboard({ dbData, triggerNotification }) {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('club-info');
 
-  // Find which club this manager manages
-  const managerMembership = dbData.memberships.find(
+  // Read selected club from sessionStorage (set by ClubSelectorPage)
+  const savedClubId = sessionStorage.getItem('fpt_selected_club');
+  
+  // Find all active memberships where the user is a Leader
+  const myLeaderMemberships = dbData.memberships.filter(
     m => m.userId === currentUser.id && m.role === 'Leader' && m.status === 'Active'
   );
-  const [selectedClubId, setSelectedClubId] = useState(managerMembership?.clubId || dbData.clubs[0]?.id);
+
+  const isLeaderOfSaved = myLeaderMemberships.some(m => m.clubId === savedClubId);
+  let resolvedClubId = savedClubId;
+  if (!savedClubId || !isLeaderOfSaved) {
+    resolvedClubId = myLeaderMemberships[0]?.clubId || null;
+    if (resolvedClubId) {
+      sessionStorage.setItem('fpt_selected_club', resolvedClubId);
+    }
+  }
+
+  const [selectedClubId] = useState(resolvedClubId);
+
+  if (!selectedClubId) {
+    return <Navigate to="/select-club" replace />;
+  }
 
   return (
     <DashboardLayout
@@ -120,7 +144,6 @@ function ManagerDashboard({ dbData, triggerNotification }) {
       dbData={dbData}
       triggerNotification={triggerNotification}
       selectedClubId={selectedClubId}
-      setSelectedClubId={setSelectedClubId}
     >
       {activeTab === 'club-info' && <ClubInfoPage dbData={dbData} selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
       {activeTab === 'member-management' && <MemberManagementPage dbData={dbData} selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
@@ -136,13 +159,43 @@ function MemberDashboard({ dbData, triggerNotification }) {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('club-directory');
 
+  // Read selected club from sessionStorage (set by ClubSelectorPage)
+  const savedClubId = sessionStorage.getItem('fpt_selected_club');
+
+  // Find all clubs where this user has an active membership
+  const myMemberships = dbData.memberships.filter(
+    m => m.userId === currentUser.id && m.status === 'Active'
+  );
+
+  const isMemberOfSaved = myMemberships.some(m => m.clubId === savedClubId);
+  let resolvedClubId = savedClubId;
+  if (!savedClubId || !isMemberOfSaved) {
+    resolvedClubId = myMemberships[0]?.clubId || null;
+    if (resolvedClubId) {
+      sessionStorage.setItem('fpt_selected_club', resolvedClubId);
+    }
+  }
+
+  const [selectedClubId] = useState(resolvedClubId);
+
+  if (!selectedClubId) {
+    return <Navigate to="/select-club" replace />;
+  }
+
   return (
-    <DashboardLayout role="MEMBER" activeTab={activeTab} setActiveTab={setActiveTab} dbData={dbData} triggerNotification={triggerNotification}>
-      {activeTab === 'club-directory' && <ClubDirectoryPage dbData={dbData} currentUserId={currentUser.id} />}
-      {activeTab === 'event-calendar' && <EventCalendarPage dbData={dbData} currentUserId={currentUser.id} triggerNotification={triggerNotification} />}
-      {activeTab === 'member-workspace' && <MemberWorkspacePage dbData={dbData} currentUserId={currentUser.id} triggerNotification={triggerNotification} />}
-      {activeTab === 'knowledge-sharing' && <KnowledgeSharingPage dbData={dbData} triggerNotification={triggerNotification} />}
-      {activeTab === 'member-search' && <MemberSearchPage dbData={dbData} currentUserId={currentUser.id} />}
+    <DashboardLayout
+      role="MEMBER"
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      dbData={dbData}
+      triggerNotification={triggerNotification}
+      selectedClubId={selectedClubId}
+    >
+      {activeTab === 'club-directory' && <ClubDirectoryPage dbData={dbData} currentUserId={currentUser.id} selectedClubId={selectedClubId} />}
+      {activeTab === 'event-calendar' && <EventCalendarPage dbData={dbData} currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
+      {activeTab === 'member-workspace' && <MemberWorkspacePage dbData={dbData} currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
+      {activeTab === 'knowledge-sharing' && <KnowledgeSharingPage dbData={dbData} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
+      {activeTab === 'member-search' && <MemberSearchPage dbData={dbData} currentUserId={currentUser.id} selectedClubId={selectedClubId} />}
     </DashboardLayout>
   );
 }
@@ -165,6 +218,7 @@ export default function App() {
     <>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/select-club" element={<ClubSelectorPage />} />
         <Route path="/admin/*" element={
           <ProtectedRoute requiredRole="ADMIN">
             <AdminDashboard dbData={dbData} triggerNotification={triggerNotification} />

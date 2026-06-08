@@ -205,7 +205,7 @@ export default function ReportAppraisal({ dbData, triggerNotification }) {
               <textarea 
                 className="textarea-field"
                 value={appraisal.adminRemark}
-                onChange={e => setAdminRemark(e.target.value)}
+                onChange={e => setAppraisal({ ...appraisal, adminRemark: e.target.value })}
                 placeholder="Nhập phản hồi chi tiết về các lỗi hoặc ưu điểm của CLB..."
                 required
               />
