@@ -20,7 +20,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         onClick={() => setActiveTab('evidence-approval')}
       >
         <FileCheck size={18} />
-        <span>Duyệt Minh chứng</span>
+        <span>Duyệt tham gia</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'report-appraisal' ? 'active' : ''}`}

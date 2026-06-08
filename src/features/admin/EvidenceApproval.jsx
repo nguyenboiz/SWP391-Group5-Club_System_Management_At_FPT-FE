@@ -57,7 +57,7 @@ export default function EvidenceApproval({ dbData, triggerNotification }) {
         <div className="stats-card">
           <div className="stats-icon-box"><AlertCircle size={20} /></div>
           <div className="stats-info">
-            <span className="stats-label">Minh chứng chờ duyệt</span>
+            <span className="stats-label">Chờ duyệt</span>
             <span className="stats-value">
               {evidence.filter(e => e.status === 'Pending').length} tệp
             </span>
@@ -66,7 +66,7 @@ export default function EvidenceApproval({ dbData, triggerNotification }) {
         <div className="stats-card">
           <div className="stats-icon-box" style={{ color: 'var(--success)' }}><CheckCircle size={20} /></div>
           <div className="stats-info">
-            <span className="stats-label">Đã phê duyệt kỳ này</span>
+            <span className="stats-label">Đã duyệt</span>
             <span className="stats-value">
               {evidence.filter(e => e.status === 'Approved').length} tệp
             </span>
@@ -76,7 +76,7 @@ export default function EvidenceApproval({ dbData, triggerNotification }) {
 
       <div className="glass-card">
         <div className="glass-card-header">
-          <h3 className="glass-card-title"><FileText size={18} /> Danh sách Minh chứng Quyền lợi</h3>
+          <h3 className="glass-card-title"><FileText size={18} /> Danh sách tham gia chờ duyệt</h3>
           
           <div className="role-switcher-container">
             <button 
@@ -162,7 +162,7 @@ export default function EvidenceApproval({ dbData, triggerNotification }) {
         <Modal 
           isOpen={!!selectedEvd} 
           onClose={handleCloseDetail} 
-          title={`Chi tiết Minh chứng - ${getEventName(selectedEvd.eventId)}`}
+          title={`Chi tiết - ${getEventName(selectedEvd.eventId)}`}
         >
           <div className="evidence-preview-container">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
@@ -211,7 +211,7 @@ export default function EvidenceApproval({ dbData, triggerNotification }) {
                   onClick={handleApprove}
                   style={{ flex: 1 }}
                 >
-                  <Check size={16} /> Phê duyệt Minh chứng
+                  <Check size={16} /> Duyệt
                 </button>
                 <button 
                   className="btn btn-danger" 

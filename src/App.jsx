@@ -39,28 +39,28 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, dbData, trig
 
   const getPageTitle = () => {
     if (role === 'ADMIN') {
-      if (activeTab === 'semester-config') return 'Cài đặt Kỳ học & Báo cáo';
-      if (activeTab === 'evidence-approval') return 'Duyệt Minh chứng Sinh viên';
-      if (activeTab === 'report-appraisal') return 'Chấm điểm Báo cáo CLB';
-      if (activeTab === 'event-approval') return 'Duyệt Sự kiện CLB';
-      if (activeTab === 'create-club') return 'Tạo Câu lạc bộ mới';
-      return 'Quản lý Người dùng';
+      if (activeTab === 'semester-config') return 'Cài đặt học kỳ';
+      if (activeTab === 'evidence-approval') return 'Duyệt tham gia';
+      if (activeTab === 'create-club') return 'Tạo CLB mới';
+      if (activeTab === 'report-appraisal') return 'Chấm điểm báo cáo';
+      if (activeTab === 'event-approval') return 'Duyệt sự kiện';
+      return 'Quản lý người dùng';
     }
     if (role === 'MANAGER') {
       const c = dbData.clubs.find(club => club.id === selectedClubId);
       const cName = c ? c.name.split(' - ')[0] : (selectedClubId || '').toUpperCase();
       if (activeTab === 'club-info') return `Thông tin CLB ${cName}`;
-      if (activeTab === 'member-management') return `Quản lý Thành viên — ${cName}`;
-      if (activeTab === 'event-manager') return `Quản lý Sự kiện — ${cName}`;
-      if (activeTab === 'document-archive') return `Tài liệu CLB ${cName}`;
-      return `Nộp Báo cáo — ${cName}`;
+      if (activeTab === 'member-management') return `Thành viên — ${cName}`;
+      if (activeTab === 'event-manager') return `Sự kiện — ${cName}`;
+      if (activeTab === 'document-archive') return `Tài liệu — ${cName}`;
+      return `Nộp báo cáo — ${cName}`;
     }
     // MEMBER
     if (activeTab === 'club-directory') return 'CLB của tôi';
-    if (activeTab === 'event-calendar') return 'Danh sách Sự kiện';
+    if (activeTab === 'event-calendar') return 'Sự kiện';
     if (activeTab === 'member-workspace') return 'Hoạt động của tôi';
     if (activeTab === 'knowledge-sharing') return 'Tài nguyên & Đề xuất';
-    return 'Tìm thành viên CLB';
+    return 'Tìm thành viên';
   };
 
   const handleSwitchClub = () => {

@@ -64,13 +64,13 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
         {/* Left Side: Create Semester Form & List */}
         <div className="glass-card">
           <div className="glass-card-header">
-            <h3 className="glass-card-title"><Calendar size={18} /> Cấu hình Học kỳ Vĩ mô</h3>
+            <h3 className="glass-card-title"><Calendar size={18} /> Danh sách Học kỳ</h3>
           </div>
           
           <form onSubmit={handleCreateSemester} style={{ marginBottom: '24px' }}>
             <div className="form-row">
               <div className="form-group">
-                <label>Mã Học kỳ (Ví dụ: SU26, FA26)</label>
+                <label>Mã học kỳ (VD: SU26, FA26)</label>
                 <input 
                   type="text" 
                   className="input-field" 
@@ -80,7 +80,7 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
                 />
               </div>
               <div className="form-group">
-                <label>Tên Học kỳ</label>
+                <label>Tên học kỳ</label>
                 <input 
                   type="text" 
                   className="input-field" 
@@ -93,7 +93,7 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
             
             <div className="form-row">
               <div className="form-group">
-                <label>Ngày Bắt đầu</label>
+                <label>Ngày bắt đầu</label>
                 <input 
                   type="date" 
                   className="input-field" 
@@ -102,7 +102,7 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
                 />
               </div>
               <div className="form-group">
-                <label>Ngày Kết thúc</label>
+                <label>Ngày kết thúc</label>
                 <input 
                   type="date" 
                   className="input-field" 
@@ -113,11 +113,9 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
             </div>
             
             <button type="submit" className="btn btn-primary">
-              <Plus size={16} /> Thiết lập Học kỳ Mới
+              <Plus size={16} /> Thêm học kỳ
             </button>
           </form>
-
-          <h4 style={{ marginBottom: '12px' }}>Danh sách Học kỳ</h4>
           <div className="table-container">
             <table className="custom-table">
               <thead>
@@ -153,12 +151,12 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
         {/* Right Side: Setup Report Gate */}
         <div className="glass-card">
           <div className="glass-card-header">
-            <h3 className="glass-card-title"><Clock size={18} /> Thiết lập Giai đoạn Báo cáo</h3>
+            <h3 className="glass-card-title"><Clock size={18} /> Đợt nộp báo cáo</h3>
           </div>
 
           <form onSubmit={handleCreateReportPeriod} style={{ marginBottom: '24px' }}>
             <div className="form-group">
-              <label>Học kỳ áp dụng</label>
+              <label>Học kỳ</label>
               <select 
                 className="select-field" 
                 value={newRp.semesterId} 
@@ -171,19 +169,19 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
             </div>
 
             <div className="form-group">
-              <label>Tên Đợt Thu Báo cáo</label>
+              <label>Tên đợt báo cáo</label>
               <input 
                 type="text" 
                 className="input-field" 
                 value={newRp.name} 
                 onChange={e => setNewRp({ ...newRp, name: e.target.value })}
-                placeholder="Báo cáo Giữa kỳ / Báo cáo Tháng 6"
+                placeholder="VD: Báo cáo giữa kỳ, Báo cáo tháng 6"
               />
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Ngày Bắt đầu nhận</label>
+                <label>Ngày bắt đầu nhận</label>
                 <input 
                   type="date" 
                   className="input-field" 
@@ -192,7 +190,7 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
                 />
               </div>
               <div className="form-group">
-                <label>Ngày Kết thúc nhận</label>
+                <label>Ngày kết thúc nhận</label>
                 <input 
                   type="date" 
                   className="input-field" 
@@ -203,7 +201,7 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
             </div>
 
             <div className="form-group">
-              <label>Hạn chót nộp báo cáo (Deadline)</label>
+              <label>Hạn nộp báo cáo</label>
               <input 
                 type="date" 
                 className="input-field" 
@@ -213,17 +211,17 @@ export default function SemesterConfig({ dbData, triggerNotification }) {
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-              <Plus size={16} /> Mở Cổng Thu Báo Cáo
+              <Plus size={16} /> Tạo đợt báo cáo
             </button>
           </form>
 
-          <h4 style={{ marginBottom: '12px' }}>Lịch sử đợt báo cáo (Kỳ hoạt động)</h4>
+          <h4 style={{ marginBottom: '12px' }}>Các đợt báo cáo</h4>
           <div className="table-container">
             <table className="custom-table">
               <thead>
                 <tr>
                   <th>Tên đợt</th>
-                  <th>Hạn chót (Deadline)</th>
+                  <th>Hạn nộp</th>
                   <th>Trạng thái</th>
                 </tr>
               </thead>
