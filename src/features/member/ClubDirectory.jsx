@@ -1,64 +1,52 @@
-import React, { useState } from 'react';
-import { Landmark, Search, ExternalLink } from 'lucide-react';
+import React from 'react';
+import { Landmark, ExternalLink, Users, Calendar } from 'lucide-react';
 
-export default function ClubDirectory({ dbData }) {
-  const { clubs } = dbData;
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('ALL');
+export default function ClubDirectory({ dbData, currentUserId }) {
+  const { clubs, memberships } = dbData;
 
-  const filteredClubs = clubs.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          c.intro.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === 'ALL' || c.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  // Chỉ lấy các CLB mà user hiện tại đang là thành viên Active
+  const myMemberships = memberships.filter(
+    m => m.userId === currentUserId && m.status === 'Active'
+  );
+  const myClubIds = myMemberships.map(m => m.clubId);
+  const myClubs = clubs.filter(c => myClubIds.includes(c.id));
+
+  if (myClubs.length === 0) {
+    return (
+      <div className="glass-card">
+        <div className="empty-state-view">
+          <Landmark className="empty-state-icon" />
+          <p>Bạn chưa tham gia câu lạc bộ nào.</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>
+            Liên hệ phòng IC-PDP hoặc CLB bạn muốn tham gia để được thêm vào danh sách thành viên.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="club-directory-container">
-      {/* Header and Filter Row */}
-      <div className="glass-card" style={{ marginBottom: '24px' }}>
-        <div className="glass-card-header">
-          <h3 className="glass-card-title"><Landmark size={18} /> Khám phá các Câu lạc bộ Đại học FPT</h3>
-        </div>
-
-        <div className="search-filter-row">
-          <div className="search-input-wrapper">
-            <Search className="search-icon" size={18} />
-            <input 
-              type="text" 
-              className="input-field" 
-              placeholder="Tìm câu lạc bộ theo tên, lĩnh vực..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
+      {/* Header */}
+      <div className="glass-card" style={{ marginBottom: '24px', padding: '20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <select 
-              className="select-field"
-              value={categoryFilter}
-              onChange={e => setCategoryFilter(e.target.value)}
-              style={{ width: '160px' }}
-            >
-              <option value="ALL">Tất cả thể loại</option>
-              <option value="Academic">Học thuật (Academic)</option>
-              <option value="Arts">Nghệ thuật (Arts)</option>
-              <option value="Sports">Thể thao (Sports)</option>
-            </select>
+            <h3 className="glass-card-title" style={{ marginBottom: '4px' }}>
+              <Landmark size={18} /> Danh sách CLB của tôi
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+              Bạn đang là thành viên của <strong style={{ color: 'var(--primary)' }}>{myClubs.length}</strong> câu lạc bộ
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Clubs Grid Layout */}
-      {filteredClubs.length === 0 ? (
-        <div className="glass-card">
-          <div className="empty-state-view">
-            <Landmark className="empty-state-icon" />
-            <p>Không tìm thấy câu lạc bộ nào phù hợp với bộ lọc.</p>
-          </div>
-        </div>
-      ) : (
-        <div className="cards-grid">
-          {filteredClubs.map(c => (
+      {/* Clubs Grid */}
+      <div className="cards-grid">
+        {myClubs.map(c => {
+          const membership = myMemberships.find(m => m.clubId === c.id);
+          const memberCount = memberships.filter(m => m.clubId === c.id && m.status === 'Active').length;
+          return (
             <div key={c.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
                 <img 
@@ -67,14 +55,26 @@ export default function ClubDirectory({ dbData }) {
                   style={{ width: '64px', height: '64px', borderRadius: '12px', border: '1px solid var(--border)', objectFit: 'cover' }}
                 />
                 <div>
-                  <h4 style={{ fontSize: '18px', color: 'var(--text-heading)' }}>{c.name}</h4>
-                  <span className="badge badge-manager" style={{ marginTop: '4px' }}>{c.category}</span>
+                  <h4 style={{ fontSize: '17px', color: 'var(--text-heading)', marginBottom: '6px' }}>{c.name}</h4>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="badge badge-manager">{c.category}</span>
+                    <span className="badge badge-member">{membership?.role || 'Member'}</span>
+                  </div>
                 </div>
               </div>
-              
-              <p style={{ fontSize: '13px', color: 'var(--text-main)', marginBottom: '20px', flex: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+
+              <p style={{ fontSize: '13px', color: 'var(--text-main)', marginBottom: '16px', flex: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                 {c.intro}
               </p>
+
+              <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Users size={12} /> {memberCount} thành viên
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Calendar size={12} /> Tham gia: {membership?.joinedSemester}
+                </span>
+              </div>
 
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: 'auto' }}>
                 <a 
@@ -88,9 +88,9 @@ export default function ClubDirectory({ dbData }) {
                 </a>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }

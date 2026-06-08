@@ -1,11 +1,11 @@
 import React from 'react';
 import { 
   Calendar, FileCheck, ClipboardList, UserCheck, 
-  Landmark, BookOpen, GraduationCap, Users, FolderOpen, User
+  Landmark, BookOpen, Users, FolderOpen, User,
+  CheckSquare, PlusSquare, Search
 } from 'lucide-react';
 
 export default function Sidebar({ currentRole, activeTab, setActiveTab, currentUserProfile }) {
-  // Navigation render helpers
   const renderAdminNav = () => (
     <>
       <div 
@@ -30,11 +30,25 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <span>Thẩm định Báo cáo</span>
       </div>
       <div 
+        className={`nav-item ${activeTab === 'event-approval' ? 'active' : ''}`}
+        onClick={() => setActiveTab('event-approval')}
+      >
+        <CheckSquare size={18} />
+        <span>Duyệt Sự kiện</span>
+      </div>
+      <div 
         className={`nav-item ${activeTab === 'user-management' ? 'active' : ''}`}
         onClick={() => setActiveTab('user-management')}
       >
         <UserCheck size={18} />
         <span>Quản lý Tài khoản</span>
+      </div>
+      <div 
+        className={`nav-item ${activeTab === 'create-club' ? 'active' : ''}`}
+        onClick={() => setActiveTab('create-club')}
+      >
+        <PlusSquare size={18} />
+        <span>Tạo CLB mới</span>
       </div>
     </>
   );
@@ -86,7 +100,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         onClick={() => setActiveTab('club-directory')}
       >
         <Landmark size={18} />
-        <span>Danh sách CLB</span>
+        <span>CLB của tôi</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'event-calendar' ? 'active' : ''}`}
@@ -110,11 +124,11 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <span>Chia sẻ Tri thức</span>
       </div>
       <div 
-        className={`nav-item ${activeTab === 'alumni-search' ? 'active' : ''}`}
-        onClick={() => setActiveTab('alumni-search')}
+        className={`nav-item ${activeTab === 'member-search' ? 'active' : ''}`}
+        onClick={() => setActiveTab('member-search')}
       >
-        <GraduationCap size={18} />
-        <span>Tìm cựu thành viên</span>
+        <Search size={18} />
+        <span>Tìm thành viên CLB</span>
       </div>
     </>
   );

@@ -1,16 +1,25 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { LogOut } from 'lucide-react';
 
 export default function Header({ 
   currentRole, 
   selectedClubId, 
-  setSelectedClubId, 
-  currentUserId, 
-  setCurrentUserId, 
-  handleRoleSwitch, 
+  setSelectedClubId,
   dbData, 
   pageTitle,
   triggerNotification
 }) {
+  const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    triggerNotification('Đã đăng xuất khỏi hệ thống.', 'info');
+    navigate('/login');
+  };
+
   return (
     <header className="top-header">
       <div className="page-title-section">
@@ -18,19 +27,19 @@ export default function Header({
       </div>
 
       <div className="header-actions">
-        {/* Emulators selectors to easily test different clubs and users */}
-        {currentRole === 'MANAGER' && (
+        {/* Manager: select which club to manage */}
+        {currentRole === 'MANAGER' && setSelectedClubId && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Mô phỏng CLB:</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>CLB đang quản lý:</span>
             <select 
               className="select-field" 
               value={selectedClubId}
               onChange={e => {
                 setSelectedClubId(e.target.value);
                 const name = dbData.clubs.find(c => c.id === e.target.value)?.name.split(' - ')[0];
-                triggerNotification(`Đang mô phỏng đăng nhập CLB: ${name}`, 'info');
+                triggerNotification(`Đang xem CLB: ${name}`, 'info');
               }}
-              style={{ width: '130px', padding: '4px 8px', fontSize: '12px' }}
+              style={{ width: '140px', padding: '4px 8px', fontSize: '12px' }}
             >
               {dbData.clubs.map(c => (
                 <option key={c.id} value={c.id}>{c.name.split(' - ')[0]}</option>
@@ -39,47 +48,29 @@ export default function Header({
           </div>
         )}
 
-        {currentRole === 'MEMBER' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Đăng nhập SV:</span>
-            <select 
-              className="select-field" 
-              value={currentUserId}
-              onChange={e => {
-                setCurrentUserId(e.target.value);
-                const name = dbData.users.find(u => u.id === e.target.value)?.fullName;
-                triggerNotification(`Đang đăng nhập giả lập sinh viên: ${name}`, 'info');
-              }}
-              style={{ width: '150px', padding: '4px 8px', fontSize: '12px' }}
-            >
-              {dbData.users.filter(u => u.role !== 'ADMIN').map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName} ({u.id}) {u.isAlumni ? '[Alumni]' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Role Switches menu */}
-        <div className="role-switcher-container">
-          <button 
-            className={`role-switch-btn ${currentRole === 'ADMIN' ? 'active' : ''}`}
-            onClick={() => handleRoleSwitch('ADMIN')}
+        {/* Current user info + Logout */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {currentUser && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                {currentUser.fullName}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                <span className={`badge ${currentRole === 'ADMIN' ? 'badge-admin' : currentRole === 'MANAGER' ? 'badge-manager' : 'badge-member'}`}
+                  style={{ fontSize: '10px', padding: '2px 6px' }}>
+                  {currentRole}
+                </span>
+                {' '}{currentUser.id}
+              </div>
+            </div>
+          )}
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleLogout}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+            title="Đăng xuất"
           >
-            ADMIN
-          </button>
-          <button 
-            className={`role-switch-btn ${currentRole === 'MANAGER' ? 'active' : ''}`}
-            onClick={() => handleRoleSwitch('MANAGER')}
-          >
-            MANAGER
-          </button>
-          <button 
-            className={`role-switch-btn ${currentRole === 'MEMBER' ? 'active' : ''}`}
-            onClick={() => handleRoleSwitch('MEMBER')}
-          >
-            MEMBER
+            <LogOut size={14} /> Đăng xuất
           </button>
         </div>
       </div>

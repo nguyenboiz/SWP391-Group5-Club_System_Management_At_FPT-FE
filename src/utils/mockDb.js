@@ -1,5 +1,5 @@
 // FPT Club System Management Mock Database
-const STORAGE_KEY = 'fpt_club_system_db';
+const STORAGE_KEY = 'fpt_club_system_db_v2';
 
 const defaultSemesters = [
   { id: 'SP26', name: 'Spring 2026', startDate: '2026-01-05', endDate: '2026-04-25', status: 'Finished' },
@@ -116,7 +116,8 @@ const defaultEvents = [
     venue: 'Phòng 102 - Tòa nhà Alpha',
     budget: 1500000,
     description: 'Chia sẻ kiến thức về lập trình SPA, SSR với React 19 và Next.js 15 cho sinh viên K19.',
-    status: 'Finished'
+    status: 'Finished',
+    approvalStatus: 'Approved'
   },
   {
     id: 'ev-js-2',
@@ -126,7 +127,8 @@ const defaultEvents = [
     venue: 'Hội trường Tòa nhà Beta',
     budget: 8000000,
     description: 'Cuộc thi lập trình thuật toán và ứng dụng web quy mô toàn trường diễn ra trong 24 giờ liên tục.',
-    status: 'Planned'
+    status: 'Planned',
+    approvalStatus: 'Pending'
   },
   
   // F-Code Events
@@ -138,7 +140,8 @@ const defaultEvents = [
     venue: 'Phòng 204 - Tòa nhà Delta',
     budget: 1000000,
     description: 'Tổng quan về mạng Nơ-ron nhân tạo, học máy và lộ trình học AI cho kỹ sư phần mềm.',
-    status: 'Finished'
+    status: 'Finished',
+    approvalStatus: 'Approved'
   },
   {
     id: 'ev-fc-2',
@@ -148,7 +151,8 @@ const defaultEvents = [
     venue: 'Phòng máy Lab 3 - Tòa nhà Gamma',
     budget: 3500000,
     description: 'Đấu trường thuật toán rèn luyện kỹ năng ACM-ICPC cho sinh viên CNTT.',
-    status: 'Planned'
+    status: 'Planned',
+    approvalStatus: 'Pending'
   },
 
   // Melody Events
@@ -160,7 +164,8 @@ const defaultEvents = [
     venue: 'Sân thượng Tòa nhà Alpha',
     budget: 5000000,
     description: 'Không gian âm nhạc acoustic nhẹ nhàng đón chào những ngày hè sôi động.',
-    status: 'Planned'
+    status: 'Planned',
+    approvalStatus: 'Pending'
   }
 ];
 
@@ -589,6 +594,38 @@ export const mockDb = {
       } else {
         db.documents[idx].viewCount += 1;
       }
+      saveDb(db);
+    }
+  },
+
+  // Club Creation (Admin only)
+  addClub: (club) => {
+    const db = getDb();
+    db.clubs.push({
+      id: 'club-' + Date.now(),
+      ...club
+    });
+    saveDb(db);
+  },
+
+  // Event Approval (Admin only)
+  approveEvent: (eventId, remark = '') => {
+    const db = getDb();
+    const idx = db.events.findIndex(e => e.id === eventId);
+    if (idx !== -1) {
+      db.events[idx].approvalStatus = 'Approved';
+      db.events[idx].approvalRemark = remark;
+      db.events[idx].approvedAt = new Date().toISOString();
+      saveDb(db);
+    }
+  },
+  rejectEvent: (eventId, remark = '') => {
+    const db = getDb();
+    const idx = db.events.findIndex(e => e.id === eventId);
+    if (idx !== -1) {
+      db.events[idx].approvalStatus = 'Rejected';
+      db.events[idx].approvalRemark = remark;
+      db.events[idx].approvedAt = new Date().toISOString();
       saveDb(db);
     }
   }

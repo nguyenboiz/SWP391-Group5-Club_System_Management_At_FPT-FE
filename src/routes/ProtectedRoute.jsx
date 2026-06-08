@@ -1,33 +1,38 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../store/authContext';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-export default function ProtectedRoute({ children, allowedRoles }) {
-  const { currentUser, loading } = useAuth();
-  const location = useLocation();
+/**
+ * ProtectedRoute: Bảo vệ route theo role.
+ * - Nếu chưa login → redirect /login
+ * - Nếu sai role → redirect dashboard đúng role
+ * - Nếu đúng → render children
+ */
+export default function ProtectedRoute({ children, requiredRole }) {
+  const { currentUser, isLoading } = useAuth();
 
-  if (loading) {
+  // Đang restore session
+  if (isLoading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-spinner" />
-        <p>Đang tải dữ liệu hệ thống...</p>
+      <div style={{ 
+        display: 'flex', alignItems: 'center', justifyContent: 'center', 
+        height: '100vh', background: 'var(--bg-main)' 
+      }}>
+        <div className="login-spinner" style={{ width: '32px', height: '32px' }} />
       </div>
     );
   }
 
-  // Not authenticated → redirect to login
+  // Chưa login
   if (!currentUser) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  // Account blocked
-  if (currentUser.status === 'Blocked') {
-    return <Navigate to="/blocked" replace />;
-  }
-
-  // Role check
-  if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
-    return <Navigate to="/403" replace />;
+  // Sai role → redirect về đúng dashboard
+  if (requiredRole && currentUser.role !== requiredRole) {
+    if (currentUser.role === 'ADMIN') return <Navigate to="/admin" replace />;
+    if (currentUser.role === 'MANAGER') return <Navigate to="/manager" replace />;
+    return <Navigate to="/member" replace />;
   }
 
   return children;

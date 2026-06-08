@@ -5,6 +5,7 @@ import { Search, ShieldAlert, ShieldCheck, UserCheck, UserX, UserPlus, UserMinus
 export default function UserManagement({ dbData, triggerNotification }) {
   const { users } = dbData;
   const [searchQuery, setSearchQuery] = useState('');
+  // Default: chỉ hiện ADMIN và MANAGER (không hiện MEMBER)
   const [roleFilter, setRoleFilter] = useState('ALL');
 
   const handleToggleLock = (user) => {
@@ -29,6 +30,9 @@ export default function UserManagement({ dbData, triggerNotification }) {
   };
 
   const filteredUsers = users.filter(user => {
+    // Admin quản lý chỉ cần thấy ADMIN và MANAGER
+    if (user.role === 'MEMBER') return false;
+
     const matchesSearch = 
       user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
       user.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -82,19 +86,18 @@ export default function UserManagement({ dbData, triggerNotification }) {
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <select 
-              className="select-field" 
-              value={roleFilter}
-              onChange={e => setRoleFilter(e.target.value)}
-              style={{ width: '150px' }}
-            >
-              <option value="ALL">Tất cả vai trò</option>
-              <option value="ADMIN">ADMIN (IC-PDP)</option>
-              <option value="MANAGER">MANAGER (Leader)</option>
-              <option value="MEMBER">MEMBER (Sinh viên)</option>
-            </select>
-          </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <select 
+                className="select-field" 
+                value={roleFilter}
+                onChange={e => setRoleFilter(e.target.value)}
+                style={{ width: '150px' }}
+              >
+                <option value="ALL">Tất cả (Admin + Manager)</option>
+                <option value="ADMIN">ADMIN (IC-PDP)</option>
+                <option value="MANAGER">MANAGER (Leader)</option>
+              </select>
+            </div>
         </div>
 
         <div className="table-container">
