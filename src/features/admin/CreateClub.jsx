@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { mockDb } from '../../utils/mockDb';
+import { createClub } from '../../services/clubService';
 import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, ChevronRight, UserPlus, Users } from 'lucide-react';
 
 export default function CreateClub({ dbData, triggerNotification }) {
   const { clubs, users, memberships } = dbData;
 
   const [form, setForm] = useState({
-    name: '',
-    category: 'Academic',
-    logo: '',
-    fanpage: '',
-    intro: ''
+    clubName: '',
+    clubCode: '',
+    description: '',
+    fanpageUrl: '',
+    logoImage: '',
+    foundedDate: '',
+    managerStudentId: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdClubId, setCreatedClubId] = useState(null);
@@ -61,18 +64,44 @@ export default function CreateClub({ dbData, triggerNotification }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) {
+    if (!form.clubName.trim()) {
       triggerNotification('Vui lòng nhập tên câu lạc bộ!', 'warning');
       return;
     }
     setIsSubmitting(true);
-    await new Promise(r => setTimeout(r, 400));
-    const newClubId = 'club-' + Date.now();
-    mockDb.addClub({ id: newClubId, ...form });
-    setCreatedClubId(newClubId);
-    triggerNotification(`Đã tạo câu lạc bộ "${form.name}" thành công!`, 'success');
-    setForm({ name: '', category: 'Academic', logo: '', fanpage: '', intro: '' });
-    setIsSubmitting(false);
+    try {
+      const result = await createClub({
+        clubName: form.clubName,
+        clubCode: form.clubCode || null,
+        description: form.description || null,
+        fanpageUrl: form.fanpageUrl || null,
+        logoImage: form.logoImage || null,
+        foundedDate: form.foundedDate || null,
+        managerStudentId: form.managerStudentId || null,
+      });
+
+      // Lấy clubId từ response BE (tuỳ BE trả về dạng nào)
+      const newClubId = result?.clubId || result?.id || result;
+      setCreatedClubId(newClubId);
+      triggerNotification(`Đã tạo câu lạc bộ "${form.clubName}" thành công!`, 'success');
+      setForm({
+        clubName: '',
+        clubCode: '',
+        description: '',
+        fanpageUrl: '',
+        logoImage: '',
+        foundedDate: '',
+        managerStudentId: ''
+      });
+    } catch (err) {
+      console.error('[CreateClub] Lỗi tạo CLB:', err);
+      triggerNotification(
+        err?.response?.data?.message || 'Tạo câu lạc bộ thất bại. Vui lòng thử lại!',
+        'error'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAssignManager = async () => {
@@ -107,9 +136,9 @@ export default function CreateClub({ dbData, triggerNotification }) {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Logo preview */}
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              {form.logo ? (
+              {form.logoImage ? (
                 <img
-                  src={form.logo}
+                  src={form.logoImage}
                   alt="Preview"
                   style={{ width: '72px', height: '72px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover', flexShrink: 0 }}
                   onError={e => { e.target.style.display = 'none'; }}
@@ -127,8 +156,8 @@ export default function CreateClub({ dbData, triggerNotification }) {
                   type="text"
                   className="input-field"
                   placeholder="https://example.com/logo.png"
-                  value={form.logo}
-                  onChange={e => handleChange('logo', e.target.value)}
+                  value={form.logoImage}
+                  onChange={e => handleChange('logoImage', e.target.value)}
                 />
               </div>
             </div>
@@ -139,23 +168,21 @@ export default function CreateClub({ dbData, triggerNotification }) {
                 type="text"
                 className="input-field"
                 placeholder="Ví dụ: FPT Guitar Club"
-                value={form.name}
-                onChange={e => handleChange('name', e.target.value)}
+                value={form.clubName}
+                onChange={e => handleChange('clubName', e.target.value)}
                 required
               />
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label><Tag size={14} /> Phân loại CLB <span style={{ color: 'var(--error)' }}>*</span></label>
-              <select
-                className="select-field"
-                value={form.category}
-                onChange={e => handleChange('category', e.target.value)}
-              >
-                <option value="Academic">Academic (Học thuật)</option>
-                <option value="Arts">Arts (Nghệ thuật)</option>
-                <option value="Sports">Sports (Thể thao)</option>
-              </select>
+              <label><Tag size={14} /> Mã CLB (Club Code)</label>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="Ví dụ: GUITAR"
+                value={form.clubCode}
+                onChange={e => handleChange('clubCode', e.target.value)}
+              />
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -164,8 +191,29 @@ export default function CreateClub({ dbData, triggerNotification }) {
                 type="text"
                 className="input-field"
                 placeholder="https://facebook.com/club..."
-                value={form.fanpage}
-                onChange={e => handleChange('fanpage', e.target.value)}
+                value={form.fanpageUrl}
+                onChange={e => handleChange('fanpageUrl', e.target.value)}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Ngày thành lập</label>
+              <input
+                type="date"
+                className="input-field"
+                value={form.foundedDate}
+                onChange={e => handleChange('foundedDate', e.target.value)}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label><UserCheck size={14} /> MSSV Người quản lý (Student ID)</label>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="Ví dụ: SE170111"
+                value={form.managerStudentId}
+                onChange={e => handleChange('managerStudentId', e.target.value)}
               />
             </div>
 
@@ -175,8 +223,8 @@ export default function CreateClub({ dbData, triggerNotification }) {
                 className="textarea-field"
                 rows={4}
                 placeholder="Giới thiệu ngắn về tôn chỉ hoạt động, mục tiêu của CLB..."
-                value={form.intro}
-                onChange={e => handleChange('intro', e.target.value)}
+                value={form.description}
+                onChange={e => handleChange('description', e.target.value)}
               />
             </div>
 

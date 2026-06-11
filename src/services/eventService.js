@@ -1,0 +1,99 @@
+import apiClient from '../utils/apiClient';
+
+/**
+ * Event Service
+ * Tương ứng với /api/events/* trong Swagger
+ */
+
+/**
+ * Tạo sự kiện mới (multipart/form-data)
+ * POST /api/events/create
+ * @param {FormData} formData
+ *   Fields: ClubId, EventName, Description, Location, PlanBudget,
+ *           TargetParticipants, StartTime, EndTime, Files[]
+ */
+export async function createEvent(formData) {
+  const response = await apiClient.post('/api/events/create', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+/**
+ * Lấy chi tiết sự kiện
+ * GET /api/events/detail/{eventId}
+ */
+export async function getEventDetail(eventId) {
+  const response = await apiClient.get(`/api/events/detail/${eventId}`);
+  return response.data;
+}
+
+/**
+ * Lấy danh sách sự kiện theo CLB
+ * GET /api/events/by-club/{clubId}
+ */
+export async function getEventsByClub(clubId) {
+  const response = await apiClient.get(`/api/events/by-club/${clubId}`);
+  return response.data;
+}
+
+/**
+ * Lấy danh sách sự kiện đã được duyệt theo CLB
+ * GET /api/events/approved-by-club/{clubId}
+ */
+export async function getApprovedEventsByClub(clubId) {
+  const response = await apiClient.get(`/api/events/approved-by-club/${clubId}`);
+  return response.data;
+}
+
+/**
+ * Cập nhật thông tin sự kiện
+ * PUT /api/events/update/{eventId}
+ * @param {number|string} eventId
+ * @param {Object} dto - UpdateEventDto
+ *   { eventName, description, location, planBudget, targetParticipants, startTime, endTime }
+ */
+export async function updateEvent(eventId, dto) {
+  const response = await apiClient.put(`/api/events/update/${eventId}`, dto);
+  return response.data;
+}
+
+/**
+ * Hủy sự kiện
+ * PUT /api/events/cancel/{eventId}
+ */
+export async function cancelEvent(eventId) {
+  const response = await apiClient.put(`/api/events/cancel/${eventId}`);
+  return response.data;
+}
+
+/**
+ * Lấy tất cả sự kiện (Admin), có thể lọc theo status
+ * GET /api/events/all?status=Pending|Approved|Rejected
+ * @param {string} [status] - optional filter
+ */
+export async function getAllEvents(status) {
+  const params = status && status !== 'ALL' ? { status } : {};
+  const response = await apiClient.get('/api/events/all', { params });
+  return response.data;
+}
+
+/**
+ * Duyệt sự kiện
+ * PUT /api/events/approve/{eventId}
+ */
+export async function approveEvent(eventId) {
+  const response = await apiClient.put(`/api/events/approve/${eventId}`);
+  return response.data;
+}
+
+/**
+ * Từ chối sự kiện
+ * PUT /api/events/reject/{eventId}
+ * @param {number|string} eventId
+ * @param {Object} dto - RejectEventDto { rejectReason }
+ */
+export async function rejectEvent(eventId, dto) {
+  const response = await apiClient.put(`/api/events/reject/${eventId}`, dto);
+  return response.data;
+}

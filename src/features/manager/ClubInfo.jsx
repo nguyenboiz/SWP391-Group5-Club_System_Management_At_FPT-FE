@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { mockDb } from '../../utils/mockDb';
+import { updateClub } from '../../services/clubService';
 import { Edit2, Save, X, Link, Users, Landmark, ExternalLink } from 'lucide-react';
 
 export default function ClubInfo({ dbData, selectedClubId, triggerNotification }) {
@@ -53,11 +54,25 @@ export default function ClubInfo({ dbData, selectedClubId, triggerNotification }
     return <div className="empty-state-view"><p>Vui lòng chọn Câu lạc bộ để quản lý.</p></div>;
   }
 
-  const handleUpdateClub = (e) => {
+  const handleUpdateClub = async (e) => {
     e.preventDefault();
-    mockDb.updateClub(selectedClubId, clubName, club.intro, logo, fanpage);
-    triggerNotification('Cập nhật thông tin CLB thành công!', 'success');
-    setIsEditing(false);
+    try {
+      await updateClub(selectedClubId, {
+        clubName: clubName,
+        description: club.intro || null,
+        logoImage: logo || null,
+        fanpageUrl: fanpage || null,
+        foundedDate: null, // nếu cần thêm field thì bổ sung state
+      });
+      triggerNotification('Cập nhật thông tin CLB thành công!', 'success');
+      setIsEditing(false);
+    } catch (err) {
+      console.error('[ClubInfo] Lỗi cập nhật CLB:', err);
+      triggerNotification(
+        err?.response?.data?.message || 'Cập nhật thất bại. Vui lòng thử lại!',
+        'error'
+      );
+    }
   };
 
   const handleCancelEdit = () => {

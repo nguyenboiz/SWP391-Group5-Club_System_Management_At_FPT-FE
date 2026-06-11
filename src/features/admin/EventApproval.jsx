@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { mockDb } from '../../utils/mockDb';
-import { CheckCircle, XCircle, Clock, Calendar, MapPin, DollarSign, Building, Search } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getAllEvents, approveEvent, rejectEvent } from '../../services/eventService';
+import { CheckCircle, XCircle, Clock, Calendar, MapPin, DollarSign, Building, Search, RefreshCw } from 'lucide-react';
 
 const statusConfig = {
   Approved: { label: 'Đã duyệt', className: 'badge-active', icon: <CheckCircle size={12} /> },
@@ -9,43 +9,90 @@ const statusConfig = {
 };
 
 export default function EventApproval({ dbData, triggerNotification }) {
-  const { events, clubs } = dbData;
+  const { clubs } = dbData;
+
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [remarkMap, setRemarkMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null); // eventId đang xử lý
+
+  // Load events từ API
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getAllEvents(filterStatus);
+      // BE có thể trả về array hoặc { data: [...] }
+      setEvents(Array.isArray(data) ? data : (data?.data ?? []));
+    } catch (err) {
+      console.error('[EventApproval] Lỗi tải sự kiện:', err);
+      triggerNotification('Không tải được danh sách sự kiện!', 'error');
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterStatus, triggerNotification]);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
 
   const filteredEvents = events.filter(ev => {
-    const matchStatus = filterStatus === 'ALL' || (ev.approvalStatus || 'Pending') === filterStatus;
     const q = searchQuery.toLowerCase();
-    const club = clubs.find(c => c.id === ev.clubId);
-    const matchSearch = !q || ev.name.toLowerCase().includes(q) || (club?.name.toLowerCase().includes(q));
-    return matchStatus && matchSearch;
+    const club = clubs.find(c => c.id === ev.clubId || c.id === String(ev.clubId));
+    return !q || (ev.name || ev.eventName || '').toLowerCase().includes(q) || (club?.name.toLowerCase().includes(q));
   });
 
-  const getClub = (clubId) => clubs.find(c => c.id === clubId);
+  const getClub = (clubId) => clubs.find(c => c.id === clubId || c.id === String(clubId));
 
-  const handleApprove = (ev) => {
-    const remark = remarkMap[ev.id] || '';
-    mockDb.approveEvent(ev.id, remark);
-    triggerNotification(`Đã duyệt sự kiện: ${ev.name}`, 'success');
-    setExpandedId(null);
+  const handleApprove = async (ev) => {
+    const eventId = ev.id || ev.eventId;
+    setActionLoading(eventId);
+    try {
+      await approveEvent(eventId);
+      triggerNotification(`Đã duyệt sự kiện: ${ev.name || ev.eventName}`, 'success');
+      setExpandedId(null);
+      await loadEvents();
+    } catch (err) {
+      console.error('[EventApproval] Lỗi duyệt sự kiện:', err);
+      triggerNotification(
+        err?.response?.data?.message || 'Duyệt sự kiện thất bại!',
+        'error'
+      );
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handleReject = (ev) => {
-    const remark = remarkMap[ev.id] || '';
+  const handleReject = async (ev) => {
+    const eventId = ev.id || ev.eventId;
+    const remark = remarkMap[eventId] || '';
     if (!remark.trim()) {
       triggerNotification('Vui lòng nhập lý do từ chối!', 'warning');
       return;
     }
-    mockDb.rejectEvent(ev.id, remark);
-    triggerNotification(`Đã từ chối sự kiện: ${ev.name}`, 'error');
-    setExpandedId(null);
+    setActionLoading(eventId);
+    try {
+      await rejectEvent(eventId, { rejectReason: remark });
+      triggerNotification(`Đã từ chối sự kiện: ${ev.name || ev.eventName}`, 'error');
+      setExpandedId(null);
+      await loadEvents();
+    } catch (err) {
+      console.error('[EventApproval] Lỗi từ chối sự kiện:', err);
+      triggerNotification(
+        err?.response?.data?.message || 'Từ chối sự kiện thất bại!',
+        'error'
+      );
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const pendingCount = events.filter(e => (e.approvalStatus || 'Pending') === 'Pending').length;
-  const approvedCount = events.filter(e => e.approvalStatus === 'Approved').length;
-  const rejectedCount = events.filter(e => e.approvalStatus === 'Rejected').length;
+  const pendingCount  = events.filter(e => (e.approvalStatus || e.status || 'Pending') === 'Pending').length;
+  const approvedCount = events.filter(e => (e.approvalStatus || e.status) === 'Approved').length;
+  const rejectedCount = events.filter(e => (e.approvalStatus || e.status) === 'Rejected').length;
 
   return (
     <div className="user-management-container">
@@ -77,6 +124,14 @@ export default function EventApproval({ dbData, triggerNotification }) {
       <div className="glass-card">
         <div className="glass-card-header">
           <h3 className="glass-card-title"><Calendar size={18} /> Duyệt Sự kiện CLB</h3>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={loadEvents}
+            disabled={loading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={14} className={loading ? 'spin' : ''} /> Làm mới
+          </button>
         </div>
 
         <div className="search-filter-row">
@@ -100,7 +155,12 @@ export default function EventApproval({ dbData, triggerNotification }) {
           </div>
         </div>
 
-        {filteredEvents.length === 0 ? (
+        {loading ? (
+          <div className="empty-state-view">
+            <span className="login-spinner" style={{ width: '32px', height: '32px' }} />
+            <p style={{ marginTop: '12px' }}>Đang tải danh sách sự kiện...</p>
+          </div>
+        ) : filteredEvents.length === 0 ? (
           <div className="empty-state-view">
             <Calendar className="empty-state-icon" />
             <p>Không có sự kiện nào phù hợp.</p>
@@ -108,18 +168,24 @@ export default function EventApproval({ dbData, triggerNotification }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
             {filteredEvents.map(ev => {
+              const eventId = ev.id || ev.eventId;
+              const eventName = ev.name || ev.eventName;
               const club = getClub(ev.clubId);
-              const approvalStatus = ev.approvalStatus || 'Pending';
+              const approvalStatus = ev.approvalStatus || ev.status || 'Pending';
               const cfg = statusConfig[approvalStatus] || statusConfig.Pending;
-              const isExpanded = expandedId === ev.id;
+              const isExpanded = expandedId === eventId;
+              const isProcessing = actionLoading === eventId;
+
+              // Chuẩn hóa thời gian (BE có thể trả dateTime hoặc startTime)
+              const eventTime = ev.dateTime || ev.startTime;
 
               return (
-                <div key={ev.id} className="glass-card" style={{ padding: '16px', marginBottom: 0 }}>
+                <div key={eventId} className="glass-card" style={{ padding: '16px', marginBottom: 0 }}>
                   {/* Event Header Row */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                        <h4 style={{ fontSize: '15px', color: 'var(--text-heading)', margin: 0 }}>{ev.name}</h4>
+                        <h4 style={{ fontSize: '15px', color: 'var(--text-heading)', margin: 0 }}>{eventName}</h4>
                         <span className={`badge ${cfg.className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           {cfg.icon} {cfg.label}
                         </span>
@@ -132,23 +198,33 @@ export default function EventApproval({ dbData, triggerNotification }) {
                             {club.name.split(' - ')[0]}
                           </span>
                         )}
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Calendar size={12} />
-                          {new Date(ev.dateTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
-                        </span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <MapPin size={12} /> {ev.venue}
-                        </span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <DollarSign size={12} /> {ev.budget?.toLocaleString('vi-VN')} đ
-                        </span>
+                        {eventTime && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <Calendar size={12} />
+                            {new Date(eventTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        )}
+                        {(ev.venue || ev.location) && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <MapPin size={12} /> {ev.venue || ev.location}
+                          </span>
+                        )}
+                        {(ev.budget || ev.planBudget) && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <DollarSign size={12} />
+                            {typeof (ev.budget || ev.planBudget) === 'number'
+                              ? (ev.budget || ev.planBudget).toLocaleString('vi-VN')
+                              : (ev.budget || ev.planBudget)} đ
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {approvalStatus === 'Pending' && (
                       <button
                         className="btn btn-secondary btn-sm"
-                        onClick={() => setExpandedId(isExpanded ? null : ev.id)}
+                        onClick={() => setExpandedId(isExpanded ? null : eventId)}
+                        disabled={isProcessing}
                       >
                         {isExpanded ? 'Đóng' : 'Xem xét'}
                       </button>
@@ -156,12 +232,14 @@ export default function EventApproval({ dbData, triggerNotification }) {
                   </div>
 
                   {/* Description */}
-                  <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '12px 0 0', lineHeight: 1.6 }}>{ev.description}</p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '12px 0 0', lineHeight: 1.6 }}>
+                    {ev.description}
+                  </p>
 
                   {/* Remark if already decided */}
-                  {ev.approvalRemark && (
+                  {(ev.approvalRemark || ev.rejectReason) && (
                     <div style={{ marginTop: '10px', padding: '10px', background: approvalStatus === 'Approved' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', borderRadius: '8px', border: `1px solid ${approvalStatus === 'Approved' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`, fontSize: '12px', color: 'var(--text-muted)' }}>
-                      <strong>Ghi chú:</strong> {ev.approvalRemark}
+                      <strong>Ghi chú:</strong> {ev.approvalRemark || ev.rejectReason}
                     </div>
                   )}
 
@@ -170,14 +248,14 @@ export default function EventApproval({ dbData, triggerNotification }) {
                     <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                       <div className="form-group" style={{ marginBottom: '12px' }}>
                         <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                          Ghi chú / Lý do (bắt buộc nếu từ chối):
+                          Lý do từ chối (bắt buộc nếu từ chối):
                         </label>
                         <textarea
                           className="textarea-field"
                           rows={2}
-                          placeholder="Nhập nhận xét hoặc lý do từ chối..."
-                          value={remarkMap[ev.id] || ''}
-                          onChange={e => setRemarkMap(m => ({ ...m, [ev.id]: e.target.value }))}
+                          placeholder="Nhập lý do từ chối..."
+                          value={remarkMap[eventId] || ''}
+                          onChange={e => setRemarkMap(m => ({ ...m, [eventId]: e.target.value }))}
                         />
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -185,15 +263,17 @@ export default function EventApproval({ dbData, triggerNotification }) {
                           className="btn btn-success btn-sm"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           onClick={() => handleApprove(ev)}
+                          disabled={isProcessing}
                         >
-                          <CheckCircle size={14} /> Phê duyệt
+                          {isProcessing ? <span className="login-spinner" /> : <><CheckCircle size={14} /> Phê duyệt</>}
                         </button>
                         <button
                           className="btn btn-danger btn-sm"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           onClick={() => handleReject(ev)}
+                          disabled={isProcessing}
                         >
-                          <XCircle size={14} /> Từ chối
+                          {isProcessing ? <span className="login-spinner" /> : <><XCircle size={14} /> Từ chối</>}
                         </button>
                       </div>
                     </div>
