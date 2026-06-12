@@ -32,6 +32,26 @@ export default function LoginPage() {
     else navigate('/select-club');
   };
 
+  const handleQuickLogin = async (usr, pwd) => {
+    setUserId(usr);
+    setPassword(pwd);
+    setError('');
+    setIsLoading(true);
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const result = await login(usr, pwd);
+    setIsLoading(false);
+
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+
+    if (result.role === 'ADMIN') navigate('/admin');
+    else navigate('/select-club');
+  };
+
   return (
     <div className="login-page">
       {/* Background decorations */}
@@ -126,6 +146,39 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+
+            {/* Quick Login Section for Demo */}
+            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center', fontWeight: 600 }}>
+                Đăng nhập nhanh (Phục vụ Demo)
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '11px', padding: '8px 4px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}
+                  onClick={() => handleQuickLogin('admin01@clubsystem.local', '123456')}
+                >
+                  Admin
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '11px', padding: '8px 4px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}
+                  onClick={() => handleQuickLogin('tuankietse180006@fpt.edu.vn', '123456')}
+                >
+                  Manager
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '11px', padding: '8px 4px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}
+                  onClick={() => handleQuickLogin('giabaose180002@fpt.edu.vn', '123456')}
+                >
+                  Member
+                </button>
+              </div>
+            </div>
 
           </div>
         </div>
