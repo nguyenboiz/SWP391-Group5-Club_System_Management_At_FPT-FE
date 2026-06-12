@@ -2,6 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createEvent, getEventsByClub } from '../../services/eventService';
 import { Calendar, Plus, UserCheck, MapPin } from 'lucide-react';
 
+// Chuyển mock club ID (string) sang backend numeric ID
+const toBackendClubId = (id) => {
+  const map = { js: 1, fcode: 2, melody: 3, chess: 4, fsa: 5, dance: 6 };
+  return map[id] ?? Number(id) ?? id;
+};
+
 export default function EventManager({ dbData, selectedClubId, triggerNotification }) {
   const { participants, users } = dbData;
 
@@ -21,12 +27,14 @@ export default function EventManager({ dbData, selectedClubId, triggerNotificati
   });
   const [selectedEventId, setSelectedEventId] = useState(null);
 
+  const backendClubId = toBackendClubId(selectedClubId);
+
   // Load events từ API khi selectedClubId thay đổi
   const loadEvents = useCallback(async () => {
     if (!selectedClubId) return;
     setLoadingEvents(true);
     try {
-      const data = await getEventsByClub(selectedClubId);
+      const data = await getEventsByClub(backendClubId);
       setEvents(Array.isArray(data) ? data : (data?.data ?? []));
     } catch (err) {
       console.error('[EventManager] Lỗi tải sự kiện:', err);
@@ -35,7 +43,7 @@ export default function EventManager({ dbData, selectedClubId, triggerNotificati
     } finally {
       setLoadingEvents(false);
     }
-  }, [selectedClubId, triggerNotification]);
+  }, [backendClubId, triggerNotification]);
 
   useEffect(() => {
     loadEvents();
@@ -54,7 +62,7 @@ export default function EventManager({ dbData, selectedClubId, triggerNotificati
     try {
       // Build multipart/form-data
       const formData = new FormData();
-      formData.append('ClubId', selectedClubId);
+      formData.append('ClubId', backendClubId);
       formData.append('EventName', newEvent.eventName);
       formData.append('Description', newEvent.description || '');
       formData.append('Location', newEvent.location);

@@ -2,6 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { uploadDocument, getDocumentsByClub, downloadDocument, deleteDocument } from '../../services/documentService';
 import { Folder, Upload, FileText, Globe, Lock, Download, Trash2, RefreshCw } from 'lucide-react';
 
+// Chuyển mock club ID (string) sang backend numeric ID
+const toBackendClubId = (id) => {
+  const map = { js: 1, fcode: 2, melody: 3, chess: 4, fsa: 5, dance: 6 };
+  return map[id] ?? Number(id) ?? id;
+};
+
 export default function DocumentArchive({ dbData, selectedClubId, triggerNotification }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,12 +22,14 @@ export default function DocumentArchive({ dbData, selectedClubId, triggerNotific
 
   const [activeFolder, setActiveFolder] = useState('ALL');
 
+  const backendClubId = toBackendClubId(selectedClubId);
+
   // Load tài liệu từ API
   const loadDocuments = useCallback(async () => {
     if (!selectedClubId) return;
     setLoading(true);
     try {
-      const data = await getDocumentsByClub(selectedClubId);
+      const data = await getDocumentsByClub(backendClubId);
       setDocuments(Array.isArray(data) ? data : (data?.data ?? []));
     } catch (err) {
       console.error('[DocumentArchive] Lỗi tải tài liệu:', err);
@@ -30,7 +38,7 @@ export default function DocumentArchive({ dbData, selectedClubId, triggerNotific
     } finally {
       setLoading(false);
     }
-  }, [selectedClubId, triggerNotification]);
+  }, [backendClubId, triggerNotification]);
 
   useEffect(() => {
     loadDocuments();
@@ -46,7 +54,7 @@ export default function DocumentArchive({ dbData, selectedClubId, triggerNotific
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('ClubId', selectedClubId);
+      formData.append('ClubId', backendClubId);
       formData.append('DocumentTypeId', docTypeId);
       if (eventId) formData.append('EventId', eventId);
       formData.append('AccessLevel', accessLevel);

@@ -8,6 +8,22 @@ const statusConfig = {
   Pending:  { label: 'Chờ duyệt', className: 'badge-member', icon: <Clock size={12} /> },
 };
 
+const statusMapFEtoBE = {
+  Pending: 'Chờ duyệt',
+  Approved: 'Đã duyệt',
+  Rejected: 'Bị từ chối',
+};
+
+const statusMapBEtoFE = {
+  'Chờ duyệt': 'Pending',
+  'Đã duyệt': 'Approved',
+  'Bị từ chối': 'Rejected',
+  'Đã hủy': 'Cancelled',
+  'Pending': 'Pending',
+  'Approved': 'Approved',
+  'Rejected': 'Rejected',
+};
+
 export default function EventApproval({ dbData, triggerNotification }) {
   const { clubs } = dbData;
 
@@ -23,9 +39,18 @@ export default function EventApproval({ dbData, triggerNotification }) {
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getAllEvents(filterStatus);
+      // Tải toàn bộ sự kiện để tính số lượng chính xác ở các thẻ stats
+      const data = await getAllEvents();
       // BE có thể trả về array hoặc { data: [...] }
-      setEvents(Array.isArray(data) ? data : (data?.data ?? []));
+      const rawEvents = Array.isArray(data) ? data : (data?.data ?? []);
+      
+      // Chuẩn hóa status từ tiếng Việt sang tiếng Anh để hiển thị đúng badge
+      const normalized = rawEvents.map(e => ({
+        ...e,
+        status: statusMapBEtoFE[e.status] || e.status || 'Pending'
+      }));
+      
+      setEvents(normalized);
     } catch (err) {
       console.error('[EventApproval] Lỗi tải sự kiện:', err);
       triggerNotification('Không tải được danh sách sự kiện!', 'error');
@@ -33,16 +58,22 @@ export default function EventApproval({ dbData, triggerNotification }) {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, triggerNotification]);
+  }, [triggerNotification]);
 
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
 
   const filteredEvents = events.filter(ev => {
+    // 1. Lọc theo trạng thái phê duyệt
+    const matchesStatus = filterStatus === 'ALL' || ev.status === filterStatus;
+
+    // 2. Lọc theo ô tìm kiếm
     const q = searchQuery.toLowerCase();
     const club = clubs.find(c => c.id === ev.clubId || c.id === String(ev.clubId));
-    return !q || (ev.name || ev.eventName || '').toLowerCase().includes(q) || (club?.name.toLowerCase().includes(q));
+    const matchesSearch = !q || (ev.name || ev.eventName || '').toLowerCase().includes(q) || (club?.name.toLowerCase().includes(q));
+
+    return matchesStatus && matchesSearch;
   });
 
   const getClub = (clubId) => clubs.find(c => c.id === clubId || c.id === String(clubId));

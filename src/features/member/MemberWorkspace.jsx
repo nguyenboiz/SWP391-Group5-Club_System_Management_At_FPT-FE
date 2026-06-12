@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { mockDb } from '../../utils/mockDb';
+import { useAuth } from '../../contexts/AuthContext';
 import { User, Shield, Image as ImageIcon, Send, Clock, CheckCircle, HelpCircle } from 'lucide-react';
 
 export default function MemberWorkspace({ dbData, currentUserId, triggerNotification }) {
+  const { currentUser } = useAuth();
   const { users, participants, events, evidence, clubs } = dbData;
-  const user = users.find(u => u.id === currentUserId);
+  const user = users.find(u => u.id === currentUserId) || (currentUserId ? {
+    id: currentUserId,
+    fullName: currentUser?.fullName || currentUserId,
+    cohort: currentUser?.cohort || '',
+    phone: currentUser?.phone || '',
+    facebook: currentUser?.facebook || '',
+    currentJob: currentUser?.currentJob || ''
+  } : null);
 
   // Profile Form States
   const [fullName, setFullName] = useState('');
+  const [cohort, setCohort] = useState('');
   const [phone, setPhone] = useState('');
   const [facebook, setFacebook] = useState('');
   const [currentJob, setCurrentJob] = useState('');
@@ -20,18 +30,21 @@ export default function MemberWorkspace({ dbData, currentUserId, triggerNotifica
   useEffect(() => {
     if (user) {
       setFullName(user.fullName || '');
+      setCohort(user.cohort || '');
       setPhone(user.phone || '');
       setFacebook(user.facebook || '');
       setCurrentJob(user.currentJob || '');
     }
-  }, [currentUserId, user]);
+    // Chỉ khởi tạo form khi thay đổi ID user
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
 
-  if (!user) {
+  if (!currentUserId || !user) {
     return (
       <div className="empty-state-view">
         <User className="empty-state-icon" />
         <p>Không tìm thấy hồ sơ tài khoản sinh viên.</p>
-        <p style={{ fontSize: '12px' }}>Hãy chuyển đổi tài khoản sinh viên ở thanh Header trên cùng.</p>
+        <p style={{ fontSize: '12px' }}>Hãy chọn tài khoản sinh viên ở thanh Header trên cùng.</p>
       </div>
     );
   }
@@ -40,6 +53,7 @@ export default function MemberWorkspace({ dbData, currentUserId, triggerNotifica
     e.preventDefault();
     mockDb.updateUserProfile(currentUserId, {
       fullName,
+      cohort,
       phone,
       facebook,
       currentJob
@@ -121,7 +135,13 @@ export default function MemberWorkspace({ dbData, currentUserId, triggerNotifica
                 </div>
                 <div className="form-group">
                   <label>Khóa học</label>
-                  <input type="text" className="input-field" value={user.cohort} disabled style={{ cursor: 'not-allowed', opacity: 0.7 }} />
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    value={cohort} 
+                    onChange={e => setCohort(e.target.value)} 
+                    required 
+                  />
                 </div>
               </div>
 

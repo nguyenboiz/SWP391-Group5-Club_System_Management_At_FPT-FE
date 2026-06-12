@@ -4,15 +4,20 @@ import { Landmark, ExternalLink, Users, Calendar } from 'lucide-react';
 export default function ClubDirectory({ dbData, currentUserId, selectedClubId }) {
   const { clubs, memberships } = dbData;
 
-  // Chỉ lấy các CLB mà user hiện tại đang là thành viên Active
+  // Chỉ lấy các CLB mà user hiện tại đang là thành viên Active (mock data)
   const myMemberships = memberships.filter(
     m => m.userId === currentUserId && m.status === 'Active'
   );
   const myClubIds = myMemberships.map(m => m.clubId);
 
-  // If a specific club is selected (from ClubSelectorPage), show only that one
+  // Lấy thêm dữ liệu dynamic từ sessionStorage (backend real users)
+  const availableClubsStr = sessionStorage.getItem('fpt_available_clubs');
+  const availableClubs = availableClubsStr ? JSON.parse(availableClubsStr) : [];
+
+  // If selectedClubId is set (user picked a club), show that club directly
+  // (bypass mock membership check for real BE users)
   const myClubs = selectedClubId
-    ? clubs.filter(c => c.id === selectedClubId && myClubIds.includes(c.id))
+    ? clubs.filter(c => c.id === selectedClubId)
     : clubs.filter(c => myClubIds.includes(c.id));
 
 
@@ -47,7 +52,13 @@ export default function ClubDirectory({ dbData, currentUserId, selectedClubId })
       <div className="cards-grid">
         {myClubs.map(c => {
           const membership = myMemberships.find(m => m.clubId === c.id);
-          const memberCount = memberships.filter(m => m.clubId === c.id && m.status === 'Active').length;
+          // Fallback to dynamic role from availableClubs (for real BE users)
+          const dynamicClub = availableClubs.find(ac => {
+            const map = { js: 1, fcode: 2, melody: 3, chess: 4, fsa: 5, dance: 6 };
+            return (map[c.id] || Number(c.id)) === (ac.clubId || ac.id);
+          });
+          const displayRole = membership?.role || dynamicClub?.role || dynamicClub?.clubRole || 'Member';
+          const memberCount = memberships.filter(m => m.clubId === c.id && m.status === 'Active').length || '';
           return (
             <div key={c.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
@@ -60,7 +71,7 @@ export default function ClubDirectory({ dbData, currentUserId, selectedClubId })
                   <h4 style={{ fontSize: '17px', color: 'var(--text-heading)', marginBottom: '6px' }}>{c.name}</h4>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <span className="badge badge-manager">{c.category}</span>
-                    <span className="badge badge-member">{membership?.role || 'Member'}</span>
+                    <span className="badge badge-member">{displayRole}</span>
                   </div>
                 </div>
               </div>

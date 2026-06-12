@@ -8,9 +8,17 @@ export default function MemberSearch({ dbData, currentUserId, selectedClubId: in
   const myMemberships = memberships.filter(
     m => m.userId === currentUserId && m.status === 'Active'
   );
-  const myClubs = myMemberships
+  let myClubs = myMemberships
     .map(m => clubs.find(c => c.id === m.clubId))
     .filter(Boolean);
+
+  // Nếu là user thật từ Backend đã chọn CLB, thêm CLB đó vào danh sách để không báo trống
+  if (initialClubId && !myClubs.some(c => c.id === initialClubId)) {
+    const selectedClubObj = clubs.find(c => c.id === initialClubId);
+    if (selectedClubObj) {
+      myClubs.push(selectedClubObj);
+    }
+  }
 
   const [selectedClubId, setSelectedClubId] = useState(initialClubId || myClubs[0]?.id || '');
   const [searchQuery, setSearchQuery] = useState('');

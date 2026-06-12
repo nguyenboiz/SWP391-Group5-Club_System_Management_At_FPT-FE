@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { mockDb } from './utils/mockDb';
 import { useAuth } from './contexts/AuthContext';
@@ -113,13 +113,52 @@ function ManagerDashboard({ dbData, triggerNotification }) {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('club-info');
 
+  const mapClubIdToMock = (id) => {
+    if (id === 1 || id === '1') return 'js';
+    if (id === 2 || id === '2') return 'fcode';
+    if (id === 3 || id === '3') return 'melody';
+    if (id === 4 || id === '4') return 'chess';
+    if (id === 5 || id === '5') return 'fsa';
+    if (id === 6 || id === '6') return 'dance';
+    return id;
+  };
+
   // Read selected club from sessionStorage (set by ClubSelectorPage)
   const savedClubId = sessionStorage.getItem('fpt_selected_club');
   
   // Find all active memberships where the user is a Leader
-  const myLeaderMemberships = dbData.memberships.filter(
+  let myLeaderMemberships = dbData.memberships.filter(
     m => m.userId === currentUser.id && m.role === 'Leader' && m.status === 'Active'
   );
+
+  const availableClubsStr = sessionStorage.getItem('fpt_available_clubs');
+  const availableClubs = availableClubsStr ? JSON.parse(availableClubsStr) : null;
+
+  if (myLeaderMemberships.length === 0) {
+    if (availableClubs && availableClubs.length > 0) {
+      myLeaderMemberships = availableClubs
+        .filter(c => (c.role || c.clubRole || '').toUpperCase() === 'MANAGER' || (c.role || c.clubRole || '').toUpperCase() === 'LEADER')
+        .map((c, idx) => ({
+          id: `dynamic-${mapClubIdToMock(c.clubId || c.id)}-${idx}`,
+          userId: currentUser.id,
+          clubId: mapClubIdToMock(c.clubId || c.id),
+          role: 'Leader',
+          status: 'Active'
+        }));
+    }
+    if (myLeaderMemberships.length === 0 && currentUser.clubId) {
+      const mockClubId = mapClubIdToMock(currentUser.clubId);
+      myLeaderMemberships = [
+        {
+          id: `dynamic-${mockClubId}`,
+          userId: currentUser.id,
+          clubId: mockClubId,
+          role: 'Leader',
+          status: 'Active'
+        }
+      ];
+    }
+  }
 
   const isLeaderOfSaved = myLeaderMemberships.some(m => m.clubId === savedClubId);
   let resolvedClubId = savedClubId;
@@ -159,13 +198,49 @@ function MemberDashboard({ dbData, triggerNotification }) {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('club-directory');
 
+  const mapClubIdToMock = (id) => {
+    if (id === 1 || id === '1') return 'js';
+    if (id === 2 || id === '2') return 'fcode';
+    if (id === 3 || id === '3') return 'melody';
+    if (id === 4 || id === '4') return 'chess';
+    if (id === 5 || id === '5') return 'fsa';
+    if (id === 6 || id === '6') return 'dance';
+    return id;
+  };
+
   // Read selected club from sessionStorage (set by ClubSelectorPage)
   const savedClubId = sessionStorage.getItem('fpt_selected_club');
 
   // Find all clubs where this user has an active membership
-  const myMemberships = dbData.memberships.filter(
+  let myMemberships = dbData.memberships.filter(
     m => m.userId === currentUser.id && m.status === 'Active'
   );
+
+  const availableClubsStr = sessionStorage.getItem('fpt_available_clubs');
+  const availableClubs = availableClubsStr ? JSON.parse(availableClubsStr) : null;
+
+  if (myMemberships.length === 0) {
+    if (availableClubs && availableClubs.length > 0) {
+      myMemberships = availableClubs.map((c, idx) => ({
+        id: `dynamic-${mapClubIdToMock(c.clubId || c.id)}-${idx}`,
+        userId: currentUser.id,
+        clubId: mapClubIdToMock(c.clubId || c.id),
+        role: (c.role || c.clubRole || '').toUpperCase() === 'MANAGER' || (c.role || c.clubRole || '').toUpperCase() === 'LEADER' ? 'Leader' : 'Member',
+        status: 'Active'
+      }));
+    } else if (currentUser.clubId) {
+      const mockClubId = mapClubIdToMock(currentUser.clubId);
+      myMemberships = [
+        {
+          id: `dynamic-${mockClubId}`,
+          userId: currentUser.id,
+          clubId: mockClubId,
+          role: currentUser.role === 'MANAGER' ? 'Leader' : 'Member',
+          status: 'Active'
+        }
+      ];
+    }
+  }
 
   const isMemberOfSaved = myMemberships.some(m => m.clubId === savedClubId);
   let resolvedClubId = savedClubId;
@@ -210,9 +285,9 @@ export default function App() {
     return () => window.removeEventListener('mockDbUpdate', handleUpdate);
   }, []);
 
-  const triggerNotification = (message, type = 'success') => {
+  const triggerNotification = useCallback((message, type = 'success') => {
     setToast({ message, type });
-  };
+  }, []);
 
   return (
     <>
