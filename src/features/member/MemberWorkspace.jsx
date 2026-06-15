@@ -1,28 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { mockDb } from '../../utils/mockDb';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { User, Shield, Image as ImageIcon, Send, Clock, CheckCircle, HelpCircle } from 'lucide-react';
+import { getEventsByClub } from '../../services/eventService';
+import { User, Image as ImageIcon, Send, Clock, AlertTriangle } from 'lucide-react';
 
-export default function MemberWorkspace({ dbData, currentUserId, triggerNotification }) {
+// NOTE: BE chưa có các API sau. Giữ placeholder:
+//   - PUT  /api/auth/profile           (cập nhật hồ sơ cá nhân)
+//   - POST /api/evidences              (nộp minh chứng)
+//   - GET  /api/evidences?userId={id}  (lịch sử minh chứng)
+
+export default function MemberWorkspace({ currentUserId, triggerNotification, selectedClubId }) {
   const { currentUser } = useAuth();
-  const { users, participants, events, evidence, clubs } = dbData;
-  const user = users.find(u => u.id === currentUserId) || (currentUserId ? {
-    id: currentUserId,
-    fullName: currentUser?.fullName || currentUserId,
-    cohort: currentUser?.cohort || '',
-    phone: currentUser?.phone || '',
-    facebook: currentUser?.facebook || '',
-    currentJob: currentUser?.currentJob || ''
-  } : null);
 
-  // Profile Form States
-  const [fullName, setFullName] = useState('');
-  const [cohort, setCohort] = useState('');
-  const [phone, setPhone] = useState('');
-  const [facebook, setFacebook] = useState('');
-  const [currentJob, setCurrentJob] = useState('');
+  // Profile state (from currentUser)
+  const user = currentUser;
+  const [fullName, setFullName] = useState(user?.fullName || '');
+  const [cohort, setCohort] = useState(user?.cohort || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [facebook, setFacebook] = useState(user?.facebook || '');
 
-  // Evidence Form States
+  // Events list from club (for evidence form reference)
+  const [clubEvents, setClubEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [evidenceType, setEvidenceType] = useState('Check-In Photo');
   const [fileUrl, setFileUrl] = useState('');
@@ -33,32 +30,27 @@ export default function MemberWorkspace({ dbData, currentUserId, triggerNotifica
       setCohort(user.cohort || '');
       setPhone(user.phone || '');
       setFacebook(user.facebook || '');
-      setCurrentJob(user.currentJob || '');
     }
-    // Chỉ khởi tạo form khi thay đổi ID user
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId]);
 
-  if (!currentUserId || !user) {
-    return (
-      <div className="empty-state-view">
-        <User className="empty-state-icon" />
-        <p>Không tìm thấy hồ sơ tài khoản sinh viên.</p>
-        <p style={{ fontSize: '12px' }}>Hãy chọn tài khoản sinh viên ở thanh Header trên cùng.</p>
-      </div>
-    );
-  }
+  const loadClubEvents = useCallback(async () => {
+    if (!selectedClubId) return;
+    try {
+      const data = await getEventsByClub(selectedClubId);
+      setClubEvents(Array.isArray(data) ? data : (data?.data ?? []));
+    } catch (err) {
+      console.error('[MemberWorkspace] Lỗi tải sự kiện:', err);
+    }
+  }, [selectedClubId]);
+
+  useEffect(() => {
+    loadClubEvents();
+  }, [loadClubEvents]);
 
   const handleUpdateProfile = (e) => {
     e.preventDefault();
-    mockDb.updateUserProfile(currentUserId, {
-      fullName,
-      cohort,
-      phone,
-      facebook,
-      currentJob
-    });
-    triggerNotification('Cập nhật hồ sơ cá nhân thành công!', 'success');
+    // TODO: thay bằng PUT /api/auth/profile khi BE bổ sung
+    triggerNotification('Cập nhật hồ sơ thành công (lưu tạm – chờ BE bổ sung API cập nhật hồ sơ)!', 'success');
   };
 
   const handleSubmitEvidence = (e) => {
@@ -67,89 +59,57 @@ export default function MemberWorkspace({ dbData, currentUserId, triggerNotifica
       triggerNotification('Vui lòng cung cấp link hình ảnh hoặc tệp minh chứng!', 'warning');
       return;
     }
-
-    // Try finding the club for the selected event to attach clubId automatically
-    let eventClubId = 'js'; // default fallback
-    if (selectedEventId) {
-      const evt = events.find(e => e.id === selectedEventId);
-      if (evt) eventClubId = evt.clubId;
-    }
-
-    mockDb.submitEvidence({
-      userId: currentUserId,
-      eventId: selectedEventId || null,
-      clubId: eventClubId,
-      type: evidenceType,
-      fileUrl: fileUrl.trim()
-    });
-
-    triggerNotification('Đã nộp minh chứng thành công! PDP sẽ sớm phê duyệt.', 'success');
+    // TODO: thay bằng POST /api/evidences khi BE bổ sung
+    triggerNotification('Chức năng nộp minh chứng đang chờ BE bổ sung API (POST /api/evidences).', 'warning');
     setFileUrl('');
     setSelectedEventId('');
   };
 
-  // Filter events registered by this student
-  const registeredEvents = participants.filter(p => p.userId === currentUserId);
+  if (!user) {
+    return (
+      <div className="empty-state-view">
+        <User className="empty-state-icon" />
+        <p>Không tìm thấy hồ sơ tài khoản sinh viên.</p>
+      </div>
+    );
+  }
 
-  const getEventDetails = (eventId) => {
-    const e = events.find(evt => evt.id === eventId);
-    return e ? e : { name: eventId, venue: 'N/A', dateTime: 'N/A' };
-  };
-
-  const getClubName = (clubId) => {
-    const c = clubs.find(club => club.id === clubId);
-    return c ? c.name : clubId;
-  };
-
-  // Filter evidence submitted by this student
-  const myEvidence = evidence.filter(e => e.userId === currentUserId);
-
-  // Pre-configured mock proof images for the user to select quickly in the UI
-  const mockProofUrls = [
-    { name: 'Ảnh Check-In Sự kiện mẫu 1', url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80' },
-    { name: 'Ảnh Check-In Sự kiện mẫu 2', url: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=600&q=80' },
-    { name: 'Bản chụp Chứng nhận PDF mẫu', url: 'https://images.unsplash.com/photo-1589330694653-ded6df53f7ec?auto=format&fit=crop&w=600&q=80' }
-  ];
+  const userId = user?.id || user?.studentId || currentUserId;
 
   return (
     <div className="member-workspace-container">
       <div className="dashboard-grid-2col">
-        {/* Left Side: Profile Update & Attendance History */}
+        {/* Left Side: Profile */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* Profile Form */}
           <div className="glass-card">
             <div className="glass-card-header">
               <h3 className="glass-card-title"><User size={18} /> Hồ sơ Cá nhân</h3>
-              
-              <span className={`badge ${user.isAlumni ? 'badge-manager' : 'badge-member'}`}>
-                {user.isAlumni ? 'Cựu sinh viên (Alumni)' : 'Sinh viên hiện tại'}
-              </span>
+              <span className="badge badge-member">Sinh viên</span>
             </div>
 
             <form onSubmit={handleUpdateProfile}>
               <div className="form-row">
                 <div className="form-group">
                   <label>Mã số sinh viên (MSSV)</label>
-                  <input type="text" className="input-field" value={user.id} disabled style={{ cursor: 'not-allowed', opacity: 0.7 }} />
+                  <input type="text" className="input-field" value={userId || ''} disabled style={{ cursor: 'not-allowed', opacity: 0.7 }} />
                 </div>
                 <div className="form-group">
                   <label>Khóa học</label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    value={cohort} 
-                    onChange={e => setCohort(e.target.value)} 
-                    required 
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={cohort}
+                    onChange={e => setCohort(e.target.value)}
+                    placeholder="K18, K19..."
                   />
                 </div>
               </div>
 
               <div className="form-group">
                 <label>Họ và Tên</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
+                <input
+                  type="text"
+                  className="input-field"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
                   required
@@ -159,36 +119,28 @@ export default function MemberWorkspace({ dbData, currentUserId, triggerNotifica
               <div className="form-row">
                 <div className="form-group">
                   <label>Số điện thoại</label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
+                  <input
+                    type="text"
+                    className="input-field"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                   />
                 </div>
                 <div className="form-group">
                   <label>Facebook cá nhân</label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
+                  <input
+                    type="text"
+                    className="input-field"
                     value={facebook}
                     onChange={e => setFacebook(e.target.value)}
                   />
                 </div>
               </div>
 
-              {user.isAlumni && (
-                <div className="form-group">
-                  <label>Nơi làm việc hiện tại (Danh cho Cựu SV)</label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    value={currentJob}
-                    onChange={e => setCurrentJob(e.target.value)}
-                    placeholder="Ví dụ: Solutions Architect tại FPT Software"
-                  />
-                </div>
-              )}
+              <div style={{ marginBottom: '12px', padding: '10px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
+                <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
+                API cập nhật hồ sơ chưa có. Vui lòng yêu cầu BE bổ sung <code>PUT /api/auth/profile</code>.
+              </div>
 
               <button type="submit" className="btn btn-primary">
                 Cập nhật thông tin cá nhân
@@ -196,175 +148,98 @@ export default function MemberWorkspace({ dbData, currentUserId, triggerNotifica
             </form>
           </div>
 
-          {/* Registered Events list ("Hoạt động của tôi") */}
+          {/* Events list */}
           <div className="glass-card">
             <div className="glass-card-header">
-              <h3 className="glass-card-title"><Clock size={18} /> Hoạt động của tôi</h3>
+              <h3 className="glass-card-title"><Clock size={18} /> Sự kiện CLB của tôi</h3>
             </div>
 
-            {registeredEvents.length === 0 ? (
+            {clubEvents.length === 0 ? (
               <div className="empty-state-view">
-                <p>Bạn chưa đăng ký tham gia sự kiện nào.</p>
-                <p style={{ fontSize: '11px' }}>Hãy chọn danh mục sự kiện ở trang lịch trình để đăng ký!</p>
+                <p>Chưa có sự kiện nào trong CLB này.</p>
               </div>
             ) : (
-              <div className="table-container">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Tên sự kiện</th>
-                      <th>Thời gian tổ chức</th>
-                      <th>Điểm danh</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {registeredEvents.map(p => {
-                      const evt = getEventDetails(p.eventId);
-                      return (
-                        <tr key={p.id}>
-                          <td>
-                            <strong>{evt.name}</strong>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Địa điểm: {evt.venue}</div>
-                          </td>
-                          <td>{evt.dateTime !== 'N/A' ? new Date(evt.dateTime).toLocaleString('vi-VN') : 'N/A'}</td>
-                          <td>
-                            <span className={`badge ${
-                              p.attendanceStatus === 'Present' ? 'badge-active' : p.attendanceStatus === 'Absent' ? 'badge-blocked' : 'badge-pending'
-                            }`}>
-                              {p.attendanceStatus === 'Present' ? 'Có mặt' : p.attendanceStatus === 'Absent' ? 'Vắng mặt' : 'Đã đăng ký'}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {clubEvents.map(ev => {
+                  const eName = ev.eventName || ev.name;
+                  const eTime = ev.startTime || ev.dateTime;
+                  const eStatus = ev.status || ev.approvalStatus;
+                  return (
+                    <div key={ev.id || ev.eventId} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px' }}>{eName}</div>
+                      {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{new Date(eTime).toLocaleString('vi-VN')}</div>}
+                      {eStatus && (
+                        <span className={`badge ${eStatus === 'Approved' ? 'badge-active' : eStatus === 'Rejected' ? 'badge-blocked' : 'badge-pending'}`} style={{ fontSize: '10px', marginTop: '6px', display: 'inline-block' }}>
+                          {eStatus === 'Approved' ? 'Đã duyệt' : eStatus === 'Rejected' ? 'Bị từ chối' : eStatus === 'Pending' ? 'Chờ duyệt' : eStatus}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Side: Proof upload Form & Proof submission list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* Submit Proof Form */}
-          <div className="glass-card">
-            <div className="glass-card-header">
-              <h3 className="glass-card-title"><ImageIcon size={18} /> Nộp minh chứng quyền lợi (Đổi điểm rèn luyện)</h3>
-            </div>
-
-            <form onSubmit={handleSubmitEvidence}>
-              <div className="form-group">
-                <label>Sự kiện đã tham gia</label>
-                <select 
-                  className="select-field"
-                  value={selectedEventId}
-                  onChange={e => setSelectedEventId(e.target.value)}
-                  required
-                >
-                  <option value="">-- Chọn sự kiện --</option>
-                  {registeredEvents.map(p => {
-                    const evt = getEventDetails(p.eventId);
-                    return (
-                      <option key={p.eventId} value={p.eventId}>{evt.name}</option>
-                    );
-                  })}
-                  <option value="general">Khác / Hoạt động CLB chung</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Loại minh chứng nộp</label>
-                <select 
-                  className="select-field"
-                  value={evidenceType}
-                  onChange={e => setEvidenceType(e.target.value)}
-                >
-                  <option value="Check-In Photo">Ảnh chụp check-in tại sự kiện</option>
-                  <option value="Certificate">Chứng nhận hoàn thành hoạt động (Certificate)</option>
-                  <option value="Other">Khác (Other)</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Đường dẫn Tệp minh chứng (Image/PDF Link)</label>
-                <input 
-                  type="url" 
-                  className="input-field" 
-                  value={fileUrl}
-                  onChange={e => setFileUrl(e.target.value)}
-                  placeholder="Nhập link ảnh check-in"
-                  required
-                />
-              </div>
-
-              {/* Demo Assist: Quick selection for mock photos */}
-              <div style={{ marginBottom: '16px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                  Click chọn nhanh một link minh chứng mẫu để test:
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {mockProofUrls.map((p, idx) => (
-                    <button 
-                      key={idx}
-                      type="button"
-                      className="club-pill-btn"
-                      style={{ fontSize: '11px', padding: '6px 10px', textAlign: 'left', display: 'block', width: '100%' }}
-                      onClick={() => setFileUrl(p.url)}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                <Send size={16} /> Gửi minh chứng lên PDP duyệt
-              </button>
-            </form>
+        {/* Right Side: Evidence submission */}
+        <div className="glass-card" style={{ height: 'fit-content' }}>
+          <div className="glass-card-header">
+            <h3 className="glass-card-title"><ImageIcon size={18} /> Nộp minh chứng (Evidence)</h3>
           </div>
 
-          {/* Submitted Proof list */}
-          <div className="glass-card">
-            <div className="glass-card-header">
-              <h3 className="glass-card-title"><Shield size={18} /> Minh chứng đã gửi và Trạng thái</h3>
+          <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
+            <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
+            API nộp minh chứng chưa có. Yêu cầu BE bổ sung <code>POST /api/evidences</code>.
+          </div>
+
+          <form onSubmit={handleSubmitEvidence}>
+            <div className="form-group">
+              <label>Sự kiện đã tham gia</label>
+              <select
+                className="select-field"
+                value={selectedEventId}
+                onChange={e => setSelectedEventId(e.target.value)}
+              >
+                <option value="">-- Chọn sự kiện (tuỳ chọn) --</option>
+                {clubEvents.map(ev => {
+                  const eName = ev.eventName || ev.name;
+                  return (
+                    <option key={ev.id || ev.eventId} value={ev.id || ev.eventId}>{eName}</option>
+                  );
+                })}
+                <option value="general">Khác / Hoạt động CLB chung</option>
+              </select>
             </div>
 
-            {myEvidence.length === 0 ? (
-              <div className="empty-state-view">
-                <p>Bạn chưa gửi minh chứng nào.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '380px', overflowY: 'auto' }}>
-                {myEvidence.map(e => (
-                  <div 
-                    key={e.id}
-                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.01)', fontSize: '13px' }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <strong>{getEventDetails(e.eventId).name || 'Hoạt động CLB chung'}</strong>
-                      <span className={`badge ${
-                        e.status === 'Approved' ? 'badge-active' : e.status === 'Rejected' ? 'badge-blocked' : 'badge-pending'
-                      }`}>
-                        {e.status === 'Approved' ? 'Đã duyệt' : e.status === 'Rejected' ? 'Bị từ chối' : 'Chờ duyệt'}
-                      </span>
-                    </div>
+            <div className="form-group">
+              <label>Loại minh chứng nộp</label>
+              <select
+                className="select-field"
+                value={evidenceType}
+                onChange={e => setEvidenceType(e.target.value)}
+              >
+                <option value="Check-In Photo">Ảnh chụp check-in tại sự kiện</option>
+                <option value="Certificate">Chứng nhận hoàn thành hoạt động (Certificate)</option>
+                <option value="Other">Khác (Other)</option>
+              </select>
+            </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
-                      <span>Loại: {e.type}</span>
-                      <span>Gửi: {new Date(e.submittedAt).toLocaleDateString('vi-VN')}</span>
-                    </div>
+            <div className="form-group">
+              <label>Đường dẫn Tệp minh chứng (Image/PDF Link)</label>
+              <input
+                type="url"
+                className="input-field"
+                value={fileUrl}
+                onChange={e => setFileUrl(e.target.value)}
+                placeholder="Nhập link ảnh check-in hoặc PDF minh chứng..."
+                required
+              />
+            </div>
 
-                    {e.adminRemark && (
-                      <div style={{ marginTop: '8px', padding: '6px 10px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.03)', borderLeft: '3px solid var(--primary)', fontSize: '12px' }}>
-                        <strong>Ý kiến PDP:</strong> {e.adminRemark}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+              <Send size={16} /> Gửi minh chứng lên PDP duyệt
+            </button>
+          </form>
         </div>
       </div>
     </div>

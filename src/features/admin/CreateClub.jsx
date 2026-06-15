@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
-import { mockDb } from '../../utils/mockDb';
 import { createClub } from '../../services/clubService';
-import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, ChevronRight, UserPlus, Users } from 'lucide-react';
+import { PlusCircle, Landmark, Image, Link, Tag, UserCheck } from 'lucide-react';
 
-export default function CreateClub({ dbData, triggerNotification }) {
-  const { clubs, users, memberships } = dbData;
-
+export default function CreateClub({ triggerNotification }) {
   const [form, setForm] = useState({
     clubName: '',
     clubCode: '',
@@ -16,47 +13,7 @@ export default function CreateClub({ dbData, triggerNotification }) {
     managerStudentId: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [createdClubId, setCreatedClubId] = useState(null);
-  const [selectedManagerId, setSelectedManagerId] = useState('');
-  const [isAssigning, setIsAssigning] = useState(false);
-
-  // For Assign Manager to existing club
-  const [assignClubId, setAssignClubId] = useState('');
-  const [assignManagerId, setAssignManagerId] = useState('');
-  const [isAssigningExisting, setIsAssigningExisting] = useState(false);
-
-  // Users eligible to be manager (not admin, not already a leader of this club)
-  const eligibleUsers = users.filter(u =>
-    u.status === 'Active' && (u.role === 'MEMBER' || u.role === 'MANAGER')
-  );
-
-  const getClubManager = (clubId) => {
-    const leaderMembership = memberships.find(
-      m => m.clubId === clubId && m.role === 'Leader' && m.status === 'Active'
-    );
-    if (leaderMembership) {
-      const u = users.find(user => user.id === leaderMembership.userId);
-      return u ? `${u.fullName} (${u.id})` : leaderMembership.userId;
-    }
-    return 'Chưa có';
-  };
-
-  const handleAssignExistingClubManager = async (e) => {
-    e.preventDefault();
-    if (!assignClubId || !assignManagerId) {
-      triggerNotification('Vui lòng chọn đầy đủ CLB và người dùng!', 'warning');
-      return;
-    }
-    setIsAssigningExisting(true);
-    await new Promise(r => setTimeout(r, 300));
-    mockDb.assignManager(assignClubId, assignManagerId);
-    const club = clubs.find(c => c.id === assignClubId);
-    const user = users.find(u => u.id === assignManagerId);
-    triggerNotification(`Đã gán ${user?.fullName} làm Manager cho CLB ${club?.name.split(' - ')[0]}!`, 'success');
-    setAssignClubId('');
-    setAssignManagerId('');
-    setIsAssigningExisting(false);
-  };
+  const [lastCreated, setLastCreated] = useState(null);
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -80,9 +37,8 @@ export default function CreateClub({ dbData, triggerNotification }) {
         managerStudentId: form.managerStudentId || null,
       });
 
-      // Lấy clubId từ response BE (tuỳ BE trả về dạng nào)
       const newClubId = result?.clubId || result?.id || result;
-      setCreatedClubId(newClubId);
+      setLastCreated({ name: form.clubName, id: newClubId });
       triggerNotification(`Đã tạo câu lạc bộ "${form.clubName}" thành công!`, 'success');
       setForm({
         clubName: '',
@@ -102,26 +58,6 @@ export default function CreateClub({ dbData, triggerNotification }) {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleAssignManager = async () => {
-    if (!selectedManagerId) {
-      triggerNotification('Vui lòng chọn người dùng để gán làm Manager!', 'warning');
-      return;
-    }
-    setIsAssigning(true);
-    await new Promise(r => setTimeout(r, 300));
-    mockDb.assignManager(createdClubId, selectedManagerId);
-    const user = users.find(u => u.id === selectedManagerId);
-    triggerNotification(`Đã gán ${user?.fullName || selectedManagerId} làm Manager!`, 'success');
-    setSelectedManagerId('');
-    setCreatedClubId(null);
-    setIsAssigning(false);
-  };
-
-  const handleSkipAssign = () => {
-    setCreatedClubId(null);
-    setSelectedManagerId('');
   };
 
   return (
@@ -215,6 +151,9 @@ export default function CreateClub({ dbData, triggerNotification }) {
                 value={form.managerStudentId}
                 onChange={e => handleChange('managerStudentId', e.target.value)}
               />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                Nhập MSSV của người sẽ được bổ nhiệm làm quản lý CLB.
+              </span>
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -241,143 +180,39 @@ export default function CreateClub({ dbData, triggerNotification }) {
               )}
             </button>
           </form>
-
-          {/* Assign Manager Section – appears after club is created */}
-          {createdClubId && (
-            <div style={{
-              marginTop: '24px',
-              padding: '20px',
-              background: 'rgba(var(--primary-rgb, 99, 102, 241), 0.08)',
-              borderRadius: '12px',
-              border: '1px solid rgba(var(--primary-rgb, 99, 102, 241), 0.3)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <UserCheck size={18} style={{ color: 'var(--primary)' }} />
-                <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '14px' }}>
-                  Gán Manager cho CLB vừa tạo
-                </span>
-              </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                Chọn người dùng để gán làm người quản lý (Leader) của câu lạc bộ này.
-              </p>
-              <select
-                className="select-field"
-                value={selectedManagerId}
-                onChange={e => setSelectedManagerId(e.target.value)}
-                style={{ marginBottom: '12px' }}
-              >
-                <option value="">-- Chọn người dùng --</option>
-                {eligibleUsers.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} ({u.id}) – {u.role}
-                  </option>
-                ))}
-              </select>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleAssignManager}
-                  disabled={isAssigning}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 16px' }}
-                >
-                  {isAssigning ? <span className="login-spinner" /> : <><UserCheck size={14} /> Gán Manager</>}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={handleSkipAssign}
-                  style={{ fontSize: '13px', padding: '8px 16px' }}
-                >
-                  Bỏ qua
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Right: Existing clubs list + Assign Manager panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-          {/* Assign Manager to existing club */}
-          <div className="glass-card">
-            <div className="glass-card-header">
-              <h3 className="glass-card-title"><UserPlus size={18} /> Gán Manager cho CLB hiện có</h3>
-            </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
-              Chỉ định người dùng làm Leader quản lý một câu lạc bộ đang hoạt động.
-            </p>
-            <form onSubmit={handleAssignExistingClubManager} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Chọn Câu lạc bộ</label>
-                <select
-                  className="select-field"
-                  value={assignClubId}
-                  onChange={e => setAssignClubId(e.target.value)}
-                  required
-                >
-                  <option value="">-- Chọn CLB --</option>
-                  {clubs.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name.split(' - ')[0]} — {getClubManager(c.id)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Chọn Người dùng</label>
-                <select
-                  className="select-field"
-                  value={assignManagerId}
-                  onChange={e => setAssignManagerId(e.target.value)}
-                  required
-                >
-                  <option value="">-- Chọn người dùng --</option>
-                  {eligibleUsers.map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.fullName} ({u.id}) – {u.role}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isAssigningExisting}
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px' }}
-              >
-                {isAssigningExisting ? <span className="login-spinner" /> : <><UserPlus size={14} /> Gán Quyền &amp; Chỉ Định Leader</>}
-              </button>
-            </form>
+        {/* Right: Info Panel */}
+        <div className="glass-card" style={{ height: 'fit-content' }}>
+          <div className="glass-card-header">
+            <h3 className="glass-card-title"><Landmark size={18} /> Hướng dẫn tạo CLB</h3>
           </div>
+          <div style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--text-main)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p>Điền đầy đủ thông tin bên trái để đăng ký một câu lạc bộ mới vào hệ thống.</p>
+            <ul style={{ paddingLeft: '16px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <li><strong>Tên CLB</strong> là trường bắt buộc.</li>
+              <li><strong>Mã CLB</strong> dùng để định danh ngắn (vd: GUITAR, FCODE).</li>
+              <li><strong>MSSV Người quản lý</strong>: nếu để trống, CLB sẽ chưa có quản lý.</li>
+            </ul>
 
-          {/* Existing clubs list */}
-          <div className="glass-card">
-            <div className="glass-card-header">
-              <h3 className="glass-card-title"><Landmark size={18} /> CLB hiện có ({clubs.length})</h3>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {clubs.map(c => (
-                <div key={c.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <img
-                    src={c.logo}
-                    alt={c.name}
-                    style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px solid var(--border)', objectFit: 'cover', flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-heading)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.name}
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
-                      <span className="badge badge-manager" style={{ fontSize: '10px' }}>{c.category}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{getClubManager(c.id)}</span>
-                    </div>
+            {lastCreated && (
+              <div style={{
+                marginTop: '8px',
+                padding: '16px',
+                background: 'rgba(34,197,94,0.08)',
+                borderRadius: '10px',
+                border: '1px solid rgba(34,197,94,0.25)'
+              }}>
+                <div style={{ fontWeight: 700, color: 'var(--success)', marginBottom: '6px' }}>✓ CLB vừa tạo thành công</div>
+                <div style={{ fontSize: '14px', color: 'var(--text-heading)' }}>{lastCreated.name}</div>
+                {lastCreated.id && (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    ID: <strong>{lastCreated.id}</strong>
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+              </div>
+            )}
           </div>
-
         </div>
       </div>
     </div>

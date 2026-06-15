@@ -2,10 +2,10 @@ import React from 'react';
 import { 
   Calendar, FileCheck, ClipboardList, UserCheck, 
   Landmark, BookOpen, Users, FolderOpen, User,
-  CheckSquare, PlusSquare, Search
+  CheckSquare, PlusSquare, Search, Send, FileText, Bell
 } from 'lucide-react';
 
-export default function Sidebar({ currentRole, activeTab, setActiveTab, currentUserProfile }) {
+export default function Sidebar({ currentRole, activeTab, setActiveTab, currentUserProfile, isLeader = false }) {
   const renderAdminNav = () => (
     <>
       <div 
@@ -16,25 +16,11 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <span>Cài đặt Kỳ học</span>
       </div>
       <div 
-        className={`nav-item ${activeTab === 'evidence-approval' ? 'active' : ''}`}
-        onClick={() => setActiveTab('evidence-approval')}
-      >
-        <FileCheck size={18} />
-        <span>Duyệt tham gia</span>
-      </div>
-      <div 
         className={`nav-item ${activeTab === 'report-appraisal' ? 'active' : ''}`}
         onClick={() => setActiveTab('report-appraisal')}
       >
         <ClipboardList size={18} />
-        <span>Chấm điểm Báo cáo</span>
-      </div>
-      <div 
-        className={`nav-item ${activeTab === 'event-approval' ? 'active' : ''}`}
-        onClick={() => setActiveTab('event-approval')}
-      >
-        <CheckSquare size={18} />
-        <span>Duyệt Sự kiện</span>
+        <span>Nhận báo cáo & Thông báo</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'user-management' ? 'active' : ''}`}
@@ -63,13 +49,6 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <span>Thông tin CLB</span>
       </div>
       <div 
-        className={`nav-item ${activeTab === 'member-management' ? 'active' : ''}`}
-        onClick={() => setActiveTab('member-management')}
-      >
-        <Users size={18} />
-        <span>Quản lý Thành viên</span>
-      </div>
-      <div 
         className={`nav-item ${activeTab === 'event-manager' ? 'active' : ''}`}
         onClick={() => setActiveTab('event-manager')}
       >
@@ -77,17 +56,38 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <span>Quản lý Sự kiện</span>
       </div>
       <div 
-        className={`nav-item ${activeTab === 'document-archive' ? 'active' : ''}`}
-        onClick={() => setActiveTab('document-archive')}
+        className={`nav-item ${activeTab === 'event-approval' ? 'active' : ''}`}
+        onClick={() => setActiveTab('event-approval')}
       >
-        <FolderOpen size={18} />
-        <span>Tài liệu CLB</span>
+        <CheckSquare size={18} />
+        <span>Duyệt Sự kiện</span>
+      </div>
+      <div 
+        className={`nav-item ${activeTab === 'evidence-approval' ? 'active' : ''}`}
+        onClick={() => setActiveTab('evidence-approval')}
+      >
+        <FileCheck size={18} />
+        <span>Duyệt Minh chứng</span>
+      </div>
+      <div 
+        className={`nav-item ${activeTab === 'member-management' ? 'active' : ''}`}
+        onClick={() => setActiveTab('member-management')}
+      >
+        <Users size={18} />
+        <span>Quản lý Thành viên</span>
+      </div>
+      <div 
+        className={`nav-item ${activeTab === 'member-reports' ? 'active' : ''}`}
+        onClick={() => setActiveTab('member-reports')}
+      >
+        <FileText size={18} />
+        <span>Báo cáo Thành viên</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'submit-report' ? 'active' : ''}`}
         onClick={() => setActiveTab('submit-report')}
       >
-        <ClipboardList size={18} />
+        <Send size={18} />
         <span>Nộp Báo cáo</span>
       </div>
     </>
@@ -96,11 +96,18 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
   const renderMemberNav = () => (
     <>
       <div 
-        className={`nav-item ${activeTab === 'club-directory' ? 'active' : ''}`}
-        onClick={() => setActiveTab('club-directory')}
+        className={`nav-item ${activeTab === 'club-info' ? 'active' : ''}`}
+        onClick={() => setActiveTab('club-info')}
       >
         <Landmark size={18} />
-        <span>CLB của tôi</span>
+        <span>Thông tin CLB</span>
+      </div>
+      <div 
+        className={`nav-item ${activeTab === 'document-archive' ? 'active' : ''}`}
+        onClick={() => setActiveTab('document-archive')}
+      >
+        <FolderOpen size={18} />
+        <span>Tài liệu CLB</span>
       </div>
       <div 
         className={`nav-item ${activeTab === 'event-calendar' ? 'active' : ''}`}
@@ -117,19 +124,42 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <span>Hoạt động của tôi</span>
       </div>
       <div 
-        className={`nav-item ${activeTab === 'knowledge-sharing' ? 'active' : ''}`}
-        onClick={() => setActiveTab('knowledge-sharing')}
-      >
-        <BookOpen size={18} />
-        <span>Tài nguyên & Đề xuất</span>
-      </div>
-      <div 
         className={`nav-item ${activeTab === 'member-search' ? 'active' : ''}`}
         onClick={() => setActiveTab('member-search')}
       >
         <Search size={18} />
         <span>Tìm thành viên CLB</span>
       </div>
+      <div 
+        className={`nav-item ${activeTab === 'submit-member-report' ? 'active' : ''}`}
+        onClick={() => setActiveTab('submit-member-report')}
+      >
+        <Send size={18} />
+        <span>Nộp báo cáo cho Leader</span>
+      </div>
+      
+      {/* Conditionally render Leader-only navigation tabs in Member dashboard */}
+      {isLeader && (
+        <>
+          <div style={{ padding: '8px 14px 4px', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Quyền hạn Trưởng CLB
+          </div>
+          <div 
+            className={`nav-item ${activeTab === 'member-management' ? 'active' : ''}`}
+            onClick={() => setActiveTab('member-management')}
+          >
+            <Users size={18} />
+            <span>Quản lý Thành viên (Leader)</span>
+          </div>
+          <div 
+            className={`nav-item ${activeTab === 'review-member-reports' ? 'active' : ''}`}
+            onClick={() => setActiveTab('review-member-reports')}
+          >
+            <FileText size={18} />
+            <span>Xem báo cáo Thành viên</span>
+          </div>
+        </>
+      )}
     </>
   );
 

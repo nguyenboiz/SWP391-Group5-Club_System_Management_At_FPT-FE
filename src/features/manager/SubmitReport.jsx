@@ -1,23 +1,46 @@
 import React, { useState } from 'react';
-import { mockDb } from '../../utils/mockDb';
-import { FileText, Send, Award, Calendar, Users, Star, ClipboardList } from 'lucide-react';
+import { FileText, Send, Award, Calendar, Users, Star, ClipboardList, AlertTriangle } from 'lucide-react';
+import * as semesterService from '../../services/semesterService';
+import * as reportPeriodService from '../../services/reportPeriodService';
 
-export default function SubmitReport({ dbData, selectedClubId, triggerNotification }) {
-  const { clubReports, reportPeriods, semesters, events, memberships } = dbData;
-  const [selectedPeriodId, setSelectedPeriodId] = useState('');
-  const [content, setContent] = useState('');
+// NOTE: BE chưa có API cho club reports.
+// Yêu cầu BE bổ sung:
+//   - GET  /api/club-reports?clubId={clubId}
+//   - POST /api/club-reports
+// Khi có API, thay phần mock bên dưới.
 
-  // Filter report history for this club
-  const clubHistory = clubReports.filter(r => r.clubId === selectedClubId);
+export default function SubmitReport({ selectedClubId, triggerNotification }) {
+  const [semesters, setSemesters] = React.useState([]);
+  const [reportPeriods, setReportPeriods] = React.useState([]);
+  const [selectedPeriodId, setSelectedPeriodId] = React.useState('');
+  const [content, setContent] = React.useState('');
+  const [loading, setLoading] = React.useState(true);
 
-  // Auto count for active metrics to show on screen
-  const activeSemester = semesters.find(s => s.status === 'Active');
-  const activeSemesterId = activeSemester ? activeSemester.id : 'SU26';
-  
-  const autoEventCount = events.filter(e => e.clubId === selectedClubId).length;
-  const autoMemberCount = memberships.filter(m => m.clubId === selectedClubId && m.status === 'Active').length;
+  React.useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const semData = await semesterService.getSemesters();
+        const semList = Array.isArray(semData) ? semData : (semData?.data ?? []);
+        setSemesters(semList);
 
-  const handleSubmit = (e) => {
+        // Load periods for active semester
+        const active = semList.find(s => s.status === 'Active' || s.status === 'Open') || semList[0];
+        if (active) {
+          const rpData = await reportPeriodService.getReportPeriods(active.id);
+          const rpList = Array.isArray(rpData) ? rpData : (rpData?.data ?? []);
+          setReportPeriods(rpList.filter(r => r.status === 'Open' || r.status === 'Active'));
+        }
+      } catch (err) {
+        console.error('[SubmitReport] Lỗi tải dữ liệu:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedPeriodId) {
       triggerNotification('Vui lòng chọn đợt nộp báo cáo!', 'warning');
@@ -28,60 +51,34 @@ export default function SubmitReport({ dbData, selectedClubId, triggerNotificati
       return;
     }
 
-    // Check if report for this period was already submitted
-    const isSubmitted = clubHistory.some(r => r.reportPeriodId === selectedPeriodId);
-    if (isSubmitted) {
-      triggerNotification('Báo cáo của câu lạc bộ cho đợt này đã được nộp trước đó!', 'error');
-      return;
-    }
-
-    mockDb.submitReport({
-      clubId: selectedClubId,
-      semesterId: activeSemesterId,
-      reportPeriodId: selectedPeriodId,
-      content: content.trim()
-    });
-
-    triggerNotification('Nộp báo cáo hoạt động định kỳ thành công!', 'success');
-    setContent('');
-    setSelectedPeriodId('');
+    // TODO: thay bằng POST /api/club-reports khi BE bổ sung
+    triggerNotification('Chức năng nộp báo cáo CLB đang chờ BE bổ sung API.', 'warning');
   };
 
-  const getPeriodName = (periodId) => {
-    const p = reportPeriods.find(period => period.id === periodId);
-    return p ? p.name : periodId;
-  };
-
-  // Only open report periods for selection
-  const openPeriods = reportPeriods.filter(r => r.status === 'Open');
+  if (loading) {
+    return (
+      <div className="empty-state-view">
+        <span className="login-spinner" style={{ width: '32px', height: '32px' }} />
+        <p style={{ marginTop: '12px' }}>Đang tải dữ liệu học kỳ...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="submit-report-container">
-      {/* Metric aggregate display widget */}
       <div className="stats-grid">
         <div className="stats-card">
           <div className="stats-icon-box"><Calendar size={20} /></div>
           <div className="stats-info">
-            <span className="stats-label">Sự kiện đã chạy (Kỳ {activeSemesterId})</span>
-            <span className="stats-value">{autoEventCount} sự kiện</span>
+            <span className="stats-label">CLB đang hoạt động</span>
+            <span className="stats-value">ID: {selectedClubId}</span>
           </div>
         </div>
         <div className="stats-card">
-          <div className="stats-icon-box"><Users size={20} /></div>
+          <div className="stats-icon-box"><ClipboardList size={20} /></div>
           <div className="stats-info">
-            <span className="stats-label">Thành viên Active hiện tại</span>
-            <span className="stats-value">{autoMemberCount} thành viên</span>
-          </div>
-        </div>
-        <div className="stats-card">
-          <div className="stats-icon-box" style={{ color: 'var(--warning)' }}><Star size={20} /></div>
-          <div className="stats-info">
-            <span className="stats-label">Điểm xếp hạng trung bình</span>
-            <span className="stats-value">
-              {clubHistory.filter(r => r.score !== null).length > 0
-                ? (clubHistory.reduce((acc, curr) => acc + (curr.score || 0), 0) / clubHistory.filter(r => r.score !== null).length).toFixed(1) + 'đ'
-                : 'N/A'}
-            </span>
+            <span className="stats-label">Đợt báo cáo đang mở</span>
+            <span className="stats-value">{reportPeriods.length} đợt</span>
           </div>
         </div>
       </div>
@@ -96,37 +93,29 @@ export default function SubmitReport({ dbData, selectedClubId, triggerNotificati
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Đợt thu báo cáo đang mở cổng</label>
-              <select 
+              <select
                 className="select-field"
                 value={selectedPeriodId}
                 onChange={e => setSelectedPeriodId(e.target.value)}
                 required
               >
                 <option value="">-- Chọn đợt nộp báo cáo --</option>
-                {openPeriods.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} (Hạn: {p.deadline})</option>
+                {reportPeriods.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.periodName || p.name} (Hạn: {p.deadline ? new Date(p.deadline).toLocaleDateString('vi-VN') : 'N/A'})
+                  </option>
                 ))}
               </select>
-            </div>
-
-            {/* Simulated automated aggregates info */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', marginBottom: '16px', fontSize: '13px' }}>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Thống kê sự kiện:</span>
-                <div style={{ fontWeight: 600, color: 'var(--primary)' }}>Tự động đếm: {autoEventCount} chương trình</div>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Thành viên đăng ký:</span>
-                <div style={{ fontWeight: 600, color: 'var(--primary)' }}>Tự động đếm: {autoMemberCount} sinh viên</div>
-              </div>
-              <div style={{ gridColumn: 'span 2', fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', paddingTop: '8px', marginTop: '4px' }}>
-                * Số liệu trên được tính tự động từ bảng dữ liệu Event và Membership trong kỳ của CLB. Manager không cần điền tay.
-              </div>
+              {reportPeriods.length === 0 && (
+                <span style={{ fontSize: '12px', color: 'var(--warning)', display: 'block', marginTop: '4px' }}>
+                  Hiện không có đợt báo cáo nào đang mở cổng.
+                </span>
+              )}
             </div>
 
             <div className="form-group">
               <label>Báo cáo tình hình chi tiết hoạt động</label>
-              <textarea 
+              <textarea
                 className="textarea-field"
                 value={content}
                 onChange={e => setContent(e.target.value)}
@@ -136,64 +125,29 @@ export default function SubmitReport({ dbData, selectedClubId, triggerNotificati
               />
             </div>
 
+            <div style={{ marginBottom: '12px', padding: '10px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
+              <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
+              API nộp báo cáo CLB chưa có trên BE. Vui lòng yêu cầu BE bổ sung <code>POST /api/club-reports</code>.
+            </div>
+
             <button type="submit" className="btn btn-primary">
               <Send size={16} /> Nộp báo cáo lên PDP
             </button>
           </form>
         </div>
 
-        {/* Right Side: History & PDP Appraisal comments */}
+        {/* Right Side: History placeholder */}
         <div className="glass-card">
           <div className="glass-card-header">
             <h3 className="glass-card-title"><ClipboardList size={18} /> Lịch sử & Điểm số phản hồi</h3>
           </div>
-
-          {clubHistory.length === 0 ? (
-            <div className="empty-state-view">
-              <ClipboardList className="empty-state-icon" />
-              <p>Chưa có báo cáo nào được gửi.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '500px', overflowY: 'auto' }}>
-              {clubHistory.map(r => (
-                <div 
-                  key={r.id} 
-                  style={{ padding: '16px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.01)' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <strong>{getPeriodName(r.reportPeriodId)}</strong>
-                    <span className={`badge ${
-                      r.status === 'Appraised' ? 'badge-active' : 'badge-pending'
-                    }`}>
-                      {r.status === 'Appraised' ? 'Đã chấm điểm' : 'Đang chờ duyệt'}
-                    </span>
-                  </div>
-                  
-                  <div style={{ fontSize: '13px', color: 'var(--text-main)', fontStyle: 'italic', marginBottom: '10px' }}>
-                    "{r.content}"
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
-                    <span>Sự kiện: {r.eventCount}</span> | <span>Thành viên: {r.memberCount}</span>
-                  </div>
-
-                  {r.status === 'Appraised' && (
-                    <div style={{ marginTop: '12px', padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(242,111,33,0.05)', border: '1px solid rgba(242,111,33,0.15)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '13px' }}><Award size={12} /> PDP Chấm điểm:</span>
-                        <strong style={{ fontSize: '16px', color: 'var(--success)' }}>{r.score} điểm</strong>
-                      </div>
-                      {r.adminRemark && (
-                        <p style={{ fontSize: '12px', color: 'var(--text-main)', marginTop: '4px' }}>
-                          <strong>Ý kiến PDP:</strong> {r.adminRemark}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="empty-state-view">
+            <ClipboardList className="empty-state-icon" />
+            <p>Lịch sử báo cáo sẽ hiển thị khi BE bổ sung API.</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+              Yêu cầu BE: <code>GET /api/club-reports?clubId=&#123;id&#125;</code>
+            </p>
+          </div>
         </div>
       </div>
     </div>

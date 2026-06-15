@@ -1,29 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { mockDb } from '../utils/mockDb';
 import * as authService from '../services/authService';
 import { Landmark, LogOut, ChevronRight, Crown, Users } from 'lucide-react';
-
-const mapClubIdToMock = (id) => {
-  if (id === 1 || id === '1') return 'js';
-  if (id === 2 || id === '2') return 'fcode';
-  if (id === 3 || id === '3') return 'melody';
-  if (id === 4 || id === '4') return 'chess';
-  if (id === 5 || id === '5') return 'fsa';
-  if (id === 6 || id === '6') return 'dance';
-  return id;
-};
-
-const mapClubIdToBackend = (id) => {
-  if (id === 'js') return 1;
-  if (id === 'fcode') return 2;
-  if (id === 'melody') return 3;
-  if (id === 'chess') return 4;
-  if (id === 'fsa') return 5;
-  if (id === 'dance') return 6;
-  return id;
-};
 
 export default function ClubSelectorPage() {
   const { currentUser, logout, refreshUser } = useAuth();
@@ -34,66 +13,53 @@ export default function ClubSelectorPage() {
     return <Navigate to="/login" replace />;
   }
 
-  const dbData = mockDb.getData();
-  const { clubs, memberships } = dbData;
-
-  // Read availableClubs from sessionStorage
+  // Read availableClubs from sessionStorage (saved after login from BE)
   const availableClubsStr = sessionStorage.getItem('fpt_available_clubs');
   const availableClubs = availableClubsStr ? JSON.parse(availableClubsStr) : null;
 
-  // All active memberships of this user
-  let myMemberships = memberships.filter(
-    m => m.userId === currentUser.id && m.status === 'Active'
-  );
-
-  // Fallback for real backend accounts
-  if (myMemberships.length === 0) {
-    if (availableClubs && availableClubs.length > 0) {
-      myMemberships = availableClubs.map((club, idx) => {
-        const mockClubId = mapClubIdToMock(club.clubId || club.id);
-        return {
-          id: `dynamic-${mockClubId}-${idx}`,
-          userId: currentUser.id,
-          clubId: mockClubId,
-          role: (club.role || club.clubRole || '').toUpperCase() === 'MANAGER' || (club.role || club.clubRole || '').toUpperCase() === 'LEADER' ? 'Leader' : 'Member',
-          status: 'Active',
-          joinedSemester: 'SU26'
-        };
-      });
-    } else if (currentUser.clubId) {
-      const mockClubId = mapClubIdToMock(currentUser.clubId);
-      myMemberships = [
-        {
-          id: `dynamic-${mockClubId}`,
-          userId: currentUser.id,
-          clubId: mockClubId,
-          role: currentUser.role === 'MANAGER' ? 'Leader' : 'Member',
-          status: 'Active',
-          joinedSemester: 'SU26'
-        }
-      ];
-    }
+  // Build membership list from availableClubs (BE data)
+  let myMemberships = [];
+  if (availableClubs && availableClubs.length > 0) {
+    myMemberships = availableClubs.map((club, idx) => {
+      const clubId = String(club.clubId || club.id || '');
+      const rawRole = (club.role || club.clubRole || '').toUpperCase();
+      const isLeader = rawRole === 'MANAGER' || rawRole === 'LEADER';
+      return {
+        id: `be-${clubId}-${idx}`,
+        userId: currentUser.id,
+        clubId,
+        role: isLeader ? 'Leader' : 'Member',
+        status: 'Active',
+        joinedSemester: club.joinedSemester || '',
+        // Preserve club info for display
+        clubName: club.clubName || club.name || `CLB #${clubId}`,
+        clubLogo: club.logoImage || club.logo || '',
+      };
+    });
+  } else if (currentUser.clubId) {
+    // Fallback: single club from user profile
+    const clubId = String(currentUser.clubId);
+    myMemberships = [{
+      id: `be-${clubId}`,
+      userId: currentUser.id,
+      clubId,
+      role: currentUser.role === 'MANAGER' ? 'Leader' : 'Member',
+      status: 'Active',
+      joinedSemester: '',
+      clubName: currentUser.clubName || `CLB #${clubId}`,
+      clubLogo: currentUser.clubLogo || '',
+    }];
   }
 
   // Separate leader (manager) and regular member clubs
   const leaderMemberships = myMemberships.filter(m => m.role === 'Leader');
   const memberMemberships = myMemberships.filter(m => m.role !== 'Leader');
 
-  const getClub = (clubId) => {
-    const found = clubs.find(c => c.id === clubId);
-    if (found) return found;
-
-    // Fallback: Lấy thông tin từ availableClubs lưu trong session
-    const originalClub = availableClubs?.find(c => mapClubIdToMock(c.clubId || c.id) === clubId);
-    return {
-      id: clubId,
-      name: originalClub?.clubName || originalClub?.name || `Câu lạc bộ #${clubId}`,
-      category: 'Academic',
-      logo: originalClub?.logoImage || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=120&q=80',
-      fanpage: originalClub?.fanpageUrl || 'https://facebook.com',
-      intro: 'Dữ liệu câu lạc bộ mới được tải động từ Backend phục vụ kiểm thử.'
-    };
-  };
+  const getClubInfo = (m) => ({
+    id: m.clubId,
+    name: m.clubName || `Câu lạc bộ #${m.clubId}`,
+    logo: m.clubLogo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=120&q=80',
+  });
 
   const handleSelectClub = async (clubId, asRole) => {
     const token = sessionStorage.getItem('fpt_token') || localStorage.getItem('fpt_token');
@@ -111,10 +77,9 @@ export default function ClubSelectorPage() {
     try {
       if (requireClubSelection && tempToken) {
         // Gọi API select-club của BE nếu yêu cầu chọn CLB và có tempToken
-        const backendClubId = mapClubIdToBackend(clubId);
-        const result = await authService.selectClub(tempToken, backendClubId);
+        const result = await authService.selectClub(tempToken, Number(clubId) || clubId);
         const finalToken = result?.accessToken || result?.token || result || tempToken;
-        
+
         if (finalToken && typeof finalToken === 'string') {
           sessionStorage.setItem('fpt_token', finalToken);
         }
@@ -179,13 +144,7 @@ export default function ClubSelectorPage() {
         </div>
 
         {/* Club Cards */}
-        <div style={{
-          width: '100%',
-          maxWidth: '720px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '24px'
-        }}>
+        <div style={{ width: '100%', maxWidth: '720px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Manager clubs */}
           {leaderMemberships.length > 0 && (
             <div>
@@ -197,20 +156,19 @@ export default function ClubSelectorPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {leaderMemberships.map(m => {
-                  const club = getClub(m.clubId);
-                  if (!club) return null;
-                  const memberCount = memberships.filter(mb => mb.clubId === club.id && mb.status === 'Active').length;
+                  const club = getClubInfo(m);
                   return (
                     <button
                       key={m.id}
                       onClick={() => handleSelectClub(club.id, 'MANAGER')}
                       className="glass-card"
+                      disabled={isSubmitting}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '16px',
                         padding: '18px 20px',
-                        cursor: 'pointer',
+                        cursor: isSubmitting ? 'wait' : 'pointer',
                         border: '1px solid rgba(245, 158, 11, 0.35)',
                         background: 'rgba(245, 158, 11, 0.06)',
                         borderRadius: '14px',
@@ -218,26 +176,35 @@ export default function ClubSelectorPage() {
                         width: '100%',
                         transition: 'all 0.2s ease'
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(4px)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.6)'; }}
+                      onMouseEnter={e => { if (!isSubmitting) { e.currentTarget.style.transform = 'translateX(4px)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.6)'; } }}
                       onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.35)'; }}
                     >
-                      <img
-                        src={club.logo}
-                        alt={club.name}
-                        style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '2px solid rgba(245,158,11,0.4)', flexShrink: 0 }}
-                      />
+                      {club.logo ? (
+                        <img
+                          src={club.logo}
+                          alt={club.name}
+                          style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '2px solid rgba(245,158,11,0.4)', flexShrink: 0 }}
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div style={{ width: '56px', height: '56px', borderRadius: '12px', background: 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Landmark size={24} style={{ color: '#fff' }} />
+                        </div>
+                      )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-heading)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {club.name}
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <span className="badge badge-manager" style={{ fontSize: '10px' }}>Manager</span>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Users size={11} /> {memberCount} thành viên
-                          </span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ID: {club.id}</span>
                         </div>
                       </div>
-                      <ChevronRight size={20} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      {isSubmitting ? (
+                        <span className="login-spinner" style={{ width: '18px', height: '18px', flexShrink: 0 }} />
+                      ) : (
+                        <ChevronRight size={20} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      )}
                     </button>
                   );
                 })}
@@ -256,49 +223,55 @@ export default function ClubSelectorPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {memberMemberships.map(m => {
-                  const club = getClub(m.clubId);
-                  if (!club) return null;
-                  const memberCount = memberships.filter(mb => mb.clubId === club.id && mb.status === 'Active').length;
+                  const club = getClubInfo(m);
                   return (
                     <button
                       key={m.id}
                       onClick={() => handleSelectClub(club.id, 'MEMBER')}
                       className="glass-card"
+                      disabled={isSubmitting}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '16px',
                         padding: '18px 20px',
-                        cursor: 'pointer',
+                        cursor: isSubmitting ? 'wait' : 'pointer',
                         border: '1px solid var(--border)',
                         borderRadius: '14px',
                         textAlign: 'left',
                         width: '100%',
                         transition: 'all 0.2s ease'
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(4px)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
+                      onMouseEnter={e => { if (!isSubmitting) { e.currentTarget.style.transform = 'translateX(4px)'; e.currentTarget.style.borderColor = 'var(--primary)'; } }}
                       onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
                     >
-                      <img
-                        src={club.logo}
-                        alt={club.name}
-                        style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }}
-                      />
+                      {club.logo ? (
+                        <img
+                          src={club.logo}
+                          alt={club.name}
+                          style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }}
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div style={{ width: '56px', height: '56px', borderRadius: '12px', background: 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Landmark size={24} style={{ color: '#fff' }} />
+                        </div>
+                      )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-heading)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {club.name}
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <span className="badge badge-member" style={{ fontSize: '10px' }}>{m.role}</span>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Users size={11} /> {memberCount} thành viên
-                          </span>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            · Tham gia: {m.joinedSemester}
-                          </span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ID: {club.id}</span>
+                          {m.joinedSemester && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>· Tham gia: {m.joinedSemester}</span>}
                         </div>
                       </div>
-                      <ChevronRight size={20} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      {isSubmitting ? (
+                        <span className="login-spinner" style={{ width: '18px', height: '18px', flexShrink: 0 }} />
+                      ) : (
+                        <ChevronRight size={20} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      )}
                     </button>
                   );
                 })}

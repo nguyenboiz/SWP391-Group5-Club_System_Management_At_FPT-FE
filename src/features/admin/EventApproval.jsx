@@ -24,8 +24,23 @@ const statusMapBEtoFE = {
   'Rejected': 'Rejected',
 };
 
-export default function EventApproval({ dbData, triggerNotification }) {
-  const { clubs } = dbData;
+export default function EventApproval({ triggerNotification, selectedClubId }) {
+  const clubs = React.useMemo(() => {
+    try {
+      const stored = sessionStorage.getItem('fpt_available_clubs');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.map(c => ({
+          id: String(c.clubId || c.id || ''),
+          name: c.clubName || c.name || `CLB #${c.clubId || c.id}`,
+          logo: c.logoImage || c.logo || '',
+        }));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return [];
+  }, []);
 
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -73,7 +88,10 @@ export default function EventApproval({ dbData, triggerNotification }) {
     const club = clubs.find(c => c.id === ev.clubId || c.id === String(ev.clubId));
     const matchesSearch = !q || (ev.name || ev.eventName || '').toLowerCase().includes(q) || (club?.name.toLowerCase().includes(q));
 
-    return matchesStatus && matchesSearch;
+    // 3. Lọc theo selectedClubId
+    const matchesClub = !selectedClubId || String(ev.clubId) === String(selectedClubId);
+
+    return matchesStatus && matchesSearch && matchesClub;
   });
 
   const getClub = (clubId) => clubs.find(c => c.id === clubId || c.id === String(clubId));
@@ -121,9 +139,18 @@ export default function EventApproval({ dbData, triggerNotification }) {
     }
   };
 
-  const pendingCount  = events.filter(e => (e.approvalStatus || e.status || 'Pending') === 'Pending').length;
-  const approvedCount = events.filter(e => (e.approvalStatus || e.status) === 'Approved').length;
-  const rejectedCount = events.filter(e => (e.approvalStatus || e.status) === 'Rejected').length;
+  const pendingCount  = events.filter(e => 
+    (e.approvalStatus || e.status || 'Pending') === 'Pending' && 
+    (!selectedClubId || String(e.clubId) === String(selectedClubId))
+  ).length;
+  const approvedCount = events.filter(e => 
+    (e.approvalStatus || e.status) === 'Approved' && 
+    (!selectedClubId || String(e.clubId) === String(selectedClubId))
+  ).length;
+  const rejectedCount = events.filter(e => 
+    (e.approvalStatus || e.status) === 'Rejected' && 
+    (!selectedClubId || String(e.clubId) === String(selectedClubId))
+  ).length;
 
   return (
     <div className="user-management-container">

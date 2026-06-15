@@ -404,12 +404,25 @@ function getDb() {
       participants: defaultParticipants,
       documents: defaultDocuments,
       evidence: defaultEvidence,
-      clubReports: defaultClubReports
+      clubReports: defaultClubReports,
+      announcements: [
+        { id: 'ann-1', title: 'Thông báo đóng cổng báo cáo giữa kỳ', content: 'Yêu cầu các CLB khẩn trương hoàn thành báo cáo giữa kỳ trước thời hạn quy định ngày 15/06/2026. Sau thời gian này cổng nộp sẽ tự động đóng.', createdAt: '2026-06-10T10:00:00Z', semesterId: 'SU26' }
+      ],
+      memberReports: [
+        { id: 'mrep-1', userId: 'SE180001', clubId: 'js', title: 'Báo cáo hoạt động Ban truyền thông tuần 1 tháng 6', content: 'Ban truyền thông đã hoàn thành thiết kế 3 ấn phẩm truyền thông cho Workshop React và bắt đầu chạy chiến dịch seeding trên các group sinh viên.', submittedAt: '2026-06-05T09:00:00Z', status: 'Pending', leaderRemark: '' }
+      ]
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initialDb));
     return initialDb;
   }
-  return JSON.parse(data);
+  const db = JSON.parse(data);
+  if (!db.announcements) db.announcements = [
+    { id: 'ann-1', title: 'Thông báo đóng cổng báo cáo giữa kỳ', content: 'Yêu cầu các CLB khẩn trương hoàn thành báo cáo giữa kỳ trước thời hạn quy định ngày 15/06/2026. Sau thời gian này cổng nộp sẽ tự động đóng.', createdAt: '2026-06-10T10:00:00Z', semesterId: 'SU26' }
+  ];
+  if (!db.memberReports) db.memberReports = [
+    { id: 'mrep-1', userId: 'SE180001', clubId: 'js', title: 'Báo cáo hoạt động Ban truyền thông tuần 1 tháng 6', content: 'Ban truyền thông đã hoàn thành thiết kế 3 ấn phẩm truyền thông cho Workshop React và bắt đầu chạy chiến dịch seeding trên các group sinh viên.', submittedAt: '2026-06-05T09:00:00Z', status: 'Pending', leaderRemark: '' }
+  ];
+  return db;
 }
 
 function saveDb(db) {
@@ -754,5 +767,36 @@ export const mockDb = {
     });
     saveDb(db);
     return true;
+  },
+  // Announcements
+  addAnnouncement: (ann) => {
+    const db = getDb();
+    db.announcements.push({
+      id: 'ann-' + Date.now(),
+      createdAt: new Date().toISOString(),
+      ...ann
+    });
+    saveDb(db);
+  },
+  // Member reports to leader
+  submitMemberReport: (rep) => {
+    const db = getDb();
+    db.memberReports.push({
+      id: 'mrep-' + Date.now(),
+      submittedAt: new Date().toISOString(),
+      status: 'Pending',
+      leaderRemark: '',
+      ...rep
+    });
+    saveDb(db);
+  },
+  updateMemberReportStatus: (id, status, remark) => {
+    const db = getDb();
+    const idx = db.memberReports.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      db.memberReports[idx].status = status;
+      db.memberReports[idx].leaderRemark = remark;
+      saveDb(db);
+    }
   }
 };

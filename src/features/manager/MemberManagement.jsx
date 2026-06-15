@@ -2,21 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as membershipService from '../../services/membershipService';
 import { UserPlus, UserCheck, ToggleLeft, ToggleRight, Search } from 'lucide-react';
 
-// Chuyển mock club ID (string) sang backend numeric ID
-const toBackendClubId = (id) => {
-  const map = { js: 1, fcode: 2, melody: 3, chess: 4, fsa: 5, dance: 6 };
-  return map[id] ?? Number(id) ?? id;
-};
-
-export default function MemberManagement({ dbData, selectedClubId, triggerNotification }) {
-  const { users } = dbData; // Mock school users list still kept for UI suggestions
+export default function MemberManagement({ selectedClubId, triggerNotification }) {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newUserId, setNewUserId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const backendClubId = toBackendClubId(selectedClubId);
+  const backendClubId = selectedClubId;
 
   // Load members from API
   const loadMembers = useCallback(async () => {
@@ -236,26 +229,6 @@ export default function MemberManagement({ dbData, selectedClubId, triggerNotifi
               <UserPlus size={16} /> {isSubmitting ? 'Đang thêm...' : 'Thêm vào danh sách CLB'}
             </button>
           </form>
-
-          {/* Quick list of mock system users for ease of demoing */}
-          <div style={{ marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-            <h5 style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
-              Gợi ý mã SV mẫu từ dữ liệu trường:
-            </h5>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {users.filter(u => u.role === 'MEMBER' && !u.isAlumni).map(u => (
-                <button 
-                  key={u.id}
-                  type="button"
-                  className="club-pill-btn"
-                  onClick={() => setNewUserId(u.id)}
-                  style={{ fontSize: '11px', padding: '4px 8px' }}
-                >
-                  {u.id} ({u.fullName.split(' ').pop()})
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -1,226 +1,161 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Award, FileText, CheckCircle, Clock, AlertTriangle, Send, Bell, Plus } from 'lucide-react';
 import { mockDb } from '../../utils/mockDb';
-import Modal from '../../components/Modal';
-import { Award, FileText, CheckCircle, Clock, AlertTriangle, Send } from 'lucide-react';
 
-export default function ReportAppraisal({ dbData, triggerNotification }) {
-  const { clubReports, clubs, reportPeriods } = dbData;
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [appraisal, setAppraisal] = useState({ score: '', adminRemark: '' });
+// NOTE: BE chưa có các API sau, giữ mock tạm thời qua mockDb:
+//   - GET  /api/club-reports              (danh sách báo cáo CLB)
+//   - PUT  /api/club-reports/{id}/appraise (chấm điểm)
+//   - GET  /api/announcements             (danh sách thông báo)
+//   - POST /api/announcements             (tạo thông báo)
 
-  const getClubName = (clubId) => {
-    const c = clubs.find(club => club.id === clubId);
-    return c ? c.name : clubId;
-  };
+export default function ReportAppraisal({ triggerNotification }) {
+  const [activeTab, setActiveTab] = useState('appraisal'); // 'appraisal' or 'announcements'
 
-  const getPeriodName = (periodId) => {
-    const p = reportPeriods.find(period => period.id === periodId);
-    return p ? p.name : periodId;
-  };
+  // ── Announcement states (mockDb) ───────────────────────────────────────────
+  const [announcements, setAnnouncements] = useState([]);
+  const [newAnn, setNewAnn] = useState({ title: '', content: '' });
 
-  const handleOpenAppraisal = (report) => {
-    setSelectedReport(report);
-    setAppraisal({
-      score: report.score !== null ? String(report.score) : '',
-      adminRemark: report.adminRemark || ''
-    });
-  };
+  useEffect(() => {
+    const syncAnn = () => {
+      const db = mockDb.getData();
+      setAnnouncements(db.announcements || []);
+    };
+    syncAnn();
+    window.addEventListener('mockDbUpdate', syncAnn);
+    return () => window.removeEventListener('mockDbUpdate', syncAnn);
+  }, []);
 
-  const handleCloseAppraisal = () => {
-    setSelectedReport(null);
-  };
-
-  const handleSubmitAppraisal = (e) => {
+  const handleCreateAnnouncement = (e) => {
     e.preventDefault();
-    if (!selectedReport) return;
-    
-    const scoreNum = Number(appraisal.score);
-    if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100 || appraisal.score === '') {
-      triggerNotification('Điểm số phải là số từ 0 đến 100!', 'warning');
+    if (!newAnn.title.trim() || !newAnn.content.trim()) {
+      triggerNotification('Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo!', 'warning');
       return;
     }
-
-    mockDb.appraiseReport(selectedReport.id, scoreNum, appraisal.adminRemark);
-    triggerNotification(`Đã chấm điểm báo cáo cho CLB ${getClubName(selectedReport.clubId)}: ${scoreNum}đ`, 'success');
-    handleCloseAppraisal();
+    mockDb.addAnnouncement({
+      title: newAnn.title.trim(),
+      content: newAnn.content.trim(),
+    });
+    triggerNotification('Đã đăng và phát hành thông báo thành công!', 'success');
+    setNewAnn({ title: '', content: '' });
   };
 
-  const pendingReports = clubReports.filter(r => r.status === 'Submitted');
-  const appraisedReports = clubReports.filter(r => r.status === 'Appraised');
 
   return (
     <div className="report-appraisal-container">
-      <div className="stats-grid">
-        <div className="stats-card">
-          <div className="stats-icon-box"><AlertTriangle size={20} /></div>
-          <div className="stats-info">
-            <span className="stats-label">Báo cáo chờ thẩm định</span>
-            <span className="stats-value">{pendingReports.length} bản</span>
-          </div>
-        </div>
-        <div className="stats-card">
-          <div className="stats-icon-box" style={{ color: 'var(--success)' }}><CheckCircle size={20} /></div>
-          <div className="stats-info">
-            <span className="stats-label">Báo cáo đã chấm điểm</span>
-            <span className="stats-value">{appraisedReports.length} bản</span>
+      {/* Header and Switcher Tab */}
+      <div className="glass-card" style={{ marginBottom: '24px' }}>
+        <div className="glass-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="glass-card-title">
+            {activeTab === 'appraisal' ? <FileText size={18} /> : <Bell size={18} />}
+            {activeTab === 'appraisal' ? 'Thẩm định Báo cáo CLB' : 'Quản lý & Phát hành Thông báo'}
+          </h3>
+          <div className="role-switcher-container" style={{ margin: 0 }}>
+            <button
+              className={`role-switch-btn ${activeTab === 'appraisal' ? 'active' : ''}`}
+              onClick={() => setActiveTab('appraisal')}
+              type="button"
+            >
+              Thẩm định Báo cáo
+            </button>
+            <button
+              className={`role-switch-btn ${activeTab === 'announcements' ? 'active' : ''}`}
+              onClick={() => setActiveTab('announcements')}
+              type="button"
+            >
+              Gửi Thông báo
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="dashboard-grid-2col">
-        {/* Pending Reports List */}
+      {activeTab === 'appraisal' ? (
+        /* Report Appraisal – chờ BE */
         <div className="glass-card">
           <div className="glass-card-header">
-            <h3 className="glass-card-title"><Clock size={18} /> Báo cáo Chờ Thẩm định</h3>
+            <h3 className="glass-card-title"><FileText size={18} /> Danh sách Báo cáo CLB</h3>
+          </div>
+          <div className="empty-state-view">
+            <AlertTriangle className="empty-state-icon" style={{ color: 'var(--warning)' }} />
+            <p>Chức năng thẩm định báo cáo CLB đang chờ BE bổ sung API.</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+              Yêu cầu BE bổ sung: <code>GET /api/club-reports</code>, <code>PUT /api/club-reports/&#123;id&#125;/appraise</code>
+            </p>
+          </div>
+        </div>
+      ) : (
+        /* Announcements view */
+        <div className="dashboard-grid-2col">
+          {/* Create Announcement Form */}
+          <div className="glass-card">
+            <div className="glass-card-header">
+              <h3 className="glass-card-title"><Plus size={18} /> Phát hành Thông báo mới</h3>
+            </div>
+
+            <form onSubmit={handleCreateAnnouncement}>
+              <div className="form-group">
+                <label>Tiêu đề thông báo *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={newAnn.title}
+                  onChange={e => setNewAnn({ ...newAnn, title: e.target.value })}
+                  placeholder="Nhập tiêu đề thông báo..."
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Nội dung chi tiết thông báo *</label>
+                <textarea
+                  className="textarea-field"
+                  value={newAnn.content}
+                  onChange={e => setNewAnn({ ...newAnn, content: e.target.value })}
+                  placeholder="Nhập nội dung thông báo gửi đến các CLB..."
+                  rows={6}
+                  required
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px', padding: '10px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
+                * Chú ý: API gửi thông báo đến BE chưa sẵn sàng. Thông báo hiện lưu tạm trong phiên làm việc này.
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                <Send size={16} /> Đăng và Phát hành thông báo
+              </button>
+            </form>
           </div>
 
-          {pendingReports.length === 0 ? (
-            <div className="empty-state-view">
-              <FileText className="empty-state-icon" />
-              <p>Hiện không có báo cáo nào đang chờ duyệt.</p>
+          {/* Published Announcements List */}
+          <div className="glass-card" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            <div className="glass-card-header">
+              <h3 className="glass-card-title"><Bell size={18} /> Thông báo đã phát hành ({announcements.length})</h3>
             </div>
-          ) : (
-            <div className="table-container">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>Câu lạc bộ</th>
-                    <th>Đợt báo cáo</th>
-                    <th>Số Sự kiện</th>
-                    <th>Thành viên</th>
-                    <th style={{ textAlign: 'center' }}>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingReports.map(r => (
-                    <tr key={r.id}>
-                      <td><strong>{getClubName(r.clubId)}</strong></td>
-                      <td>{getPeriodName(r.reportPeriodId)}</td>
-                      <td>{r.eventCount} sự kiện</td>
-                      <td>{r.memberCount} active</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button 
-                          className="btn btn-primary btn-sm"
-                          onClick={() => handleOpenAppraisal(r)}
-                        >
-                          Đánh giá & Chấm điểm
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
 
-        {/* Appraised Reports Archive */}
-        <div className="glass-card">
-          <div className="glass-card-header">
-            <h3 className="glass-card-title"><Award size={18} /> Lịch sử Đã Thẩm định</h3>
+            {announcements.length === 0 ? (
+              <div className="empty-state-view">
+                <Bell className="empty-state-icon" />
+                <p>Chưa có thông báo nào được phát hành.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {announcements.map(ann => (
+                  <div key={ann.id} style={{ padding: '14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <strong style={{ color: 'var(--text-heading)', fontSize: '14px' }}>{ann.title}</strong>
+                    </div>
+                    <p style={{ fontSize: '13px', color: 'var(--text-main)', fontStyle: 'italic', marginBottom: '8px', whiteSpace: 'pre-line' }}>
+                      "{ann.content}"
+                    </p>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right' }}>
+                      Ngày đăng: {new Date(ann.createdAt).toLocaleString('vi-VN')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {appraisedReports.length === 0 ? (
-            <div className="empty-state-view">
-              <FileText className="empty-state-icon" />
-              <p>Chưa có báo cáo nào được thẩm định.</p>
-            </div>
-          ) : (
-            <div className="table-container">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>CLB</th>
-                    <th>Học kỳ</th>
-                    <th>Điểm</th>
-                    <th>Xếp loại</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {appraisedReports.map(r => (
-                    <tr key={r.id}>
-                      <td>
-                        <strong>{getClubName(r.clubId)}</strong>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{getPeriodName(r.reportPeriodId)}</div>
-                      </td>
-                      <td>{r.semesterId}</td>
-                      <td>
-                        <span style={{ fontWeight: 700, color: r.score >= 80 ? 'var(--success)' : 'var(--warning)' }}>
-                          {r.score}đ
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`badge ${
-                          r.score >= 90 ? 'badge-active' : r.score >= 80 ? 'badge-present' : 'badge-pending'
-                        }`}>
-                          {r.score >= 90 ? 'Xuất sắc' : r.score >= 80 ? 'Tốt' : 'Khá / Trung bình'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-      </div>
-
-      {/* Appraisal modal form */}
-      {selectedReport && (
-        <Modal
-          isOpen={!!selectedReport}
-          onClose={handleCloseAppraisal}
-          title={`Thẩm định hoạt động: ${getClubName(selectedReport.clubId)}`}
-        >
-          <form onSubmit={handleSubmitAppraisal}>
-            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(0,0,0,0.1)', marginBottom: '16px', fontSize: '13px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div><span style={{ color: 'var(--text-muted)' }}>Học kỳ:</span> <strong>{selectedReport.semesterId}</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Đợt nộp:</span> <strong>{getPeriodName(selectedReport.reportPeriodId)}</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Số sự kiện đã chạy:</span> <strong>{selectedReport.eventCount}</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Tổng thành viên:</span> <strong>{selectedReport.memberCount}</strong></div>
-              </div>
-              <div style={{ marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
-                <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Nội dung báo cáo tự khai:</span>
-                <p style={{ color: 'var(--text-main)', fontStyle: 'italic', whiteSpace: 'pre-line' }}>"{selectedReport.content}"</p>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Thang Điểm Hoạt Động (0 - 100)</label>
-              <input 
-                type="number"
-                min="0"
-                max="100"
-                className="input-field"
-                value={appraisal.score}
-                onChange={e => setAppraisal({ ...appraisal, score: e.target.value })}
-                placeholder="Nhập số điểm (Ví dụ: 85)"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Lời nhận xét / Ý kiến phản hồi góp ý của PDP</label>
-              <textarea 
-                className="textarea-field"
-                value={appraisal.adminRemark}
-                onChange={e => setAppraisal({ ...appraisal, adminRemark: e.target.value })}
-                placeholder="Nhập phản hồi chi tiết về các lỗi hoặc ưu điểm của CLB..."
-                required
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                <Send size={16} /> Ghi nhận & Công bố điểm số
-              </button>
-              <button type="button" className="btn btn-secondary" onClick={handleCloseAppraisal}>
-                Hủy bỏ
-              </button>
-            </div>
-          </form>
-        </Modal>
       )}
     </div>
   );

@@ -1,15 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createEvent, getEventsByClub } from '../../services/eventService';
-import { Calendar, Plus, UserCheck, MapPin } from 'lucide-react';
+import { Calendar, Plus, UserCheck, MapPin, AlertTriangle } from 'lucide-react';
 
-// Chuyển mock club ID (string) sang backend numeric ID
-const toBackendClubId = (id) => {
-  const map = { js: 1, fcode: 2, melody: 3, chess: 4, fsa: 5, dance: 6 };
-  return map[id] ?? Number(id) ?? id;
-};
-
-export default function EventManager({ dbData, selectedClubId, triggerNotification }) {
-  const { participants, users } = dbData;
+export default function EventManager({ selectedClubId, triggerNotification }) {
 
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -27,7 +20,7 @@ export default function EventManager({ dbData, selectedClubId, triggerNotificati
   });
   const [selectedEventId, setSelectedEventId] = useState(null);
 
-  const backendClubId = toBackendClubId(selectedClubId);
+  const backendClubId = selectedClubId;
 
   // Load events từ API khi selectedClubId thay đổi
   const loadEvents = useCallback(async () => {
@@ -102,23 +95,10 @@ export default function EventManager({ dbData, selectedClubId, triggerNotificati
     }
   };
 
-  // Điểm danh vẫn dùng mockDb (chưa có API riêng)
-  const handleToggleAttendance = (userId, currentStatus) => {
-    if (!selectedEventId) return;
-    const nextStatus = currentStatus === 'Present' ? 'Absent' : 'Present';
-    // mockDb.updateAttendance(selectedEventId, userId, nextStatus);
-    triggerNotification(`Đã cập nhật điểm danh thành công!`, 'success');
-  };
-
-  // Get participants of selected event (vẫn từ mockDb cho đến khi có API)
-  const eventParticipants = selectedEventId
-    ? participants.filter(p => p.eventId === selectedEventId)
-    : [];
-
-  const getUsername = (userId) => {
-    const u = users.find(user => user.id === userId);
-    return u ? u.fullName : userId;
-  };
+  // NOTE: BE chưa có API điểm danh. Placeholder cho đến khi BE bổ sung:
+  //   POST /api/events/{eventId}/attendance
+  //   GET  /api/events/{eventId}/participants
+  const eventParticipants = [];
 
   return (
     <div className="event-manager-container">
@@ -316,50 +296,13 @@ export default function EventManager({ dbData, selectedClubId, triggerNotificati
                 </div>
               </div>
 
-              {eventParticipants.length === 0 ? (
-                <div className="empty-state-view">
-                  <p>Chưa có sinh viên nào đăng ký tham gia sự kiện này.</p>
-                  <p style={{ fontSize: '12px' }}>Sinh viên có thể đăng ký trực tiếp ở vai trò MEMBER.</p>
-                </div>
-              ) : (
-                <div className="table-container">
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th>MSSV</th>
-                        <th>Họ tên sinh viên</th>
-                        <th>Ngày đăng ký</th>
-                        <th style={{ textAlign: 'center' }}>Điểm danh</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {eventParticipants.map(p => (
-                        <tr key={p.id}>
-                          <td><strong>{p.userId}</strong></td>
-                          <td>{getUsername(p.userId)}</td>
-                          <td>{p.registeredAt}</td>
-                          <td style={{ textAlign: 'center' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="checkbox"
-                                checked={p.attendanceStatus === 'Present'}
-                                onChange={() => handleToggleAttendance(p.userId, p.attendanceStatus)}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary)' }}
-                                id={`check-${p.userId}`}
-                              />
-                              <label htmlFor={`check-${p.userId}`} style={{ cursor: 'pointer' }}>
-                                <span className={`badge ${p.attendanceStatus === 'Present' ? 'badge-active' : 'badge-blocked'}`}>
-                                  {p.attendanceStatus === 'Present' ? 'Có mặt' : 'Vắng mặt'}
-                                </span>
-                              </label>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <div className="empty-state-view">
+                <AlertTriangle className="empty-state-icon" style={{ color: 'var(--warning)' }} />
+                <p>Chức năng điểm danh đang chờ BE bổ sung API.</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  Yêu cầu BE bổ sung: <code>GET /api/events/&#123;eventId&#125;/participants</code>
+                </p>
+              </div>
             </div>
           )}
         </div>

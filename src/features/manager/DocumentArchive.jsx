@@ -2,13 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { uploadDocument, getDocumentsByClub, downloadDocument, deleteDocument } from '../../services/documentService';
 import { Folder, Upload, FileText, Globe, Lock, Download, Trash2, RefreshCw } from 'lucide-react';
 
-// Chuyển mock club ID (string) sang backend numeric ID
-const toBackendClubId = (id) => {
-  const map = { js: 1, fcode: 2, melody: 3, chess: 4, fsa: 5, dance: 6 };
-  return map[id] ?? Number(id) ?? id;
-};
-
-export default function DocumentArchive({ dbData, selectedClubId, triggerNotification }) {
+export default function DocumentArchive({ selectedClubId, triggerNotification, readOnly = false }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -22,7 +16,7 @@ export default function DocumentArchive({ dbData, selectedClubId, triggerNotific
 
   const [activeFolder, setActiveFolder] = useState('ALL');
 
-  const backendClubId = toBackendClubId(selectedClubId);
+  const backendClubId = selectedClubId;
 
   // Load tài liệu từ API
   const loadDocuments = useCallback(async () => {
@@ -204,7 +198,7 @@ export default function DocumentArchive({ dbData, selectedClubId, triggerNotific
             ) : filteredDocs.length === 0 ? (
               <div className="empty-state-view">
                 <FileText className="empty-state-icon" />
-                <p>Thư mục trống. Hãy tải lên tài liệu đầu tiên của CLB.</p>
+                <p>Thư mục trống. Không có tài liệu nào.</p>
               </div>
             ) : (
               <div className="table-container">
@@ -252,14 +246,16 @@ export default function DocumentArchive({ dbData, selectedClubId, triggerNotific
                               >
                                 <Download size={12} />
                               </button>
-                              <button
-                                className="btn btn-sm"
-                                style={{ padding: '4px 8px', background: 'rgba(239,68,68,0.15)', color: 'var(--error)', border: '1px solid rgba(239,68,68,0.3)' }}
-                                onClick={() => handleDelete(d)}
-                                title="Xóa"
-                              >
-                                <Trash2 size={12} />
-                              </button>
+                              {!readOnly && (
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ padding: '4px 8px', background: 'rgba(239,68,68,0.15)', color: 'var(--error)', border: '1px solid rgba(239,68,68,0.3)' }}
+                                  onClick={() => handleDelete(d)}
+                                  title="Xóa"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -272,87 +268,102 @@ export default function DocumentArchive({ dbData, selectedClubId, triggerNotific
           </div>
         </div>
 
-        {/* Right Side: Upload Form */}
-        <div className="glass-card" style={{ height: 'fit-content' }}>
-          <div className="glass-card-header">
-            <h3 className="glass-card-title"><Upload size={18} /> Tải tài liệu lên kho lưu trữ</h3>
+        {/* Right Side: Upload Form / Details Panel */}
+        {readOnly ? (
+          <div className="glass-card" style={{ height: 'fit-content' }}>
+            <div className="glass-card-header">
+              <h3 className="glass-card-title"><Lock size={18} /> Lưu ý Quyền hạn</h3>
+            </div>
+            <div style={{ padding: '8px 0', fontSize: '13px', lineHeight: 1.6, color: 'var(--text-main)' }}>
+              <p>Kho tài liệu lưu trữ nội bộ của câu lạc bộ.</p>
+              <p style={{ marginTop: '8px', color: 'var(--text-muted)' }}>
+                * Chỉ <strong>Ban chủ nhiệm (Leader)</strong> của câu lạc bộ mới có quyền tải lên tài liệu mới hoặc thực hiện xóa tệp tin lưu trữ. Sinh viên là thành viên thông thường chỉ có quyền đọc trực tuyến hoặc tải xuống tài nguyên được chia sẻ.
+              </p>
+            </div>
           </div>
-
-          <form onSubmit={handleUploadDoc}>
-            <div className="form-group">
-              <label>Phân loại Folder lưu trữ</label>
-              <select
-                className="select-field"
-                value={docTypeId}
-                onChange={e => setDocTypeId(e.target.value)}
-              >
-                <option value="1">Thư mục Proposal (Kế hoạch)</option>
-                <option value="2">Thư mục Kịch bản mẫu (Script)</option>
-                <option value="3">Thư mục Báo cáo (Report)</option>
-                <option value="4">Khác (Other)</option>
-              </select>
+        ) : (
+          <div className="glass-card" style={{ height: 'fit-content' }}>
+            <div className="glass-card-header">
+              <h3 className="glass-card-title"><Upload size={18} /> Tải tài liệu lên kho lưu trữ</h3>
             </div>
 
-            <div className="form-group">
-              <label>Quyền truy cập (Access Level)</label>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="doc-access"
-                    checked={accessLevel === 'Public'}
-                    onChange={() => setAccessLevel('Public')}
-                    style={{ accentColor: 'var(--primary)' }}
-                  />
-                  <span>Công khai (Public)</span>
-                </label>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="doc-access"
-                    checked={accessLevel === 'Internal'}
-                    onChange={() => setAccessLevel('Internal')}
-                    style={{ accentColor: 'var(--primary)' }}
-                  />
-                  <span>Nội bộ (Internal)</span>
-                </label>
+            <form onSubmit={handleUploadDoc}>
+              <div className="form-group">
+                <label>Phân loại Folder lưu trữ</label>
+                <select
+                  className="select-field"
+                  value={docTypeId}
+                  onChange={e => setDocTypeId(e.target.value)}
+                >
+                  <option value="1">Thư mục Proposal (Kế hoạch)</option>
+                  <option value="2">Thư mục Kịch bản mẫu (Script)</option>
+                  <option value="3">Thư mục Báo cáo (Report)</option>
+                  <option value="4">Khác (Other)</option>
+                </select>
               </div>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
-                Tài liệu "Công khai" sẽ hiển thị trong thư viện tri thức chung dành cho toàn bộ sinh viên.
-              </span>
-            </div>
 
-            <div className="form-group">
-              <label>Tệp tin đính kèm <span style={{ color: 'var(--error)' }}>*</span></label>
-              <input
-                id="doc-file-input"
-                type="file"
-                className="input-field"
-                multiple
-                onChange={e => setFiles(e.target.files)}
-                style={{ padding: '8px' }}
-                required
-              />
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
-                Có thể chọn nhiều tệp cùng lúc.
-              </span>
-            </div>
+              <div className="form-group">
+                <label>Quyền truy cập (Access Level)</label>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="doc-access"
+                      checked={accessLevel === 'Public'}
+                      onChange={() => setAccessLevel('Public')}
+                      style={{ accentColor: 'var(--primary)' }}
+                    />
+                    <span>Công khai (Public)</span>
+                  </label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="doc-access"
+                      checked={accessLevel === 'Internal'}
+                      onChange={() => setAccessLevel('Internal')}
+                      style={{ accentColor: 'var(--primary)' }}
+                    />
+                    <span>Nội bộ (Internal)</span>
+                  </label>
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
+                  Tài liệu "Công khai" sẽ hiển thị trong thư viện tri thức chung dành cho toàn bộ sinh viên.
+                </span>
+              </div>
 
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <span className="login-spinner" />
-              ) : (
-                <><Upload size={16} /> Tải tài liệu lên hệ thống</>
-              )}
-            </button>
-          </form>
-        </div>
+              <div className="form-group">
+                <label>Tệp tin đính kèm <span style={{ color: 'var(--error)' }}>*</span></label>
+                <input
+                  id="doc-file-input"
+                  type="file"
+                  className="input-field"
+                  multiple
+                  onChange={e => setFiles(e.target.files)}
+                  style={{ padding: '8px' }}
+                  required
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                  Có thể chọn nhiều tệp cùng lúc.
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <span className="login-spinner" />
+                ) : (
+                  <><Upload size={16} /> Tải tài liệu lên hệ thống</>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
