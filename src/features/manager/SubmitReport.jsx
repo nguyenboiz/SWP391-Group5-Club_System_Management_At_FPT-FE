@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileText, Send, Award, Calendar, Users, Star, ClipboardList, AlertTriangle } from 'lucide-react';
 import * as semesterService from '../../services/semesterService';
 import * as reportPeriodService from '../../services/reportPeriodService';
+import { useAuth } from '../../contexts/AuthContext';
 
 // NOTE: BE chưa có API cho club reports.
 // Yêu cầu BE bổ sung:
@@ -10,6 +11,8 @@ import * as reportPeriodService from '../../services/reportPeriodService';
 // Khi có API, thay phần mock bên dưới.
 
 export default function SubmitReport({ selectedClubId, triggerNotification }) {
+  const { currentUser } = useAuth();
+  const isManager = currentUser?.role === 'MANAGER';
   const [semesters, setSemesters] = React.useState([]);
   const [reportPeriods, setReportPeriods] = React.useState([]);
   const [selectedPeriodId, setSelectedPeriodId] = React.useState('');
@@ -70,8 +73,8 @@ export default function SubmitReport({ selectedClubId, triggerNotification }) {
         <div className="stats-card">
           <div className="stats-icon-box"><Calendar size={20} /></div>
           <div className="stats-info">
-            <span className="stats-label">CLB đang hoạt động</span>
-            <span className="stats-value">ID: {selectedClubId}</span>
+            <span className="stats-label">{isManager ? 'Vai trò phê duyệt' : 'CLB đang hoạt động'}</span>
+            <span className="stats-value">{isManager ? 'Quản lý Hệ thống (Manager)' : `ID: ${selectedClubId}`}</span>
           </div>
         </div>
         <div className="stats-card">
@@ -87,7 +90,9 @@ export default function SubmitReport({ selectedClubId, triggerNotification }) {
         {/* Left Side: Create Report form */}
         <div className="glass-card">
           <div className="glass-card-header">
-            <h3 className="glass-card-title"><FileText size={18} /> Gửi báo cáo định kỳ lên nhà trường</h3>
+            <h3 className="glass-card-title">
+              <FileText size={18} /> {isManager ? 'Tổng hợp Báo cáo Học kỳ gửi Admin' : 'Gửi báo cáo định kỳ lên nhà trường'}
+            </h3>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -114,12 +119,15 @@ export default function SubmitReport({ selectedClubId, triggerNotification }) {
             </div>
 
             <div className="form-group">
-              <label>Báo cáo tình hình chi tiết hoạt động</label>
+              <label>{isManager ? 'Nội dung tổng hợp báo cáo hệ thống' : 'Báo cáo tình hình chi tiết hoạt động'}</label>
               <textarea
                 className="textarea-field"
                 value={content}
                 onChange={e => setContent(e.target.value)}
-                placeholder="Tóm tắt kết quả đạt được, khó khăn, đề xuất kiến nghị với phòng IC-PDP..."
+                placeholder={isManager 
+                  ? "Tóm tắt tình hình hoạt động của tất cả câu lạc bộ trong học kỳ, thống kê các sự kiện nổi bật, khó khăn chung và đề xuất giải pháp lên Admin..."
+                  : "Tóm tắt kết quả đạt được, khó khăn, đề xuất kiến nghị với phòng IC-PDP..."
+                }
                 rows={6}
                 required
               />
@@ -127,11 +135,11 @@ export default function SubmitReport({ selectedClubId, triggerNotification }) {
 
             <div style={{ marginBottom: '12px', padding: '10px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
               <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
-              API nộp báo cáo CLB chưa có trên BE. Vui lòng yêu cầu BE bổ sung <code>POST /api/club-reports</code>.
+              API nộp báo cáo {isManager ? 'tổng hợp' : 'CLB'} chưa có trên BE. Vui lòng yêu cầu BE bổ sung <code>POST /api/club-reports</code>.
             </div>
 
             <button type="submit" className="btn btn-primary">
-              <Send size={16} /> Nộp báo cáo lên PDP
+              <Send size={16} /> {isManager ? 'Gửi báo cáo lên Admin' : 'Nộp báo cáo lên PDP'}
             </button>
           </form>
         </div>
@@ -139,13 +147,13 @@ export default function SubmitReport({ selectedClubId, triggerNotification }) {
         {/* Right Side: History placeholder */}
         <div className="glass-card">
           <div className="glass-card-header">
-            <h3 className="glass-card-title"><ClipboardList size={18} /> Lịch sử & Điểm số phản hồi</h3>
+            <h3 className="glass-card-title"><ClipboardList size={18} /> Lịch sử &amp; Phản hồi từ Admin</h3>
           </div>
           <div className="empty-state-view">
             <ClipboardList className="empty-state-icon" />
-            <p>Lịch sử báo cáo sẽ hiển thị khi BE bổ sung API.</p>
+            <p>Lịch sử báo cáo tổng hợp sẽ hiển thị khi BE bổ sung API.</p>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-              Yêu cầu BE: <code>GET /api/club-reports?clubId=&#123;id&#125;</code>
+              Yêu cầu BE: <code>GET /api/club-reports?role=MANAGER</code>
             </p>
           </div>
         </div>

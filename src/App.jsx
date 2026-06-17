@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-import { mockDb } from './utils/mockDb';
 
 import Sidebar from './layouts/Sidebar';
 import Header from './layouts/Header';
@@ -10,74 +9,77 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import ClubSelectorPage from './pages/ClubSelectorPage';
 
-// Admin Pages
+// ── Admin Pages ────────────────────────────────────────────────────────────────
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import SemesterConfigPage from './pages/admin/SemesterConfigPage';
-import EvidenceApprovalPage from './pages/admin/EvidenceApprovalPage';
 import ReportAppraisalPage from './pages/admin/ReportAppraisalPage';
 import UserManagementPage from './pages/admin/UserManagementPage';
+import ClubManagementPage from './pages/admin/ClubManagementPage';
+import DepartmentManagementPage from './pages/admin/DepartmentManagementPage';
+
+// ── Manager Pages ──────────────────────────────────────────────────────────────
+import ManagerDashboardPage from './pages/manager/ManagerDashboardPage';
 import EventApprovalPage from './pages/admin/EventApprovalPage';
-import CreateClubPage from './pages/admin/CreateClubPage';
-
-// Manager Pages
-import ClubInfoPage from './pages/manager/ClubInfoPage';
-import MemberManagementPage from './pages/manager/MemberManagementPage';
-import EventManagerPage from './pages/manager/EventManagerPage';
-import DocumentArchivePage from './pages/manager/DocumentArchivePage';
-import SubmitReportPage from './pages/manager/SubmitReportPage';
 import ReviewMemberReportsPage from './pages/manager/ReviewMemberReportsPage';
+import SubmitReportPage from './pages/manager/SubmitReportPage';
 
-// Member Pages
-import ClubDirectoryPage from './pages/member/ClubDirectoryPage';
+// ── Member / Leader Pages ──────────────────────────────────────────────────────
+import MemberDashboardPage from './pages/member/MemberDashboardPage';
+import ClubInfoPage from './pages/manager/ClubInfoPage';
+import DocumentArchivePage from './pages/manager/DocumentArchivePage';
 import EventCalendarPage from './pages/member/EventCalendarPage';
 import MemberWorkspacePage from './pages/member/MemberWorkspacePage';
-import KnowledgeSharingPage from './pages/member/KnowledgeSharingPage';
 import MemberSearchPage from './pages/member/MemberSearchPage';
-import SubmitMemberReportPage from './pages/member/SubmitMemberReportPage';
+import MemberManagementPage from './pages/manager/MemberManagementPage';
+import EventManagerPage from './pages/manager/EventManagerPage';
+import LeaderManagementPage from './pages/member/LeaderManagementPage';
+
+// Shared: Evidence Approval (for both Manager and Leader)
+import EvidenceApprovalPage from './pages/admin/EvidenceApprovalPage';
 
 import { Bell } from 'lucide-react';
 
-// ─── Shared Dashboard Layout ─────────────────────────────────────────────────
+// ─── Shared Dashboard Layout ──────────────────────────────────────────────────
 function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotification, selectedClubId, isLeader = false }) {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const [announcements, setAnnouncements] = useState([]);
-
-  useEffect(() => {
-    const syncAnn = () => {
-      const db = mockDb.getData();
-      setAnnouncements(db.announcements || []);
-    };
-    syncAnn();
-    window.addEventListener('mockDbUpdate', syncAnn);
-    return () => window.removeEventListener('mockDbUpdate', syncAnn);
-  }, []);
 
   const getPageTitle = () => {
+    // ADMIN
     if (role === 'ADMIN') {
-      if (activeTab === 'semester-config') return 'Cài đặt học kỳ';
-      if (activeTab === 'create-club') return 'Quản lý CLB';
-      if (activeTab === 'report-appraisal') return 'Nhận báo cáo & Thông báo';
-      return 'Quản lý người dùng';
+      if (activeTab === 'dashboard') return 'Dashboard';
+      if (activeTab === 'user-management') return 'Quản lý Người dùng';
+      if (activeTab === 'club-management') return 'Quản lý CLB';
+      if (activeTab === 'semester-config') return 'Quản lý Học kỳ';
+      if (activeTab === 'report-appraisal') return 'Report Review';
+      if (activeTab === 'department-management') return 'Quản lý Phòng ban';
+      if (activeTab === 'notification-management') return 'Gửi Thông báo';
+      return 'Dashboard';
     }
+    // MANAGER
     if (role === 'MANAGER') {
-      if (activeTab === 'club-info') return 'Thông tin CLB';
-      if (activeTab === 'member-management') return 'Quản lý thành viên';
-      if (activeTab === 'event-manager') return 'Quản lý sự kiện';
-      if (activeTab === 'event-approval') return 'Duyệt sự kiện';
-      if (activeTab === 'evidence-approval') return 'Duyệt minh chứng';
-      if (activeTab === 'member-reports') return 'Báo cáo thành viên';
-      return 'Nộp báo cáo';
+      if (activeTab === 'dashboard') return 'Dashboard';
+      if (activeTab === 'event-approval') return 'Duyệt Sự kiện';
+      if (activeTab === 'event-monitoring') return 'Theo dõi Sự kiện';
+      if (activeTab === 'club-report-review') return 'Kiểm tra Báo cáo CLB';
+      if (activeTab === 'submit-report') return 'Tổng hợp Báo cáo';
+      if (activeTab === 'notification-management') return 'Thông báo CLB';
+      return 'Dashboard';
     }
-    // MEMBER
+    // MEMBER / LEADER
+    if (activeTab === 'dashboard') return 'Dashboard';
     if (activeTab === 'club-info') return 'Thông tin CLB';
     if (activeTab === 'document-archive') return 'Tài liệu CLB';
-    if (activeTab === 'event-calendar') return 'Lịch trình sự kiện';
+    if (activeTab === 'document-upload') return 'Tài liệu CLB (Upload)';
+    if (activeTab === 'member-search') return 'Thành viên CLB';
+    if (activeTab === 'event-calendar') return 'Sự kiện';
     if (activeTab === 'member-workspace') return 'Hoạt động của tôi';
-    if (activeTab === 'member-search') return 'Tìm thành viên CLB';
-    if (activeTab === 'submit-member-report') return 'Nộp báo cáo cho Leader';
-    if (activeTab === 'member-management') return 'Quản lý thành viên (Leader)';
-    if (activeTab === 'review-member-reports') return 'Xem báo cáo thành viên';
-    return 'Tìm thành viên';
+    if (activeTab === 'member-management') return 'Quản lý Thành viên';
+    if (activeTab === 'event-manager') return 'Quản lý Sự kiện';
+    if (activeTab === 'evidence-review') return 'Kiểm tra Minh chứng';
+    if (activeTab === 'club-report') return 'Nộp Báo cáo CLB';
+    if (activeTab === 'leader-management') return 'Chuyển giao Leader';
+    return 'Dashboard';
   };
 
   const handleSwitchClub = () => {
@@ -104,26 +106,6 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
           onSwitchClub={handleSwitchClub}
         />
         <div className="content-wrapper">
-          {/* Announcements alert board from Admin */}
-          {(role === 'MANAGER' || role === 'MEMBER') && announcements.length > 0 && (
-            <div className="glass-card" style={{ marginBottom: '20px', padding: '16px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--primary)' }}>
-                <Bell size={16} />
-                <strong style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bản tin thông báo mới từ PDP Staff</strong>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {announcements.map(ann => (
-                  <div key={ann.id} style={{ fontSize: '13px', borderBottom: '1px dashed var(--border)', paddingBottom: '6px' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{ann.title}: </span>
-                    <span style={{ color: 'var(--text-main)' }}>{ann.content}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px' }}>
-                      ({new Date(ann.createdAt).toLocaleDateString('vi-VN')})
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           {children}
         </div>
       </main>
@@ -133,13 +115,16 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
 
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard({ triggerNotification }) {
-  const [activeTab, setActiveTab] = useState('semester-config');
+  const [activeTab, setActiveTab] = useState('dashboard');
   return (
     <DashboardLayout role="ADMIN" activeTab={activeTab} setActiveTab={setActiveTab} triggerNotification={triggerNotification}>
+      {activeTab === 'dashboard' && <AdminDashboardPage triggerNotification={triggerNotification} />}
+      {activeTab === 'user-management' && <UserManagementPage triggerNotification={triggerNotification} />}
+      {activeTab === 'club-management' && <ClubManagementPage triggerNotification={triggerNotification} />}
       {activeTab === 'semester-config' && <SemesterConfigPage triggerNotification={triggerNotification} />}
       {activeTab === 'report-appraisal' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
-      {activeTab === 'user-management' && <UserManagementPage triggerNotification={triggerNotification} />}
-      {activeTab === 'create-club' && <CreateClubPage triggerNotification={triggerNotification} />}
+      {activeTab === 'department-management' && <DepartmentManagementPage triggerNotification={triggerNotification} />}
+      {activeTab === 'notification-management' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
     </DashboardLayout>
   );
 }
@@ -147,35 +132,7 @@ function AdminDashboard({ triggerNotification }) {
 // ─── Manager Dashboard ────────────────────────────────────────────────────────
 function ManagerDashboard({ triggerNotification }) {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('club-info');
-
-  // Read selected club ID from session (numeric from BE)
-  const savedClubId = sessionStorage.getItem('fpt_selected_club');
-
-  // Try to resolve clubId from available clubs list saved after login
-  const availableClubsStr = sessionStorage.getItem('fpt_available_clubs');
-  const availableClubs = availableClubsStr ? JSON.parse(availableClubsStr) : null;
-
-  let resolvedClubId = savedClubId;
-  if (!resolvedClubId && availableClubs && availableClubs.length > 0) {
-    const managerClub = availableClubs.find(c =>
-      (c.role || c.clubRole || '').toUpperCase() === 'MANAGER' ||
-      (c.role || c.clubRole || '').toUpperCase() === 'LEADER'
-    );
-    resolvedClubId = String(managerClub?.clubId || managerClub?.id || '');
-    if (resolvedClubId) sessionStorage.setItem('fpt_selected_club', resolvedClubId);
-  }
-  if (!resolvedClubId && currentUser?.clubId) {
-    resolvedClubId = String(currentUser.clubId);
-    sessionStorage.setItem('fpt_selected_club', resolvedClubId);
-  }
-
-  const [selectedClubId] = useState(resolvedClubId);
-
-  if (!selectedClubId) return <Navigate to="/select-club" replace />;
-
-  // isLeader: manager always has leader privileges over their club
-  const isLeader = true;
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <DashboardLayout
@@ -183,16 +140,15 @@ function ManagerDashboard({ triggerNotification }) {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       triggerNotification={triggerNotification}
-      selectedClubId={selectedClubId}
-      isLeader={isLeader}
+      selectedClubId={null}
+      isLeader={false}
     >
-      {activeTab === 'club-info' && <ClubInfoPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
-      {activeTab === 'member-management' && <MemberManagementPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
-      {activeTab === 'event-manager' && <EventManagerPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
-      {activeTab === 'event-approval' && <EventApprovalPage triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
-      {activeTab === 'evidence-approval' && <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
-      {activeTab === 'member-reports' && <ReviewMemberReportsPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
-      {activeTab === 'submit-report' && <SubmitReportPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
+      {activeTab === 'dashboard' && <ManagerDashboardPage triggerNotification={triggerNotification} />}
+      {activeTab === 'event-approval' && <EventApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
+      {activeTab === 'event-monitoring' && <EventApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
+      {activeTab === 'club-report-review' && <ReviewMemberReportsPage triggerNotification={triggerNotification} />}
+      {activeTab === 'submit-report' && <SubmitReportPage triggerNotification={triggerNotification} />}
+      {activeTab === 'notification-management' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
     </DashboardLayout>
   );
 }
@@ -200,7 +156,7 @@ function ManagerDashboard({ triggerNotification }) {
 // ─── Member Dashboard ─────────────────────────────────────────────────────────
 function MemberDashboard({ triggerNotification }) {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('club-info');
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   const savedClubId = sessionStorage.getItem('fpt_selected_club');
   const availableClubsStr = sessionStorage.getItem('fpt_available_clubs');
@@ -240,19 +196,32 @@ function MemberDashboard({ triggerNotification }) {
       selectedClubId={selectedClubId}
       isLeader={isLeader}
     >
+      {/* All Members */}
+      {activeTab === 'dashboard' && <MemberDashboardPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
       {activeTab === 'club-info' && <ClubInfoPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={true} />}
-      {activeTab === 'document-archive' && <DocumentArchivePage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={!isLeader} />}
+      {activeTab === 'document-archive' && <DocumentArchivePage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={true} />}
+      {activeTab === 'member-search' && <MemberSearchPage currentUserId={currentUser.id} selectedClubId={selectedClubId} />}
       {activeTab === 'event-calendar' && <EventCalendarPage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
       {activeTab === 'member-workspace' && <MemberWorkspacePage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
-      {activeTab === 'member-search' && <MemberSearchPage currentUserId={currentUser.id} selectedClubId={selectedClubId} />}
-      {activeTab === 'submit-member-report' && <SubmitMemberReportPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
 
       {/* Leader-only tabs */}
       {isLeader && activeTab === 'member-management' && (
         <MemberManagementPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />
       )}
-      {isLeader && activeTab === 'review-member-reports' && (
-        <ReviewMemberReportsPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />
+      {isLeader && activeTab === 'event-manager' && (
+        <EventManagerPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />
+      )}
+      {isLeader && activeTab === 'document-upload' && (
+        <DocumentArchivePage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={false} />
+      )}
+      {isLeader && activeTab === 'evidence-review' && (
+        <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={selectedClubId} />
+      )}
+      {isLeader && activeTab === 'club-report' && (
+        <SubmitReportPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />
+      )}
+      {isLeader && activeTab === 'leader-management' && (
+        <LeaderManagementPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />
       )}
     </DashboardLayout>
   );
