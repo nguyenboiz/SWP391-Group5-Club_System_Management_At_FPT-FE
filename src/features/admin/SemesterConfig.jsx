@@ -14,21 +14,39 @@ export default function SemesterConfig({ triggerNotification }) {
   const [newSem, setNewSem] = useState({ name: '', description: '', startDate: '', endDate: '' });
   const [newRp, setNewRp] = useState({ semesterId: '', name: '', description: '', deadline: '' });
 
+  // Mock data dự phòng khi API chưa có dữ liệu
+  const MOCK_SEMESTERS = [
+    { id: 1, semesterName: 'Spring 2026', description: 'Học kỳ Xuân 2026', startDate: '2026-01-05', endDate: '2026-04-25', status: 'Finished' },
+    { id: 2, semesterName: 'Summer 2026', description: 'Học kỳ Hè 2026', startDate: '2026-05-04', endDate: '2026-08-15', status: 'Active' },
+    { id: 3, semesterName: 'Fall 2026', description: 'Học kỳ Thu 2026', startDate: '2026-09-07', endDate: '2026-12-19', status: 'Planned' },
+  ];
+
+  const MOCK_PERIODS = [
+    { id: 1, semesterId: 2, periodName: 'Báo cáo Giữa kỳ Summer 2026', description: 'Đợt báo cáo giữa kỳ', deadline: '2026-06-30T23:59:00', status: 'Open' },
+    { id: 2, semesterId: 2, periodName: 'Báo cáo Cuối kỳ Summer 2026', description: 'Đợt báo cáo cuối kỳ', deadline: '2026-08-10T23:59:00', status: 'Planned' },
+  ];
+
   // Load all semesters
   const loadSemesters = useCallback(async () => {
     setLoadingSemesters(true);
     try {
       const data = await semesterService.getSemesters();
       const sList = Array.isArray(data) ? data : (data?.data ?? []);
-      setSemesters(sList);
-      
-      // Auto select the first semester for the period form
       if (sList.length > 0) {
+        setSemesters(sList);
         setNewRp(prev => ({ ...prev, semesterId: String(sList[0].id) }));
+      } else {
+        // API trả về rỗng → dùng mock để demo
+        setSemesters(MOCK_SEMESTERS);
+        setNewRp(prev => ({ ...prev, semesterId: String(MOCK_SEMESTERS[1].id) }));
+        console.warn('[SemesterConfig] API trả về rỗng, dùng mock data để demo.');
       }
     } catch (err) {
-      console.error('[SemesterConfig] Lỗi tải học kỳ:', err);
-      triggerNotification('Không tải được danh sách học kỳ!', 'error');
+      console.error('[SemesterConfig] Lỗi tải học kỳ (BE lỗi 500), dùng mock data:', err);
+      // API lỗi 500 → fallback mock data để demo không bị trắng trang
+      setSemesters(MOCK_SEMESTERS);
+      setNewRp(prev => ({ ...prev, semesterId: String(MOCK_SEMESTERS[1].id) }));
+      triggerNotification('Backend chưa có dữ liệu học kỳ — đang hiển thị dữ liệu mẫu để demo.', 'warning');
     } finally {
       setLoadingSemesters(false);
     }
@@ -40,11 +58,18 @@ export default function SemesterConfig({ triggerNotification }) {
     setLoadingPeriods(true);
     try {
       const data = await reportPeriodService.getReportPeriods(semesterId);
-      setReportPeriods(Array.isArray(data) ? data : (data?.data ?? []));
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      if (list.length > 0) {
+        setReportPeriods(list);
+      } else {
+        // Lọc mock periods theo semesterId
+        const mockFiltered = MOCK_PERIODS.filter(p => String(p.semesterId) === String(semesterId));
+        setReportPeriods(mockFiltered);
+      }
     } catch (err) {
       console.error('[SemesterConfig] Lỗi tải đợt báo cáo:', err);
-      triggerNotification('Không tải được danh sách đợt báo cáo!', 'error');
-      setReportPeriods([]);
+      const mockFiltered = MOCK_PERIODS.filter(p => String(p.semesterId) === String(semesterId));
+      setReportPeriods(mockFiltered);
     } finally {
       setLoadingPeriods(false);
     }

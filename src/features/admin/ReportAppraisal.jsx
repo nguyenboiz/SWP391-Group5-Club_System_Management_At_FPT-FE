@@ -2,49 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { Award, FileText, CheckCircle, Clock, AlertTriangle, Send, Bell, Plus, XCircle, Star } from 'lucide-react';
 import { mockDb } from '../../utils/mockDb';
 
-// NOTE: BE chưa có các API sau, giữ mock tạm thời:
-//   - GET  /api/club-reports              (danh sách báo cáo CLB)
-//   - PUT  /api/club-reports/{id}/appraise (chấm điểm)
-//   - GET  /api/announcements
-//   - POST /api/announcements
-
-const MOCK_CLUB_REPORTS = [
+// Thay bằng báo cáo tổng hợp từ Manager theo đúng đặc tả vai trò Admin
+const MOCK_MANAGER_SUMMARY_REPORTS = [
   {
-    id: 'cr-001', clubId: 1, clubName: 'FCode Club',
+    id: 'msr-001',
+    managerName: 'Nguyễn Việt Hoàng',
+    managerId: 'manager01',
     periodName: 'Báo cáo Giữa kỳ Summer 2026',
-    leaderName: 'Phạm Minh Đức', leaderId: 'SE180222',
     submittedAt: '2026-06-12T14:00:00',
     status: 'Pending',
-    content: 'CLB đã tổ chức thành công 3 buổi workshop React, Hackathon nội bộ với 47 thành viên tham gia. Tổng điểm hoạt động đạt 85/100. Khó khăn: thiếu phòng họp vào cuối tuần. Đề xuất: nhà trường hỗ trợ phòng thực hành thứ 7.',
-    activityCount: 3, memberCount: 47, score: null,
+    content: 'TỔNG HỢP HOẠT ĐỘNG CLB KỲ SUMMER 2026 (GIỮA KỲ):\n- Tổng số CLB hoạt động ổn định: 6/6 CLB.\n- Tổng số sự kiện đã tổ chức: 8 sự kiện. Nổi bật nhất là Workshop React của JS Club thu hút 40+ sinh viên.\n- Khó khăn: Thiếu thốn cơ sở vật chất phòng Lab Gamma vào cuối tuần do trùng lịch học quân sự.\n- Đề xuất: PDP hỗ trợ cấp thêm 2 phòng thực hành tự do vào thứ 7 và Chủ nhật cho sinh viên sinh hoạt học thuật.',
+    clubCount: 6,
+    eventCount: 8,
+    score: null,
   },
   {
-    id: 'cr-002', clubId: 2, clubName: 'Melody Club',
-    periodName: 'Báo cáo Giữa kỳ Summer 2026',
-    leaderName: 'Trần Thị Lan', leaderId: 'SE190400',
-    submittedAt: '2026-06-11T10:00:00',
+    id: 'msr-002',
+    managerName: 'Trần Thị Lan',
+    managerId: 'manager02',
+    periodName: 'Báo cáo Cuối kỳ Spring 2026',
+    submittedAt: '2026-04-20T10:00:00',
     status: 'Approved',
-    content: 'CLB tổ chức 2 buổi biểu diễn tại hội trường A và sân khấu ngoài trời, thu hút hơn 200 sinh viên tham dự. Đã hoàn thành kế hoạch học kỳ. CLB đạt danh hiệu "Câu lạc bộ xuất sắc" kỳ Spring 2026.',
-    activityCount: 2, memberCount: 31, score: 92,
-    approvedBy: 'Nguyễn Việt Hoàng (PDP01)',
-    approvedAt: '2026-06-13T09:00:00',
-  },
-  {
-    id: 'cr-003', clubId: 3, clubName: 'FPT Chess Club',
-    periodName: 'Báo cáo Giữa kỳ Summer 2026',
-    leaderName: 'Nguyễn Hà Hải', leaderId: 'SE180333',
-    submittedAt: '2026-06-14T16:00:00',
-    status: 'Pending',
-    content: 'CLB tổ chức giải đấu cờ vua nội bộ với 24 thành viên tham gia. Đã kết nghĩa với CLB cờ vua ĐH Hà Nội và dự kiến giao lưu vào tháng 7. Đề xuất tài trợ bộ cờ mới cho phòng tập.',
-    activityCount: 1, memberCount: 24, score: null,
-  },
+    content: 'TỔNG HỢP CUỐI KỲ SPRING 2026:\n- Tất cả các CLB đã nộp báo cáo đầy đủ.\n- 5/6 CLB đạt điểm đánh giá A (Xuất sắc).\n- Đã bàn giao xong tài liệu hướng dẫn chuyển giao Leader kỳ tiếp theo.\n- Melody Club đạt giải thưởng CLB hoạt động tích cực nhất học kỳ.',
+    clubCount: 6,
+    eventCount: 15,
+    score: 95,
+    approvedBy: 'Hệ thống (Admin)',
+    approvedAt: '2026-04-22T09:00:00',
+  }
 ];
 
 export default function ReportAppraisal({ triggerNotification }) {
   const [activeTab, setActiveTab] = useState('appraisal');
-  const [reports, setReports] = useState(MOCK_CLUB_REPORTS);
+  const [reports, setReports] = useState(MOCK_MANAGER_SUMMARY_REPORTS);
   const [scoreMap, setScoreMap] = useState({});
-  const [remarkMap, setRemarkMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
 
   // Announcements (mockDb)
@@ -64,16 +55,15 @@ export default function ReportAppraisal({ triggerNotification }) {
   const handleAppraise = (report) => {
     const score = parseInt(scoreMap[report.id]);
     if (!score || score < 0 || score > 100) {
-      triggerNotification('Vui lòng nhập điểm từ 0–100!', 'warning');
+      triggerNotification('Vui lòng nhập điểm đánh giá từ 0–100!', 'warning');
       return;
     }
-    // TODO: thay bằng PUT /api/club-reports/{id}/appraise khi BE bổ sung
     setReports(prev => prev.map(r =>
       r.id === report.id
         ? { ...r, status: 'Approved', score, approvedBy: 'Bạn (Admin)', approvedAt: new Date().toISOString() }
         : r
     ));
-    triggerNotification(`Đã chấm điểm ${score}/100 cho "${report.clubName}"! (Mock - Chờ BE API)`, 'success');
+    triggerNotification(`Đã duyệt và đánh giá báo cáo tổng hợp: ${score}/100 điểm! (Mock)`, 'success');
     setExpandedId(null);
   };
 
@@ -84,7 +74,7 @@ export default function ReportAppraisal({ triggerNotification }) {
       return;
     }
     mockDb.addAnnouncement({ title: newAnn.title.trim(), content: newAnn.content.trim() });
-    triggerNotification('Đã đăng thông báo thành công! (Mock - Chờ BE API)', 'success');
+    triggerNotification('Đã phát hành thông báo toàn hệ thống thành công! (Mock)', 'success');
     setNewAnn({ title: '', content: '' });
   };
 
@@ -96,7 +86,7 @@ export default function ReportAppraisal({ triggerNotification }) {
       {/* Mock notice */}
       <div style={{ marginBottom: '16px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.2)', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '8px', alignItems: 'center' }}>
         <AlertTriangle size={13} style={{ color: 'var(--warning)', flexShrink: 0 }} />
-        <span><strong style={{ color: 'var(--warning)' }}>Mock Data:</strong> Dữ liệu báo cáo CLB mẫu — Yêu cầu BE bổ sung: <code>GET/PUT /api/club-reports</code></span>
+        <span><strong style={{ color: 'var(--warning)' }}>Vai trò Admin:</strong> Đang xem và duyệt báo cáo tổng hợp hệ thống từ các Manager (chờ BE cung cấp API <code>GET /api/manager-reports</code>).</span>
       </div>
 
       {/* Tab Switcher */}
@@ -104,7 +94,7 @@ export default function ReportAppraisal({ triggerNotification }) {
         <div style={{ display: 'flex', gap: '4px' }}>
           <button className={`role-switch-btn ${activeTab === 'appraisal' ? 'active' : ''}`} onClick={() => setActiveTab('appraisal')}
             style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-            <FileText size={14} /> Thẩm định Báo cáo CLB ({pendingCount} chờ)
+            <FileText size={14} /> Báo cáo tổng hợp từ Manager ({pendingCount} chờ)
           </button>
           <button className={`role-switch-btn ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => setActiveTab('announcements')}
             style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
@@ -119,22 +109,22 @@ export default function ReportAppraisal({ triggerNotification }) {
             <div className="stats-card">
               <div className="stats-icon-box" style={{ color: 'var(--warning)' }}><Clock size={20} /></div>
               <div className="stats-info">
-                <span className="stats-label">Chờ thẩm định</span>
-                <span className="stats-value" style={{ color: pendingCount > 0 ? 'var(--warning)' : undefined }}>{pendingCount}</span>
+                <span className="stats-label">Chờ phê duyệt</span>
+                <span className="stats-value" style={{ color: pendingCount > 0 ? 'var(--warning)' : undefined }}>{pendingCount} báo cáo</span>
               </div>
             </div>
             <div className="stats-card">
               <div className="stats-icon-box" style={{ color: 'var(--success)' }}><CheckCircle size={20} /></div>
               <div className="stats-info">
-                <span className="stats-label">Đã thẩm định</span>
-                <span className="stats-value">{approvedCount}</span>
+                <span className="stats-label">Đã phê duyệt</span>
+                <span className="stats-value">{approvedCount} báo cáo</span>
               </div>
             </div>
           </div>
 
           <div className="glass-card">
             <div className="glass-card-header">
-              <h3 className="glass-card-title"><FileText size={18} /> Danh sách Báo cáo CLB ({reports.length})</h3>
+              <h3 className="glass-card-title"><FileText size={18} /> Danh sách Báo cáo tổng hợp từ Manager ({reports.length})</h3>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
@@ -145,25 +135,22 @@ export default function ReportAppraisal({ triggerNotification }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '15px' }}>{report.clubName}</span>
-                          {report.status === 'Pending' && <span className="badge badge-member"><Clock size={10} /> Chờ thẩm định</span>}
-                          {report.status === 'Approved' && <span className="badge badge-active"><CheckCircle size={10} /> Đã thẩm định — {report.score}/100 điểm</span>}
+                          <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '15px' }}>{report.periodName}</span>
+                          {report.status === 'Pending' && <span className="badge badge-member"><Clock size={10} /> Chờ phê duyệt</span>}
+                          {report.status === 'Approved' && <span className="badge badge-active"><CheckCircle size={10} /> Đã duyệt — {report.score}/100 điểm</span>}
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                          <span>👤 {report.leaderName} ({report.leaderId})</span>
-                          <span>📅 {report.periodName}</span>
-                          <span>🕐 {new Date(report.submittedAt).toLocaleDateString('vi-VN')}</span>
+                          <span>👤 Người báo cáo: Manager {report.managerName} ({report.managerId})</span>
+                          <span>🕐 Gửi ngày: {new Date(report.submittedAt).toLocaleDateString('vi-VN')}</span>
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '12px' }}>
-                          <span>📋 {report.activityCount} hoạt động</span>
-                          <span>👥 {report.memberCount} thành viên</span>
+                          <span>📋 Số CLB giám sát: {report.clubCount} CLB</span>
+                          <span>🚀 Số sự kiện tổng kết: {report.eventCount} sự kiện</span>
                         </div>
                       </div>
-                      {report.status === 'Pending' && (
-                        <button className="btn btn-secondary btn-sm" onClick={() => setExpandedId(isExpanded ? null : report.id)}>
-                          {isExpanded ? 'Đóng' : 'Xem & Chấm'}
-                        </button>
-                      )}
+                      <button className="btn btn-secondary btn-sm" onClick={() => setExpandedId(isExpanded ? null : report.id)}>
+                        {isExpanded ? 'Đóng' : 'Xem chi tiết'}
+                      </button>
                     </div>
 
                     {isExpanded && (
@@ -171,28 +158,37 @@ export default function ReportAppraisal({ triggerNotification }) {
                         <div style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.7, marginBottom: '16px', whiteSpace: 'pre-line' }}>
                           {report.content}
                         </div>
-                        <div className="form-group" style={{ marginBottom: '12px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Star size={14} style={{ color: 'var(--primary)' }} />
-                            Điểm đánh giá (0–100):
-                          </label>
-                          <input
-                            type="number"
-                            className="input-field"
-                            min={0} max={100}
-                            placeholder="Nhập điểm 0–100..."
-                            value={scoreMap[report.id] || ''}
-                            onChange={e => setScoreMap(m => ({ ...m, [report.id]: e.target.value }))}
-                            style={{ maxWidth: '150px' }}
-                          />
-                        </div>
-                        <button
-                          className="btn btn-success"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                          onClick={() => handleAppraise(report)}
-                        >
-                          <Award size={16} /> Xác nhận Thẩm định & Chấm điểm
-                        </button>
+                        
+                        {report.status === 'Pending' ? (
+                          <div>
+                            <div className="form-group" style={{ marginBottom: '12px' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Star size={14} style={{ color: 'var(--primary)' }} />
+                                Nhập điểm đánh giá (0–100):
+                              </label>
+                              <input
+                                type="number"
+                                className="input-field"
+                                min={0} max={100}
+                                placeholder="Nhập điểm..."
+                                value={scoreMap[report.id] || ''}
+                                onChange={e => setScoreMap(m => ({ ...m, [report.id]: e.target.value }))}
+                                style={{ maxWidth: '150px' }}
+                              />
+                            </div>
+                            <button
+                              className="btn btn-success btn-sm"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                              onClick={() => handleAppraise(report)}
+                            >
+                              <Award size={16} /> Xác nhận Phê duyệt & Chấm điểm
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(34,197,94,0.05)', fontSize: '12px', borderLeft: '3px solid var(--success)', color: 'var(--text-muted)' }}>
+                            Báo cáo đã được phê duyệt bởi: <strong>{report.approvedBy}</strong> ngày {new Date(report.approvedAt).toLocaleDateString('vi-VN')}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -205,7 +201,7 @@ export default function ReportAppraisal({ triggerNotification }) {
         <div className="dashboard-grid-2col">
           <div className="glass-card">
             <div className="glass-card-header">
-              <h3 className="glass-card-title"><Plus size={18} /> Phát hành Thông báo mới</h3>
+              <h3 className="glass-card-title"><Plus size={18} /> Phát hành Thông báo hệ thống</h3>
             </div>
             <form onSubmit={handleCreateAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -213,14 +209,11 @@ export default function ReportAppraisal({ triggerNotification }) {
                 <input type="text" className="input-field" value={newAnn.title} onChange={e => setNewAnn({ ...newAnn, title: e.target.value })} placeholder="Nhập tiêu đề thông báo..." required />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Nội dung chi tiết *</label>
-                <textarea className="textarea-field" value={newAnn.content} onChange={e => setNewAnn({ ...newAnn, content: e.target.value })} placeholder="Nhập nội dung thông báo gửi đến các CLB..." rows={6} required />
-              </div>
-              <div style={{ padding: '10px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
-                * Thông báo hiện lưu tạm trong phiên làm việc. Cần BE bổ sung <code>POST /api/announcements</code>.
+                <label>Nội dung thông báo toàn hệ thống *</label>
+                <textarea className="textarea-field" value={newAnn.content} onChange={e => setNewAnn({ ...newAnn, content: e.target.value })} placeholder="Nhập nội dung thông báo gửi đến toàn bộ CLB và Sinh viên..." rows={6} required />
               </div>
               <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <Send size={16} /> Đăng và Phát hành
+                <Send size={16} /> Đăng & Phát hành
               </button>
             </form>
           </div>

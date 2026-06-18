@@ -58,20 +58,6 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
 
   return (
     <div>
-      {/* Welcome Banner */}
-      <div className="glass-card" style={{ marginBottom: '24px', padding: '24px', background: 'linear-gradient(135deg, rgba(242,111,33,0.12), rgba(30,144,255,0.08))' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '22px', flexShrink: 0 }}>
-            {displayName.charAt(0).toUpperCase()}
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Xin chào,</div>
-            <h3 style={{ fontSize: '20px', color: 'var(--text-heading)', margin: 0 }}>{displayName}</h3>
-            {userId && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>MSSV: {userId}</div>}
-          </div>
-        </div>
-      </div>
-
       {/* Stats */}
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
         <div className="stats-card">

@@ -29,6 +29,7 @@ export default function LoginPage() {
     }
 
     if (result.role === 'ADMIN') navigate('/admin');
+    else if (result.role === 'MANAGER') navigate('/manager');
     else navigate('/select-club');
   };
 

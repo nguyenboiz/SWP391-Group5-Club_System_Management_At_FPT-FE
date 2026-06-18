@@ -24,7 +24,7 @@ const statusMapBEtoFE = {
   'Rejected': 'Rejected',
 };
 
-export default function EventApproval({ triggerNotification, selectedClubId }) {
+export default function EventApproval({ triggerNotification, selectedClubId, mode = 'approval' }) {
   const clubs = React.useMemo(() => {
     try {
       const stored = sessionStorage.getItem('fpt_available_clubs');
@@ -44,7 +44,7 @@ export default function EventApproval({ triggerNotification, selectedClubId }) {
 
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('Pending');
+  const [filterStatus, setFilterStatus] = useState(mode === 'monitoring' ? 'ALL' : 'Pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [remarkMap, setRemarkMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
@@ -278,7 +278,7 @@ export default function EventApproval({ triggerNotification, selectedClubId }) {
                       </div>
                     </div>
 
-                    {approvalStatus === 'Pending' && (
+                    {mode !== 'monitoring' && approvalStatus === 'Pending' && (
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => setExpandedId(isExpanded ? null : eventId)}

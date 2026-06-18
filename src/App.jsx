@@ -16,12 +16,14 @@ import ReportAppraisalPage from './pages/admin/ReportAppraisalPage';
 import UserManagementPage from './pages/admin/UserManagementPage';
 import ClubManagementPage from './pages/admin/ClubManagementPage';
 import DepartmentManagementPage from './pages/admin/DepartmentManagementPage';
+import SystemSettingsPage from './pages/admin/SystemSettingsPage';
 
 // ── Manager Pages ──────────────────────────────────────────────────────────────
 import ManagerDashboardPage from './pages/manager/ManagerDashboardPage';
 import EventApprovalPage from './pages/admin/EventApprovalPage';
 import ReviewMemberReportsPage from './pages/manager/ReviewMemberReportsPage';
 import SubmitReportPage from './pages/manager/SubmitReportPage';
+import AnalyticsPage from './pages/manager/AnalyticsPage';
 
 // ── Member / Leader Pages ──────────────────────────────────────────────────────
 import MemberDashboardPage from './pages/member/MemberDashboardPage';
@@ -33,6 +35,7 @@ import MemberSearchPage from './pages/member/MemberSearchPage';
 import MemberManagementPage from './pages/manager/MemberManagementPage';
 import EventManagerPage from './pages/manager/EventManagerPage';
 import LeaderManagementPage from './pages/member/LeaderManagementPage';
+import ClubAnnouncementsPage from './pages/member/ClubAnnouncementsPage';
 
 // Shared: Evidence Approval (for both Manager and Leader)
 import EvidenceApprovalPage from './pages/admin/EvidenceApprovalPage';
@@ -54,6 +57,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
       if (activeTab === 'report-appraisal') return 'Report Review';
       if (activeTab === 'department-management') return 'Quản lý Phòng ban';
       if (activeTab === 'notification-management') return 'Gửi Thông báo';
+      if (activeTab === 'system-settings') return 'Cấu hình Hệ thống';
       return 'Dashboard';
     }
     // MANAGER
@@ -61,9 +65,11 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
       if (activeTab === 'dashboard') return 'Dashboard';
       if (activeTab === 'event-approval') return 'Duyệt Sự kiện';
       if (activeTab === 'event-monitoring') return 'Theo dõi Sự kiện';
+      if (activeTab === 'evidence-review') return 'Kiểm tra Minh chứng';
       if (activeTab === 'club-report-review') return 'Kiểm tra Báo cáo CLB';
       if (activeTab === 'submit-report') return 'Tổng hợp Báo cáo';
       if (activeTab === 'notification-management') return 'Thông báo CLB';
+      if (activeTab === 'analytics') return 'Thống kê & Phân tích';
       return 'Dashboard';
     }
     // MEMBER / LEADER
@@ -74,6 +80,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
     if (activeTab === 'member-search') return 'Thành viên CLB';
     if (activeTab === 'event-calendar') return 'Sự kiện';
     if (activeTab === 'member-workspace') return 'Hoạt động của tôi';
+    if (activeTab === 'club-announcements') return 'Thông báo CLB';
     if (activeTab === 'member-management') return 'Quản lý Thành viên';
     if (activeTab === 'event-manager') return 'Quản lý Sự kiện';
     if (activeTab === 'evidence-review') return 'Kiểm tra Minh chứng';
@@ -99,6 +106,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
       <main className="main-viewport">
         <Header
           currentRole={role}
+          isLeader={isLeader}
           selectedClubId={selectedClubId}
           dbData={{ clubs: [], memberships: [] }}
           pageTitle={getPageTitle()}
@@ -125,6 +133,7 @@ function AdminDashboard({ triggerNotification }) {
       {activeTab === 'report-appraisal' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
       {activeTab === 'department-management' && <DepartmentManagementPage triggerNotification={triggerNotification} />}
       {activeTab === 'notification-management' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
+      {activeTab === 'system-settings' && <SystemSettingsPage triggerNotification={triggerNotification} />}
     </DashboardLayout>
   );
 }
@@ -144,11 +153,13 @@ function ManagerDashboard({ triggerNotification }) {
       isLeader={false}
     >
       {activeTab === 'dashboard' && <ManagerDashboardPage triggerNotification={triggerNotification} />}
-      {activeTab === 'event-approval' && <EventApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
-      {activeTab === 'event-monitoring' && <EventApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
+      {activeTab === 'event-approval' && <EventApprovalPage triggerNotification={triggerNotification} selectedClubId={null} mode="approval" />}
+      {activeTab === 'event-monitoring' && <EventApprovalPage triggerNotification={triggerNotification} selectedClubId={null} mode="monitoring" />}
+      {activeTab === 'evidence-review' && <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
       {activeTab === 'club-report-review' && <ReviewMemberReportsPage triggerNotification={triggerNotification} />}
       {activeTab === 'submit-report' && <SubmitReportPage triggerNotification={triggerNotification} />}
       {activeTab === 'notification-management' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
+      {activeTab === 'analytics' && <AnalyticsPage triggerNotification={triggerNotification} />}
     </DashboardLayout>
   );
 }
@@ -203,6 +214,7 @@ function MemberDashboard({ triggerNotification }) {
       {activeTab === 'member-search' && <MemberSearchPage currentUserId={currentUser.id} selectedClubId={selectedClubId} />}
       {activeTab === 'event-calendar' && <EventCalendarPage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
       {activeTab === 'member-workspace' && <MemberWorkspacePage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
+      {activeTab === 'club-announcements' && <ClubAnnouncementsPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} isLeader={isLeader} />}
 
       {/* Leader-only tabs */}
       {isLeader && activeTab === 'member-management' && (

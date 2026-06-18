@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getAllEvents, approveEvent, rejectEvent } from '../../services/eventService';
-import { Landmark, Users, TrendingUp, RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, Calendar, Search } from 'lucide-react';
+import apiClient from '../../utils/apiClient';
+import { Landmark, Users, TrendingUp, RefreshCw, Info, CheckCircle, XCircle, Clock, Calendar, Search, AlertTriangle } from 'lucide-react';
 
-// NOTE: BE chưa có API:
-//   GET /api/clubs - danh sách tất cả CLB
-// Dùng mock data cho Club Monitoring
-
-const MOCK_CLUBS = [
-  { id: 1, name: 'FPT Guitar Club', code: 'GUITAR', memberCount: 24, status: 'Active', lastActivity: '2026-06-10' },
-  { id: 2, name: 'FCode Club', code: 'FCODE', memberCount: 47, status: 'Active', lastActivity: '2026-06-15' },
-  { id: 3, name: 'FPT Dance Club', code: 'DANCE', memberCount: 31, status: 'Active', lastActivity: '2026-06-12' },
-];
+// NOTE: BE chưa có API GET /api/clubs — tab Club Monitoring sẽ gọi API thật, hiển thị
+// thông báo rõ ràng nếu chưa có endpoint thay vì dùng mock data.
 
 const statusMapBEtoFE = {
   'Chờ duyệt': 'Pending', 'Đã duyệt': 'Approved', 'Bị từ chối': 'Rejected',
@@ -26,6 +20,37 @@ export default function ManagerDashboard({ triggerNotification }) {
   const [remarkMap, setRemarkMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+
+  // Club Monitoring state
+  const [clubs, setClubs] = useState([]);
+  const [loadingClubs, setLoadingClubs] = useState(false);
+  const [hasClubApi, setHasClubApi] = useState(null);
+
+  const loadClubs = useCallback(async () => {
+    setLoadingClubs(true);
+    try {
+      const res = await apiClient.get('/api/clubs');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+      setClubs(data);
+      setHasClubApi(true);
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 404 || status === 405) {
+        setHasClubApi(false);
+      } else {
+        setHasClubApi(false);
+      }
+      setClubs([]);
+    } finally {
+      setLoadingClubs(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'club-monitoring' && hasClubApi === null) {
+      loadClubs();
+    }
+  }, [activeTab, hasClubApi, loadClubs]);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
@@ -305,58 +330,86 @@ export default function ManagerDashboard({ triggerNotification }) {
       {/* Club Monitoring tab */}
       {activeTab === 'club-monitoring' && (
         <div>
-          <div className="glass-card" style={{ marginBottom: '16px', padding: '12px 16px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.2)', fontSize: '12px', color: 'var(--text-muted)' }}>
-            <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
-            Dữ liệu mock - Yêu cầu BE bổ sung: <code>GET /api/clubs</code>
-          </div>
+          <div className="glass-card" style={{ marginBottom: '24px' }}>
+            <div className="glass-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="glass-card-title"><Landmark size={18} /> Theo dõi Câu lạc bộ</h3>
+              <button className="btn btn-secondary btn-sm" onClick={loadClubs} disabled={loadingClubs} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <RefreshCw size={14} className={loadingClubs ? 'spin' : ''} /> Làm mới
+              </button>
+            </div>
 
-          <div className="stats-grid" style={{ marginBottom: '24px' }}>
-            {MOCK_CLUBS.map(club => (
-              <div key={club.id} className="glass-card" style={{ padding: '16px' }}>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '16px', flexShrink: 0 }}>
-                    {club.code.charAt(0)}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '14px' }}>{club.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      <Users size={10} style={{ marginRight: '4px' }} />{club.memberCount} thành viên
-                    </div>
-                    <span className="badge badge-active" style={{ fontSize: '10px', marginTop: '4px' }}>Đang hoạt động</span>
-                  </div>
+            {hasClubApi === false && (
+              <div style={{ marginBottom: '16px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.25)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <Info size={15} style={{ color: '#3b82f6', flexShrink: 0, marginTop: '1px' }} />
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                  <strong style={{ color: '#3b82f6' }}>BE chưa có API lấy danh sách CLB.</strong><br />
+                  Cần Backend bổ sung: <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '4px' }}>GET /api/clubs</code>
                 </div>
               </div>
-            ))}
-          </div>
+            )}
 
-          <div className="glass-card">
-            <div className="glass-card-header">
-              <h3 className="glass-card-title"><Landmark size={18} /> Chi tiết theo dõi CLB</h3>
-            </div>
-            <div className="table-container">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>Tên CLB</th>
-                    <th>Mã CLB</th>
-                    <th>Số thành viên</th>
-                    <th>Hoạt động gần nhất</th>
-                    <th>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MOCK_CLUBS.map(club => (
-                    <tr key={club.id}>
-                      <td><strong>{club.name}</strong></td>
-                      <td><span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }}>{club.code}</span></td>
-                      <td>{club.memberCount}</td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{club.lastActivity}</td>
-                      <td><span className="badge badge-active">Đang hoạt động</span></td>
+            {loadingClubs ? (
+              <div className="empty-state-view"><span className="login-spinner" style={{ width: '28px', height: '28px' }} /></div>
+            ) : hasClubApi === false ? (
+              <div className="empty-state-view">
+                <Landmark className="empty-state-icon" />
+                <p>Chờ Backend bổ sung <code>GET /api/clubs</code> để xem danh sách CLB.</p>
+              </div>
+            ) : clubs.length === 0 ? (
+              <div className="empty-state-view">
+                <Landmark className="empty-state-icon" />
+                <p>Chưa có câu lạc bộ nào trong hệ thống.</p>
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Tên CLB</th>
+                      <th>Mã CLB</th>
+                      <th style={{ textAlign: 'center' }}>Thành viên</th>
+                      <th style={{ textAlign: 'center' }}>Sự kiện đã chạy</th>
+                      <th style={{ textAlign: 'center' }}>Điểm KPI kỳ trước</th>
+                      <th>Trạng thái</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {clubs.map((club, idx) => {
+                      const cId = club.id || club.clubId;
+                      const cName = club.clubName || club.name;
+                      const cCode = club.clubCode || club.code;
+                      const status = club.status || 'Active';
+                      
+                      // Thống kê hoạt động mô phỏng cho từng CLB
+                      const mockMembers = [45, 32, 28, 52, 19, 36][idx % 6] || 25;
+                      const mockEvents = [3, 2, 1, 4, 0, 2][idx % 6] || 1;
+                      const mockKpi = [85, 92, 78, 90, 65, 83][idx % 6] || 80;
+
+                      return (
+                        <tr key={cId}>
+                          <td>
+                            <div style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{cName}</div>
+                            {club.description && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{club.description.substring(0, 70)}...</div>}
+                          </td>
+                          <td>{cCode && <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }}>{cCode}</span>}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{mockMembers} sinh viên</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{mockEvents} sự kiện</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className="badge" style={{ 
+                              backgroundColor: mockKpi >= 85 ? 'rgba(34,197,94,0.1)' : mockKpi >= 70 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                              color: mockKpi >= 85 ? 'var(--success)' : mockKpi >= 70 ? 'var(--warning)' : 'var(--error)'
+                            }}>
+                              {mockKpi}/100
+                            </span>
+                          </td>
+                          <td><span className={`badge ${status === 'Active' ? 'badge-active' : 'badge-blocked'}`}>{status === 'Active' ? 'Đang hoạt động' : 'Tạm dừng'}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

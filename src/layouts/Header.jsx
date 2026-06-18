@@ -5,6 +5,7 @@ import { LogOut, ArrowLeftRight } from 'lucide-react';
 
 export default function Header({ 
   currentRole, 
+  isLeader = false,
   selectedClubId,
   dbData, 
   pageTitle,
@@ -64,11 +65,10 @@ export default function Header({
                 {currentUser.fullName}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                <span className={`badge ${currentRole === 'ADMIN' ? 'badge-admin' : currentRole === 'MANAGER' ? 'badge-manager' : 'badge-member'}`}
+                <span className={`badge ${currentRole === 'ADMIN' ? 'badge-admin' : currentRole === 'MANAGER' ? 'badge-manager' : isLeader ? 'badge-leader' : 'badge-member'}`}
                   style={{ fontSize: '10px', padding: '2px 6px' }}>
-                  {currentRole}
+                  {isLeader && currentRole === 'MEMBER' ? 'LEADER' : currentRole}
                 </span>
-                {' '}{currentUser.id}
               </div>
             </div>
           )}

@@ -37,6 +37,10 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <Bell size={18} />
         <span>Gửi Thông báo</span>
       </div>
+      <div className={`nav-item ${activeTab === 'system-settings' ? 'active' : ''}`} onClick={() => setActiveTab('system-settings')}>
+        <Settings size={18} />
+        <span>Cấu hình Hệ thống</span>
+      </div>
     </>
   );
 
@@ -54,6 +58,10 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <Eye size={18} />
         <span>Theo dõi Sự kiện</span>
       </div>
+      <div className={`nav-item ${activeTab === 'evidence-review' ? 'active' : ''}`} onClick={() => setActiveTab('evidence-review')}>
+        <FileCheck size={18} />
+        <span>Kiểm tra Minh chứng</span>
+      </div>
       <div className={`nav-item ${activeTab === 'club-report-review' ? 'active' : ''}`} onClick={() => setActiveTab('club-report-review')}>
         <FileText size={18} />
         <span>Kiểm tra Báo cáo CLB</span>
@@ -65,6 +73,10 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
       <div className={`nav-item ${activeTab === 'notification-management' ? 'active' : ''}`} onClick={() => setActiveTab('notification-management')}>
         <Bell size={18} />
         <span>Thông báo CLB</span>
+      </div>
+      <div className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+        <BarChart2 size={18} />
+        <span>Thống kê & Phân tích</span>
       </div>
     </>
   );
@@ -94,6 +106,10 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
       <div className={`nav-item ${activeTab === 'member-workspace' ? 'active' : ''}`} onClick={() => setActiveTab('member-workspace')}>
         <User size={18} />
         <span>Hoạt động của tôi</span>
+      </div>
+      <div className={`nav-item ${activeTab === 'club-announcements' ? 'active' : ''}`} onClick={() => setActiveTab('club-announcements')}>
+        <Bell size={18} />
+        <span>Thông báo CLB</span>
       </div>
 
       {/* Leader-only section */}
@@ -162,7 +178,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
             <div className="user-sidebar-info">
               <span className="user-sidebar-name">{currentUserProfile.fullName}</span>
               <span className="user-sidebar-role">
-                {getRoleLabel()} ({currentUserProfile.id || currentUserProfile.studentId})
+                {getRoleLabel()}
               </span>
             </div>
           </div>

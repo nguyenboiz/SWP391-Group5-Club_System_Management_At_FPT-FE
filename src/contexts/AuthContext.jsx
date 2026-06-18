@@ -74,13 +74,13 @@ export function AuthProvider({ children }) {
         }
         
         // Lấy role từ me.systemRole hoặc me.role hoặc result.systemRole
-        const rawRole = me?.systemRole || result?.systemRole || me?.role || result?.role || me?.roleName || result?.roleName || 'MEMBER';
+        const rawRole = me?.systemRole || result?.userInfo?.systemRole || result?.systemRole || me?.role || result?.userInfo?.role || result?.role || me?.roleName || result?.roleName || 'MEMBER';
         const normalizedRole = String(rawRole).toUpperCase();
         
         const userWithToken = {
           ...me,
-          id: me?.id || me?.studentId || me?.userId || result?.id || userId,
-          fullName: me?.fullName || me?.name || me?.username || result?.fullName || userId,
+          id: me?.id || me?.studentId || me?.userId || result?.userInfo?.userId || result?.id || userId,
+          fullName: me?.fullName || me?.name || me?.username || result?.userInfo?.fullName || result?.fullName || userId,
           role: normalizedRole,
           token
         };

@@ -9,8 +9,17 @@ export default function ClubSelectorPage() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  console.log('[ClubSelectorPage] currentUser:', currentUser);
+
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (currentUser.role === 'ADMIN') {
+    return <Navigate to="/admin" replace />;
+  }
+  if (currentUser.role === 'MANAGER') {
+    return <Navigate to="/manager" replace />;
   }
 
   // Read availableClubs from sessionStorage (saved after login from BE)
@@ -138,7 +147,7 @@ export default function ClubSelectorPage() {
             Chọn Câu lạc bộ
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-            Xin chào, <strong style={{ color: 'var(--primary)' }}>{currentUser.fullName}</strong> ({currentUser.id})
+            Xin chào, <strong style={{ color: 'var(--primary)' }}>{currentUser.fullName}</strong>
             {' '}— Bạn đang tham gia <strong style={{ color: 'var(--primary)' }}>{totalClubs}</strong> câu lạc bộ
           </p>
         </div>
@@ -196,8 +205,7 @@ export default function ClubSelectorPage() {
                           {club.name}
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <span className="badge badge-manager" style={{ fontSize: '10px' }}>Manager</span>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ID: {club.id}</span>
+                          <span className="badge badge-manager" style={{ fontSize: '10px' }}>Trưởng CLB</span>
                         </div>
                       </div>
                       {isSubmitting ? (
@@ -263,7 +271,6 @@ export default function ClubSelectorPage() {
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <span className="badge badge-member" style={{ fontSize: '10px' }}>{m.role}</span>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ID: {club.id}</span>
                           {m.joinedSemester && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>· Tham gia: {m.joinedSemester}</span>}
                         </div>
                       </div>
