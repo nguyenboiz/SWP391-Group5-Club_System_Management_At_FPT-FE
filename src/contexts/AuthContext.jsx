@@ -14,6 +14,16 @@ export function AuthProvider({ children }) {
 
       if (token) {
         try {
+          const requireClubSelection = sessionStorage.getItem('fpt_require_club_selection') === 'true';
+          const savedUser = sessionStorage.getItem('fpt_current_user');
+          
+          if (requireClubSelection && savedUser) {
+            // Đang trong quá trình chọn CLB (chỉ có tempToken), không gọi getMe()
+            setCurrentUser(JSON.parse(savedUser));
+            setIsLoading(false);
+            return;
+          }
+
           // Lấy thông tin mới nhất từ BE
           const me = await authService.getMe();
           const rawRole = me?.systemRole || me?.role || me?.roleName || 'MEMBER';
@@ -34,6 +44,9 @@ export function AuthProvider({ children }) {
           sessionStorage.removeItem('fpt_current_user');
           sessionStorage.removeItem('fpt_token');
           sessionStorage.removeItem('fpt_selected_club');
+          sessionStorage.removeItem('fpt_available_clubs');
+          sessionStorage.removeItem('fpt_require_club_selection');
+          sessionStorage.removeItem('fpt_temp_token');
           localStorage.removeItem('fpt_token');
         }
       } else {
@@ -55,8 +68,18 @@ export function AuthProvider({ children }) {
       if (token) {
         sessionStorage.setItem('fpt_token', token);
         
-        // Gọi API me để lấy thông tin chi tiết
-        const me = await authService.getMe();
+        let me = null;
+        if (result?.requireClubSelection) {
+          // Nếu yêu cầu chọn CLB, không gọi /api/auth/me vì tempToken không có quyền gọi endpoint này
+          console.log('[Auth] requireClubSelection is true, skipping getMe() call');
+        } else {
+          try {
+            me = await authService.getMe();
+          } catch (meErr) {
+            console.warn('[Auth] Lỗi gọi getMe(), dùng thông tin từ login result:', meErr);
+          }
+        }
+        
         console.log('[Auth] login result:', result);
         console.log('[Auth] getMe response:', me);
         
@@ -79,8 +102,8 @@ export function AuthProvider({ children }) {
         
         const userWithToken = {
           ...me,
-          id: me?.id || me?.studentId || me?.userId || result?.userInfo?.userId || result?.id || userId,
-          fullName: me?.fullName || me?.name || me?.username || result?.userInfo?.fullName || result?.fullName || userId,
+          id: me?.id || me?.studentId || me?.userId || result?.userInfo?.userId || result?.userInfo?.id || result?.id || userId,
+          fullName: me?.fullName || me?.name || me?.username || result?.userInfo?.fullName || result?.userInfo?.username || result?.fullName || userId,
           role: normalizedRole,
           token
         };
