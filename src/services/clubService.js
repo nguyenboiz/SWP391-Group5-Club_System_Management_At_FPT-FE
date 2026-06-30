@@ -6,6 +6,17 @@ import apiClient from '../utils/apiClient';
  */
 
 /**
+ * Lấy danh sách câu lạc bộ
+ * GET /api/clubs
+ * @param {string} status - Lọc theo trạng thái (Active, Suspended, v.v.)
+ */
+export async function getClubs(status = null) {
+  const params = status ? { status } : {};
+  const response = await apiClient.get('/api/clubs', { params });
+  return response.data;
+}
+
+/**
  * Tạo CLB mới
  * POST /api/clubs
  * @param {Object} dto - CreateClubDto
@@ -25,5 +36,16 @@ export async function createClub(dto) {
  */
 export async function updateClub(clubId, dto) {
   const response = await apiClient.put(`/api/clubs/${clubId}`, dto);
+  return response.data;
+}
+
+/**
+ * Thay đổi trạng thái CLB
+ * PATCH /api/clubs/{clubId}/status
+ * @param {number|string} clubId
+ * @param {string} status
+ */
+export async function updateClubStatus(clubId, status) {
+  const response = await apiClient.patch(`/api/clubs/${clubId}/status`, { status });
   return response.data;
 }

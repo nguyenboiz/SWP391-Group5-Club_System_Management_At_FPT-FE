@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, ShieldAlert, GraduationCap, RefreshCw, AlertTriangle, Info, Plus, UserPlus, Lock, Unlock, Key, Edit, Trash2, X } from 'lucide-react';
-import apiClient from '../../utils/apiClient';
+import * as userService from '../../services/userService';
 
 export default function UserManagement({ triggerNotification }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeView, setActiveView] = useState('staff');
-  const [hasApi, setHasApi] = useState(null); // null=loading, true=có API, false=chưa có
 
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -29,33 +28,12 @@ export default function UserManagement({ triggerNotification }) {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/api/users');
-      const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-      setUsers(data);
-      setHasApi(true);
+      const data = await userService.getUsers();
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      setUsers(list);
     } catch (err) {
-      const status = err?.response?.status;
-      if (status === 404 || status === 405) {
-        setHasApi(false);
-        // Tải từ localStorage
-        let localUsers = localStorage.getItem('mock_users');
-        if (!localUsers) {
-          const defaultMockUsers = [
-            { id: 'admin01', username: 'admin01', fullName: 'Quản trị viên 01', email: 'admin01@fpt.edu.vn', role: 'ADMIN', status: 'Active' },
-            { id: 'manager01', username: 'manager01', fullName: 'Quản lý 01', email: 'manager01@fpt.edu.vn', role: 'MANAGER', status: 'Active' },
-            { id: 'se180001', username: 'se180001', fullName: 'Nguyễn Đình Khoa', email: 'se180001@fpt.edu.vn', role: 'MEMBER', status: 'Active' },
-            { id: 'se180002', username: 'se180002', fullName: 'Đường Đình Khôi', email: 'se180002@fpt.edu.vn', role: 'MEMBER', status: 'Active' },
-            { id: 'se200001', username: 'se200001', fullName: 'Vũ Ngọc An', email: 'se200001@fpt.edu.vn', role: 'MEMBER', status: 'Active' },
-          ];
-          localStorage.setItem('mock_users', JSON.stringify(defaultMockUsers));
-          localUsers = JSON.stringify(defaultMockUsers);
-        }
-        setUsers(JSON.parse(localUsers));
-      } else {
-        console.error('[UserManagement] Lỗi tải users:', err);
-        triggerNotification('Không tải được danh sách người dùng!', 'error');
-        setHasApi(false);
-      }
+      console.error('[UserManagement] Lỗi tải users từ Backend:', err);
+      triggerNotification('Không tải được danh sách người dùng từ máy chủ!', 'error');
     } finally {
       setLoading(false);
     }
@@ -65,108 +43,72 @@ export default function UserManagement({ triggerNotification }) {
     loadUsers();
   }, [loadUsers]);
 
-  // Save changes to localStorage if using mock
-  const syncLocalUsers = (updatedUsers) => {
-    setUsers(updatedUsers);
-    localStorage.setItem('mock_users', JSON.stringify(updatedUsers));
-  };
-
   // 1. Tạo user mới
+  // [⚠ BE MISSING API] Chưa có API tạo tài khoản Sinh viên (Member).
+  // BE cần bổ sung: POST /api/users/student (hoặc tương đương)
+  // Hiện tại chỉ gọi được POST /api/users/staff để tạo cán bộ ADMIN/MANAGER.
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    if (!createForm.username || !createForm.fullName || !createForm.email || !createForm.password) {
-      triggerNotification('Vui lòng điền đầy đủ các thông tin!', 'warning');
+    if (!createForm.username || !createForm.password) {
+      triggerNotification('Vui lòng điền đầy đủ Tên đăng nhập và Mật khẩu!', 'warning');
       return;
     }
 
-    if (hasApi) {
-      try {
-        await apiClient.post('/api/users', createForm);
-        triggerNotification(`Đã tạo thành công người dùng: ${createForm.fullName}`, 'success');
-        setShowCreateModal(false);
-        setCreateForm({ username: '', fullName: '', email: '', password: '', role: 'MEMBER' });
-        loadUsers();
-      } catch (err) {
-        triggerNotification(err?.response?.data?.message || 'Tạo người dùng thất bại trên Backend!', 'error');
-      }
-    } else {
-      // Mock logic
-      const newUser = {
-        id: createForm.username,
-        username: createForm.username,
-        fullName: createForm.fullName,
-        email: createForm.email,
-        role: createForm.role,
-        status: 'Active'
-      };
-      
-      if (users.some(u => u.username === createForm.username)) {
-        triggerNotification('Tên đăng nhập (Username) đã tồn tại!', 'error');
-        return;
-      }
+    if (createForm.role === 'MEMBER') {
+      triggerNotification('Hệ thống hiện tại chỉ hỗ trợ Admin tạo tài khoản Cán bộ (ADMIN/MANAGER). Sinh viên cần tự đăng ký qua cổng của trường.', 'warning');
+      return;
+    }
 
-      const updated = [...users, newUser];
-      syncLocalUsers(updated);
-      triggerNotification(`Tạo người dùng "${createForm.fullName}" thành công! (Mock)`, 'success');
+    try {
+      await userService.createStaff({
+        username: createForm.username.trim(),
+        password: createForm.password,
+        systemRole: createForm.role
+      });
+      triggerNotification(`Đã tạo thành công tài khoản cán bộ: ${createForm.username}`, 'success');
       setShowCreateModal(false);
       setCreateForm({ username: '', fullName: '', email: '', password: '', role: 'MEMBER' });
+      await loadUsers();
+    } catch (err) {
+      console.error('[UserManagement] Lỗi tạo user:', err);
+      triggerNotification(err?.response?.data?.message || 'Tạo người dùng thất bại!', 'error');
     }
   };
 
   // 2. Khóa / Mở khóa user
   const handleToggleStatus = async (user) => {
-    const nextStatus = user.status === 'Active' ? 'Blocked' : 'Active';
-    if (hasApi) {
-      try {
-        await apiClient.put(`/api/users/${user.id}/status`, { status: nextStatus });
-        triggerNotification(`Đã cập nhật trạng thái người dùng sang: ${nextStatus === 'Active' ? 'Hoạt động' : 'Bị khóa'}`, 'success');
-        loadUsers();
-      } catch (err) {
-        triggerNotification('Cập nhật trạng thái thất bại!', 'error');
+    const uid = user.id || user.userId || user.studentId || user.username;
+    const currentStatus = user.status || 'Active';
+    const nextStatus = currentStatus === 'Active' ? 'Blocked' : 'Active';
+    
+    try {
+      if (nextStatus === 'Blocked') {
+        await userService.blockUser(uid);
+      } else {
+        await userService.unblockUser(uid);
       }
-    } else {
-      // Mock logic
-      const updated = users.map(u => u.id === user.id ? { ...u, status: nextStatus } : u);
-      syncLocalUsers(updated);
-      triggerNotification(`Đã ${nextStatus === 'Active' ? 'mở khóa' : 'khóa'} tài khoản ${user.username}! (Mock)`, 'success');
+      triggerNotification(`Đã cập nhật trạng thái người dùng sang: ${nextStatus === 'Active' ? 'Hoạt động' : 'Bị khóa'}`, 'success');
+      await loadUsers();
+    } catch (err) {
+      console.error('[UserManagement] Lỗi cập nhật trạng thái:', err);
+      triggerNotification(err?.response?.data?.message || 'Cập nhật trạng thái thất bại!', 'error');
     }
   };
 
   // 3. Thay đổi vai trò (Role)
-  const handleEditRole = async () => {
-    if (hasApi) {
-      try {
-        await apiClient.put(`/api/users/${selectedUser.id}/role`, { role: newRole });
-        triggerNotification(`Đã đổi vai trò tài khoản ${selectedUser.username} sang ${newRole}`, 'success');
-        setShowEditRoleModal(false);
-        loadUsers();
-      } catch (err) {
-        triggerNotification('Thay đổi vai trò thất bại!', 'error');
-      }
-    } else {
-      // Mock logic
-      const updated = users.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u);
-      syncLocalUsers(updated);
-      triggerNotification(`Đã đổi vai trò tài khoản ${selectedUser.username} thành ${newRole}! (Mock)`, 'success');
-      setShowEditRoleModal(false);
-    }
+  // [⚠ BE MISSING API] Chưa có API thay đổi vai trò của người dùng.
+  // BE cần bổ sung: PUT /api/users/{userId}/role  body: { role: 'ADMIN'|'MANAGER'|'MEMBER' }
+  const handleEditRole = () => {
+    triggerNotification('Backend hiện chưa hỗ trợ API cập nhật vai trò trực tiếp. Vui lòng tạo tài khoản mới nếu cần đổi vai trò!', 'info');
+    setShowEditRoleModal(false);
   };
 
   // 4. Reset Password
-  const handleResetPassword = async () => {
-    if (hasApi) {
-      try {
-        await apiClient.post(`/api/users/${selectedUser.id}/reset-password`);
-        triggerNotification(`Đã đặt lại mật khẩu cho tài khoản ${selectedUser.username} về mặc định.`, 'success');
-        setShowResetPwdModal(false);
-      } catch (err) {
-        triggerNotification('Đặt lại mật khẩu thất bại!', 'error');
-      }
-    } else {
-      // Mock
-      triggerNotification(`Đã đặt lại mật khẩu cho tài khoản ${selectedUser.username} về mặc định (123456) thành công! (Mock)`, 'success');
-      setShowResetPwdModal(false);
-    }
+  // [⚠ BE MISSING API] Chưa có API đặt lại mật khẩu từ phía Admin.
+  // BE cần bổ sung: POST /api/users/{userId}/reset-password  body: { newPassword: string }
+  const handleResetPassword = () => {
+    triggerNotification('Backend hiện chưa hỗ trợ API đặt lại mật khẩu trực tiếp. Vui lòng liên hệ Admin hệ thống cơ sở dữ liệu!', 'info');
+    setShowResetPwdModal(false);
   };
 
   const filteredUsers = users.filter(user => {
@@ -177,13 +119,39 @@ export default function UserManagement({ triggerNotification }) {
 
     const role = (user.role || user.systemRole || '').toUpperCase();
     if (activeView === 'student') {
-      return matchesSearch && (role === 'MEMBER');
+      return matchesSearch && (role === 'MEMBER' || role === 'STUDENT');
     }
     return matchesSearch && (role === 'ADMIN' || role === 'MANAGER');
   });
 
   return (
     <div className="user-management-container">
+
+      {/* ⚠ BE MISSING API BANNER (Partial) */}
+      <div style={{
+        marginBottom: '20px', padding: '16px 20px',
+        borderRadius: '10px',
+        background: 'rgba(234,179,8,0.08)',
+        border: '1.5px solid rgba(234,179,8,0.4)',
+        display: 'flex', gap: '12px', alignItems: 'flex-start'
+      }}>
+        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
+            ⚠ [BE CẦN BỔ SUNG API] — Một số chức năng chưa kết nối thật
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+            Các thao tác <strong>Xem danh sách, Tạo tài khoản cán bộ, Khóa/Mở khóa</strong> đã nối API thật.
+            Các thao tác sau <strong>chưa có API</strong> từ Backend:
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+              <li><code>POST /api/users/student</code> — Tạo tài khoản Sinh viên (Member) từ Admin</li>
+              <li><code>PUT  /api/users/{'{userId}'}/role</code> — Đổi vai trò người dùng <code>{'{ role: "ADMIN"|"MANAGER"|"MEMBER" }'}</code></li>
+              <li><code>POST /api/users/{'{userId}'}/reset-password</code> — Đặt lại mật khẩu <code>{'{ newPassword }'}</code></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       <div className="glass-card">
         <div className="glass-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <h3 className="glass-card-title">
@@ -239,17 +207,6 @@ export default function UserManagement({ triggerNotification }) {
             style={{ paddingLeft: '38px' }}
           />
         </div>
-
-        {/* No API Notice */}
-        {hasApi === false && (
-          <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.25)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-            <Info size={15} style={{ color: '#3b82f6', flexShrink: 0, marginTop: '1px' }} />
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              <strong style={{ color: '#3b82f6' }}>Đang sử dụng dữ liệu mô phỏng LocalStorage.</strong><br />
-              Server BE chưa có API: <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '4px' }}>GET/POST/PUT /api/users</code>. Các thay đổi bên dưới sẽ được lưu cục bộ để demo.
-            </div>
-          </div>
-        )}
 
         {/* Content */}
         {loading ? (

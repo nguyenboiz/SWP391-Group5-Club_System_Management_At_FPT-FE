@@ -50,16 +50,35 @@ export default function SubmitMemberReport({ selectedClubId, triggerNotification
 
   return (
     <div className="submit-report-container">
+
+      {/* ⚠ BE MISSING API BANNER */}
+      <div style={{
+        marginBottom: '20px', padding: '16px 20px', borderRadius: '10px',
+        background: 'rgba(234,179,8,0.08)',
+        border: '1.5px solid rgba(234,179,8,0.4)',
+        display: 'flex', gap: '12px', alignItems: 'flex-start'
+      }}>
+        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
+            ⚠ [BE CẦN BỔ SUNG API] — Trang này đang lưu cục bộ (Local Storage)
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+            Báo cáo cá nhân gửi lên Leader hiện chỉ lưu tạm trên trình duyệt. Backend cần bổ sung:
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+              <li><code>POST /api/member-reports</code> — Nộp báo cáo lên Leader <code>{'{ clubId, title, content }'}</code></li>
+              <li><code>GET  /api/member-reports?clubId={'{clubId}'}&amp;userId={'{userId}'}</code> — Lịch sử báo cáo đã nộp</li>
+              <li><code>PUT  /api/member-reports/{'{id}'}/review</code> — Leader duyệt báo cáo thành viên</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       <div className="dashboard-grid-2col">
         {/* Left Column: Form */}
         <div className="glass-card">
           <div className="glass-card-header">
             <h3 className="glass-card-title"><ClipboardList size={18} /> Nộp Báo cáo cho Leader</h3>
-          </div>
-
-          <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
-            <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)', display: 'inline' }} />
-            Chức năng nộp báo cáo cá nhân đang hoạt động ở chế độ lưu trữ cục bộ (Local Storage) để chuẩn bị tích hợp khi BE bổ sung API.
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

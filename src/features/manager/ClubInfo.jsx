@@ -18,9 +18,6 @@ export default function ClubInfo({ selectedClubId, triggerNotification, readOnly
   const [fanpage, setFanpage] = useState('');
   const [description, setDescription] = useState('');
 
-  // Load club info from BE
-  // NOTE: BE chưa có GET /api/clubs/{clubId} riêng lẻ.
-  // Tạm thời dùng getClubMembers để lấy clubId context, và hiển thị info từ select-club session.
   const loadClubInfo = useCallback(async () => {
     if (!selectedClubId) return;
     setLoading(true);

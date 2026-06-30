@@ -2,9 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getDocumentsByClub } from '../../services/documentService';
 import { BookOpen, Search, Download, Eye, RefreshCw } from 'lucide-react';
 
-// NOTE: 'Thư viện tri thức' hiện tải tài liệu của CLB đã chọn với trạng thái Public.
-// Khi BE có API GET /api/documents?accessLevel=Public (toàn hệ thống), thay thế loadDocuments.
-
 export default function KnowledgeSharing({ selectedClubId, triggerNotification }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);

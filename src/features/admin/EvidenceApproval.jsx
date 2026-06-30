@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 import { Check, X, Eye, FileText, CheckCircle, Image as ImageIcon, AlertCircle, AlertTriangle, Clock, Search, RefreshCw } from 'lucide-react';
 
-// NOTE: BE chưa có API cho minh chứng (Evidence). Dùng mock data để demo.
-// Yêu cầu BE bổ sung:
-//   - GET  /api/evidences?clubId={clubId}&status={status}
-//   - PUT  /api/evidences/{id}/approve
-//   - PUT  /api/evidences/{id}/reject
-
 const MOCK_EVIDENCES = [
   {
     id: 'ev-001', userId: 'SE180001', userFullName: 'Nguyễn Đình Khoa',
@@ -72,13 +66,12 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
   const [previewUrl, setPreviewUrl] = useState(null);
 
   const handleApprove = (ev) => {
-    // TODO: thay bằng PUT /api/evidences/{id}/approve khi BE bổ sung
     setEvidences(prev => prev.map(e =>
       e.id === ev.id
         ? { ...e, status: 'Approved', approvedBy: 'Bạn (Leader)', approvedAt: new Date().toISOString() }
         : e
     ));
-    triggerNotification(`Đã duyệt minh chứng của ${ev.userFullName}! (Mock - Chờ BE bổ sung API)`, 'success');
+    triggerNotification(`Đã duyệt minh chứng của ${ev.userFullName}! (Dữ liệu mẫu, chờ BE bổ sung API)`, 'success');
     setExpandedId(null);
   };
 
@@ -88,11 +81,10 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
       triggerNotification('Vui lòng nhập lý do từ chối!', 'warning');
       return;
     }
-    // TODO: thay bằng PUT /api/evidences/{id}/reject khi BE bổ sung
     setEvidences(prev => prev.map(e =>
       e.id === ev.id ? { ...e, status: 'Rejected', rejectReason: remark } : e
     ));
-    triggerNotification(`Đã từ chối minh chứng của ${ev.userFullName}! (Mock - Chờ BE bổ sung API)`, 'success');
+    triggerNotification(`Đã từ chối minh chứng của ${ev.userFullName}! (Dữ liệu mẫu, chờ BE bổ sung API)`, 'success');
     setExpandedId(null);
   };
 
@@ -110,10 +102,29 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
 
   return (
     <div className="evidence-approval-container">
-      {/* Mock notice */}
-      <div style={{ marginBottom: '16px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.2)', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-        <AlertTriangle size={13} style={{ color: 'var(--warning)', flexShrink: 0 }} />
-        <span><strong style={{ color: 'var(--warning)' }}>Mock Data:</strong> Dữ liệu minh chứng mẫu — Yêu cầu BE bổ sung: <code>GET/PUT /api/evidences</code></span>
+      {/* ⚠ BE MISSING API BANNER */}
+      <div style={{
+        marginBottom: '16px', padding: '16px 20px', borderRadius: '10px',
+        background: 'rgba(234,179,8,0.08)',
+        border: '1.5px solid rgba(234,179,8,0.4)',
+        display: 'flex', gap: '12px', alignItems: 'flex-start'
+      }}>
+        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
+            ⚠ [BE CẦN BỔ SUNG API] — Trang này đang dùng Mock Data
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+            Chức năng Duyệt Minh chứng chưa thể kết nối thật. Backend cần bổ sung:
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+              <li><code>GET /api/evidences?clubId={'{clubId}'}&amp;status={'{status}'}</code> — Lấy danh sách minh chứng</li>
+              <li><code>PUT /api/evidences/{'{id}'}/approve</code> — Duyệt minh chứng</li>
+              <li><code>PUT /api/evidences/{'{id}'}/reject</code> — Từ chối minh chứng <code>{'{ rejectReason }'}</code></li>
+              <li><code>POST /api/evidences</code> — Nộp minh chứng (Sinh viên)</li>
+              <li><code>GET /api/evidences?userId={'{userId}'}</code> — Lịch sử minh chứng của sinh viên</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       {/* Stats */}

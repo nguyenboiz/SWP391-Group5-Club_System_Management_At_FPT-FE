@@ -4,10 +4,6 @@ import { getEventsByClub } from '../../services/eventService';
 import { getClubMembers } from '../../services/membershipService';
 import { Users, Calendar, FileText, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
 
-// NOTE: BE chưa có API:
-//   GET /api/evidences?userId={id} - lịch sử minh chứng
-//   GET /api/activities?userId={id} - lịch sử hoạt động
-
 export default function MemberDashboard({ triggerNotification, selectedClubId }) {
   const { currentUser } = useAuth();
   const [events, setEvents] = useState([]);
@@ -58,6 +54,23 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
 
   return (
     <div>
+      {/* ⚠ BE MISSING API BANNER (partial) */}
+      <div style={{
+        marginBottom: '20px', padding: '14px 18px', borderRadius: '10px',
+        background: 'rgba(234,179,8,0.08)',
+        border: '1.5px solid rgba(234,179,8,0.4)',
+        display: 'flex', gap: '10px', alignItems: 'flex-start'
+      }}>
+        <AlertTriangle size={16} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.7' }}>
+          <strong style={{ color: '#eab308' }}>⚠ [BE CẦN BỔ SUNG API]</strong> —
+          Sự kiện & thành viên đã tải thật. Các mục sau cần BE bổ sung:
+          <ul style={{ margin: '4px 0 0 0', paddingLeft: '16px' }}>
+            <li><code>GET /api/evidences?userId={'{userId}'}</code> — Lịch sử minh chứng của sinh viên</li>
+            <li><code>GET /api/activities?userId={'{userId}'}</code> — Lịch sử hoạt động của sinh viên</li>
+          </ul>
+        </div>
+      </div>
       {/* Stats */}
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
         <div className="stats-card">

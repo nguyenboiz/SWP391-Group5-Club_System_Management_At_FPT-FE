@@ -1,43 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { ClipboardList, Search, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Star, Award, AlertTriangle } from 'lucide-react';
-import { mockDb } from '../../utils/mockDb';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ClipboardList, Search, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Star, Award, AlertTriangle, RefreshCw } from 'lucide-react';
+import * as clubReportService from '../../services/clubReportService';
 
-const statusConfig = {
-  Appraised: { label: 'Đã chấm điểm', className: 'badge-active', icon: <CheckCircle size={12} /> },
-  Submitted:  { label: 'Chờ chấm điểm', className: 'badge-member', icon: <Clock size={12} /> },
+const getStatusConfig = (status) => {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('appraised') || s.includes('duyệt') || s.includes('chấm') || s.includes('approved')) {
+    return { label: 'Đã chấm điểm', className: 'badge-active', icon: <CheckCircle size={12} /> };
+  }
+  return { label: 'Chờ chấm điểm', className: 'badge-member', icon: <Clock size={12} /> };
 };
 
 export default function ReviewClubReports({ triggerNotification }) {
   const [reports, setReports] = useState([]);
-  const [filterStatus, setFilterStatus] = useState('Submitted');
+  const [loading, setLoading] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [scoreMap, setScoreMap] = useState({});
   const [remarkMap, setRemarkMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
 
-  const syncReports = () => {
-    const db = mockDb.getData();
-    const list = db.clubReports || [];
-    // Thêm tên CLB từ db.clubs nếu không có sẵn
-    const enriched = list.map(r => {
-      const club = db.clubs.find(c => String(c.id) === String(r.clubId));
-      return {
-        ...r,
-        clubName: club ? club.name || club.clubName : `CLB #${r.clubId}`
-      };
-    });
-    // Báo cáo mới nhất lên đầu
-    enriched.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-    setReports(enriched);
-  };
+  const syncReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await clubReportService.getClubReports();
+      const list = Array.isArray(res) ? res : (res?.data ?? []);
+      // Mới nhất lên đầu
+      list.sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+      setReports(list);
+    } catch (err) {
+      console.error('[ReviewClubReports] Lỗi tải báo cáo:', err);
+      // Không ném lỗi ra UI vì có thể Manager chưa được phân quyền trên endpoint này tùy thuộc cấu hình
+      triggerNotification('Không tải được danh sách báo cáo hoạt động!', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [triggerNotification]);
 
   useEffect(() => {
     syncReports();
-    window.addEventListener('mockDbUpdate', syncReports);
-    return () => window.removeEventListener('mockDbUpdate', syncReports);
-  }, []);
+  }, [syncReports]);
 
-  const handleAppraise = (id) => {
+  const handleAppraise = async (id) => {
     const score = parseInt(scoreMap[id], 10);
     const remark = remarkMap[id] || '';
     if (isNaN(score) || score < 0 || score > 100) {
@@ -45,31 +48,43 @@ export default function ReviewClubReports({ triggerNotification }) {
       return;
     }
 
-    mockDb.appraiseReport(id, score, remark.trim());
-    triggerNotification('Đã chấm điểm báo cáo câu lạc bộ thành công!', 'success');
-    setExpandedId(null);
+    try {
+      await clubReportService.reviewClubReport(id, {
+        status: 'Đã duyệt',
+        icpdpFeedback: `Điểm: ${score}. ${remark}`.trim()
+      });
+      triggerNotification('Đã chấm điểm báo cáo câu lạc bộ thành công!', 'success');
+      setExpandedId(null);
+      await syncReports();
+    } catch (err) {
+      console.error('[ReviewClubReports] Lỗi chấm điểm:', err);
+      triggerNotification(err?.response?.data?.message || 'Chấm điểm báo cáo thất bại!', 'error');
+    }
   };
 
   const filteredReports = reports.filter(r => {
-    const matchesStatus = filterStatus === 'ALL' || r.status === filterStatus;
+    const isPending = r.status === 'Submitted' || r.status === 'Chờ duyệt' || r.status === 'Pending';
+    const isApproved = r.status === 'Approved' || r.status === 'Đã duyệt' || r.status === 'Appraised';
+    
+    let matchesStatus = true;
+    if (filterStatus === 'Submitted') {
+      matchesStatus = isPending;
+    } else if (filterStatus === 'Appraised') {
+      matchesStatus = isApproved;
+    }
+
     const q = searchQuery.toLowerCase();
     const matchesSearch = !q || 
       (r.clubName || '').toLowerCase().includes(q) || 
-      (r.content || '').toLowerCase().includes(q);
+      (r.reportTitle || r.summaryContent || '').toLowerCase().includes(q);
     return matchesStatus && matchesSearch;
   });
 
-  const pendingCount = reports.filter(r => r.status === 'Submitted').length;
-  const appraisedCount = reports.filter(r => r.status === 'Appraised').length;
+  const pendingCount = reports.filter(r => r.status === 'Submitted' || r.status === 'Chờ duyệt' || r.status === 'Pending').length;
+  const appraisedCount = reports.filter(r => r.status === 'Approved' || r.status === 'Đã duyệt' || r.status === 'Appraised').length;
 
   return (
     <div className="user-management-container">
-      {/* Mock notice */}
-      <div style={{ marginBottom: '16px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.2)', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-        <AlertTriangle size={13} style={{ color: 'var(--warning)', flexShrink: 0 }} />
-        <span><strong style={{ color: 'var(--warning)' }}>Vai trò Manager:</strong> Nhận và chấm điểm báo cáo hoạt động của các CLB (chờ BE bổ sung API <code>GET/PUT /api/club-reports</code>).</span>
-      </div>
-
       {/* Stats Cards */}
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
         <div className="stats-card" onClick={() => setFilterStatus('Submitted')} style={{ cursor: 'pointer' }}>
@@ -114,7 +129,11 @@ export default function ReviewClubReports({ triggerNotification }) {
           </div>
         </div>
 
-        {filteredReports.length === 0 ? (
+        {loading ? (
+          <div className="empty-state-view">
+            <span className="login-spinner" style={{ width: '28px', height: '28px' }} />
+          </div>
+        ) : filteredReports.length === 0 ? (
           <div className="empty-state-view">
             <ClipboardList className="empty-state-icon" />
             <p>Không tìm thấy báo cáo CLB nào.</p>
@@ -122,32 +141,32 @@ export default function ReviewClubReports({ triggerNotification }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
             {filteredReports.map(rep => {
-              const isExpanded = expandedId === rep.id;
-              const cfg = statusConfig[rep.status] || statusConfig.Submitted;
+              const repId = rep.clubReportId || rep.id;
+              const isExpanded = expandedId === repId;
+              const isPending = rep.status === 'Submitted' || rep.status === 'Chờ duyệt' || rep.status === 'Pending';
+              const cfg = getStatusConfig(rep.status);
+              
               return (
-                <div key={rep.id} className="glass-card" style={{ padding: '16px', marginBottom: 0, border: isExpanded ? '1px solid var(--primary)' : '1px solid var(--border)' }}>
+                <div key={repId} className="glass-card" style={{ padding: '16px', marginBottom: 0, border: isExpanded ? '1px solid var(--primary)' : '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                    <div style={{ flex: 1 }} onClick={() => setExpandedId(isExpanded ? null : rep.id)} style={{ cursor: 'pointer' }}>
+                    <div style={{ flex: 1 }} onClick={() => setExpandedId(isExpanded ? null : repId)} style={{ cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
                         <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '15px' }}>{rep.clubName}</span>
                         <span className={`badge ${cfg.className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 8px' }}>
                           {cfg.icon} {cfg.label}
                         </span>
-                        {rep.score !== null && rep.score !== undefined && (
-                          <span className="badge badge-active" style={{ fontSize: '10px' }}>{rep.score}/100 điểm</span>
-                        )}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Học kỳ: {rep.semesterId || 'SU26'} · Số sự kiện: {rep.eventCount} · Số thành viên: {rep.memberCount}
+                        Học kỳ: {rep.reportPeriodName || 'SU26'} · Số sự kiện: {rep.totalEventsHeld || 0} · Tiêu đề: {rep.reportTitle}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        Nộp lúc: {new Date(rep.submittedAt).toLocaleString('vi-VN')}
+                        Nộp lúc: {rep.submittedAt ? new Date(rep.submittedAt).toLocaleString('vi-VN') : '—'}
                       </div>
                     </div>
 
                     <button
                       className="btn btn-secondary btn-sm"
-                      onClick={() => setExpandedId(isExpanded ? null : rep.id)}
+                      onClick={() => setExpandedId(isExpanded ? null : repId)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     >
                       {isExpanded ? <>Đóng <ChevronUp size={14} /></> : <>Xem & Chấm <ChevronDown size={14} /></>}
@@ -157,10 +176,10 @@ export default function ReviewClubReports({ triggerNotification }) {
                   {isExpanded && (
                     <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
                       <div style={{ fontSize: '13px', color: 'var(--text-main)', whiteSpace: 'pre-line', lineHeight: 1.6, background: 'rgba(0,0,0,0.1)', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
-                        {rep.content}
+                        {rep.summaryContent || rep.content}
                       </div>
 
-                      {rep.status === 'Submitted' ? (
+                      {isPending ? (
                         <div>
                           <div className="form-group" style={{ marginBottom: '12px' }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -172,8 +191,8 @@ export default function ReviewClubReports({ triggerNotification }) {
                               className="input-field"
                               min={0} max={100}
                               placeholder="Ví dụ: 85, 90..."
-                              value={scoreMap[rep.id] || ''}
-                              onChange={e => setScoreMap({ ...scoreMap, [rep.id]: e.target.value })}
+                              value={scoreMap[repId] || ''}
+                              onChange={e => setScoreMap({ ...scoreMap, [repId]: e.target.value })}
                               style={{ maxWidth: '120px' }}
                             />
                           </div>
@@ -184,15 +203,15 @@ export default function ReviewClubReports({ triggerNotification }) {
                               className="textarea-field"
                               placeholder="Nhập nhận xét hoạt động..."
                               rows={2}
-                              value={remarkMap[rep.id] || ''}
-                              onChange={e => setRemarkMap({ ...remarkMap, [rep.id]: e.target.value })}
+                              value={remarkMap[repId] || ''}
+                              onChange={e => setRemarkMap({ ...remarkMap, [repId]: e.target.value })}
                             />
                           </div>
 
                           <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                             <button
                               className="btn btn-success btn-sm"
-                              onClick={() => handleAppraise(rep.id)}
+                              onClick={() => handleAppraise(repId)}
                               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                             >
                               <Award size={14} /> Xác nhận và Chấm điểm
@@ -200,9 +219,9 @@ export default function ReviewClubReports({ triggerNotification }) {
                           </div>
                         </div>
                       ) : (
-                        rep.adminRemark && (
+                        rep.icpdpFeedback && (
                           <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '12px', borderLeft: '3px solid var(--primary)', color: 'var(--text-muted)' }}>
-                            <strong>Nhận xét từ bạn:</strong> {rep.adminRemark}
+                            <strong>Nhận xét từ bạn:</strong> {rep.icpdpFeedback}
                           </div>
                         )
                       )}

@@ -2,11 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Landmark, Calendar, FileText, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
 import * as semesterService from '../../services/semesterService';
 import * as eventService from '../../services/eventService';
-
-// NOTE: BE chưa có các API sau, dùng mock data:
-//   - GET /api/users/count
-//   - GET /api/clubs (lấy danh sách tất cả CLB)
-//   - GET /api/club-reports/pending-count
+import * as dashboardService from '../../services/dashboardService';
 
 export default function AdminDashboard({ triggerNotification }) {
   const [stats, setStats] = useState({
@@ -23,11 +19,20 @@ export default function AdminDashboard({ triggerNotification }) {
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      // Lấy sự kiện thật từ BE
+      // 1. Lấy dữ liệu thống kê từ dashboard API
+      let dashboardData = null;
+      try {
+        const res = await dashboardService.getAdminDashboard();
+        dashboardData = res?.data || res;
+      } catch (dashErr) {
+        console.error('[AdminDashboard] Lỗi tải thống kê từ BE:', dashErr);
+      }
+
+      // 2. Lấy sự kiện thật từ BE
       const eventsData = await eventService.getAllEvents();
       const allEvents = Array.isArray(eventsData) ? eventsData : (eventsData?.data ?? []);
 
-      // Lấy học kỳ thật
+      // 3. Lấy học kỳ thật
       let activeSemesterName = 'N/A';
       try {
         const semData = await semesterService.getSemesters();
@@ -42,11 +47,11 @@ export default function AdminDashboard({ triggerNotification }) {
       }).length;
 
       setStats({
-        totalClubs: 0, // mock - BE chưa có GET /api/clubs
-        totalUsers: 0, // mock - BE chưa có GET /api/users
-        totalEvents: allEvents.length,
-        pendingReports: 0, // mock - BE chưa có /api/club-reports
-        pendingEvents,
+        totalClubs: dashboardData?.totalClubs ?? 0,
+        totalUsers: dashboardData?.totalUsers ?? 0,
+        totalEvents: dashboardData?.totalEvents ?? allEvents.length,
+        pendingReports: dashboardData?.pendingReportsForAdmin ?? 0,
+        pendingEvents: dashboardData?.upcomingOrOngoingEvents ?? pendingEvents,
         activeSemester: activeSemesterName,
       });
 
@@ -56,7 +61,7 @@ export default function AdminDashboard({ triggerNotification }) {
         .slice(0, 5);
       setRecentEvents(recent);
     } catch (err) {
-      console.error('[AdminDashboard] Lỗi tải dashboard:', err);
+      console.error('[AdminDashboard] Lỗi tổng thể khi tải dashboard:', err);
     } finally {
       setLoading(false);
     }
@@ -82,7 +87,7 @@ export default function AdminDashboard({ triggerNotification }) {
           <div className="stats-info">
             <span className="stats-label">Tổng số CLB</span>
             <span className="stats-value">
-              {loading ? '...' : stats.totalClubs > 0 ? stats.totalClubs : 'Chờ BE'}
+              {loading ? '...' : stats.totalClubs}
             </span>
           </div>
         </div>
@@ -91,7 +96,7 @@ export default function AdminDashboard({ triggerNotification }) {
           <div className="stats-info">
             <span className="stats-label">Tổng User hệ thống</span>
             <span className="stats-value">
-              {loading ? '...' : stats.totalUsers > 0 ? stats.totalUsers : 'Chờ BE'}
+              {loading ? '...' : stats.totalUsers}
             </span>
           </div>
         </div>
@@ -115,7 +120,7 @@ export default function AdminDashboard({ triggerNotification }) {
           <div className="stats-icon-box"><FileText size={20} /></div>
           <div className="stats-info">
             <span className="stats-label">Báo cáo đang chờ</span>
-            <span className="stats-value">{loading ? '...' : 'Chờ BE'}</span>
+            <span className="stats-value">{loading ? '...' : stats.pendingReports}</span>
           </div>
         </div>
         <div className="stats-card">
@@ -184,21 +189,6 @@ export default function AdminDashboard({ triggerNotification }) {
             </table>
           </div>
         )}
-      </div>
-
-      {/* Missing APIs Notice */}
-      <div className="glass-card" style={{ marginTop: '24px', padding: '16px', background: 'rgba(242,111,33,0.04)', border: '1px solid rgba(242,111,33,0.2)' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-          <AlertCircle size={14} style={{ color: 'var(--warning)' }} />
-          <strong style={{ fontSize: '12px', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Cần BE bổ sung API cho Dashboard Admin
-          </strong>
-        </div>
-        <ul style={{ paddingLeft: '16px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <li><code>GET /api/clubs</code> — Lấy danh sách tất cả CLB (tổng số CLB)</li>
-          <li><code>GET /api/users</code> — Lấy danh sách người dùng (tổng user)</li>
-          <li><code>GET /api/club-reports</code> — Danh sách báo cáo từ Manager (báo cáo đang chờ)</li>
-        </ul>
       </div>
     </div>
   );

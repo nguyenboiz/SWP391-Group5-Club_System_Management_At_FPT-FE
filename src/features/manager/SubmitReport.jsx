@@ -4,12 +4,6 @@ import * as semesterService from '../../services/semesterService';
 import * as reportPeriodService from '../../services/reportPeriodService';
 import { useAuth } from '../../contexts/AuthContext';
 
-// NOTE: BE chưa có API cho club reports.
-// Yêu cầu BE bổ sung:
-//   - GET  /api/club-reports?clubId={clubId}
-//   - POST /api/club-reports
-// Khi có API, thay phần mock bên dưới.
-
 export default function SubmitReport({ selectedClubId, triggerNotification }) {
   const { currentUser } = useAuth();
   const isManager = currentUser?.role === 'MANAGER';
@@ -54,8 +48,7 @@ export default function SubmitReport({ selectedClubId, triggerNotification }) {
       return;
     }
 
-    // TODO: thay bằng POST /api/club-reports khi BE bổ sung
-    triggerNotification('Chức năng nộp báo cáo CLB đang chờ BE bổ sung API.', 'warning');
+    triggerNotification('Chưa thể nộp báo cáo: Backend chưa bổ sung API POST /api/club-reports.', 'warning');
   };
 
   if (loading) {
@@ -69,6 +62,29 @@ export default function SubmitReport({ selectedClubId, triggerNotification }) {
 
   return (
     <div className="submit-report-container">
+
+      {/* ⚠ BE MISSING API BANNER */}
+      <div style={{
+        marginBottom: '20px', padding: '16px 20px', borderRadius: '10px',
+        background: 'rgba(234,179,8,0.08)',
+        border: '1.5px solid rgba(234,179,8,0.4)',
+        display: 'flex', gap: '12px', alignItems: 'flex-start'
+      }}>
+        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
+            ⚠ [BE CẦN BỔ SUNG API] — Chức năng Nộp Báo cáo chưa hoạt động thật
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+            Hiện tại chỉ tải được Học kỳ và Đợt báo cáo. Backend cần bổ sung:
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+              <li><code>POST /api/club-reports</code> — Nộp báo cáo hoạt động CLB <code>{'{ clubId, reportPeriodId, content }'}</code></li>
+              <li><code>GET  /api/club-reports?clubId={'{clubId}'}</code> — Xem lịch sử báo cáo đã nộp</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       <div className="stats-grid">
         <div className="stats-card">
           <div className="stats-icon-box"><Calendar size={20} /></div>

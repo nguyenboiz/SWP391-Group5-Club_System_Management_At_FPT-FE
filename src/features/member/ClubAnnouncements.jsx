@@ -79,6 +79,30 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
 
   return (
     <div className="club-announcements-container">
+
+      {/* ⚠ BE MISSING API BANNER */}
+      <div style={{
+        marginBottom: '20px', padding: '16px 20px', borderRadius: '10px',
+        background: 'rgba(234,179,8,0.08)',
+        border: '1.5px solid rgba(234,179,8,0.4)',
+        display: 'flex', gap: '12px', alignItems: 'flex-start'
+      }}>
+        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
+            ⚠ [BE CẦN BỔ SUNG API] — Thông báo nội bộ CLB đang lưu cục bộ (Local Storage)
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+            Thông báo hệ thống từ Admin đã hiển thị thật. Thông báo nội bộ CLB cần BE bổ sung:
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+              <li><code>POST /api/announcements</code> — Phát hành thông báo nội bộ CLB <code>{'{ clubId, title, content, importance }'}</code></li>
+              <li><code>GET  /api/announcements?clubId={'{clubId}'}</code> — Lấy danh sách thông báo của CLB</li>
+              <li><code>DELETE /api/announcements/{'{id}'}</code> — Xóa thông báo</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Leader-only Announcement Creator */}
       {isLeader && (
         <div className="glass-card" style={{ marginBottom: '28px' }}>

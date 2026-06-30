@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Building2, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 
-// NOTE: BE chưa có API quản lý phòng ban.
-// Cần BE bổ sung:
-//   GET    /api/departments
-//   POST   /api/departments
-//   PUT    /api/departments/{id}
-//   DELETE /api/departments/{id}
+// [⚠ BE MISSING API - TOÀN BỘ TRANG NÀY DÙNG MOCK DATA]
+// BE cần bổ sung các API sau để trang Quản lý Phòng ban hoạt động thật:
+//   GET    /api/departments              - Lấy danh sách phòng ban
+//   POST   /api/departments              - Tạo phòng ban mới  { name, code, description, head }
+//   PUT    /api/departments/{id}         - Cập nhật phòng ban { name, code, description, head }
+//   DELETE /api/departments/{id}         - Xóa phòng ban
+// Khi BE có API, thay MOCK_DEPARTMENTS bằng useEffect + fetch từ API thật.
 
 const MOCK_DEPARTMENTS = [
   { id: 1, name: 'Phòng Đào tạo và Phát triển (PDP)', code: 'PDP', description: 'Đơn vị quản lý hoạt động sinh viên và câu lạc bộ', head: 'Nguyễn Văn A', status: 'Active' },
@@ -63,13 +64,29 @@ export default function DepartmentManagement({ triggerNotification }) {
 
   return (
     <div>
-      {/* Mock notice */}
-      <div style={{ marginBottom: '20px', padding: '12px 16px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.2)', display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '12px', color: 'var(--text-muted)' }}>
-        <AlertTriangle size={14} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '2px' }} />
-        <span>
-          <strong style={{ color: 'var(--warning)' }}>Mock Data:</strong> Chức năng quản lý phòng ban đang dùng dữ liệu tạm.
-          Yêu cầu BE bổ sung: <code>GET/POST/PUT/DELETE /api/departments</code>
-        </span>
+      {/* ⚠ BE MISSING API BANNER */}
+      <div style={{
+        marginBottom: '20px', padding: '16px 20px',
+        borderRadius: '10px',
+        background: 'rgba(234,179,8,0.08)',
+        border: '1.5px solid rgba(234,179,8,0.4)',
+        display: 'flex', gap: '12px', alignItems: 'flex-start'
+      }}>
+        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
+            ⚠ [BE CẦN BỔ SUNG API] — Trang này đang dùng Mock Data
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+            Chức năng Quản lý Phòng Ban chưa thể kết nối thật vì Backend chưa có các API sau:
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+              <li><code>GET &nbsp;&nbsp;/api/departments</code> — Lấy danh sách phòng ban</li>
+              <li><code>POST &nbsp;/api/departments</code> — Tạo phòng ban mới <code>{'{ name, code, description, head }'}</code></li>
+              <li><code>PUT &nbsp;&nbsp;/api/departments/{'{id}'}</code> — Cập nhật thông tin phòng ban</li>
+              <li><code>DELETE /api/departments/{'{id}'}</code> — Xóa phòng ban</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div className="dashboard-grid-2col">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart2, TrendingUp, Users, Award, Calendar, ChevronRight } from 'lucide-react';
+import { BarChart2, TrendingUp, Users, Award, Calendar, AlertTriangle } from 'lucide-react';
 
 export default function Analytics({ triggerNotification }) {
   // Mock performance metrics
@@ -12,7 +12,31 @@ export default function Analytics({ triggerNotification }) {
 
   return (
     <div className="analytics-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Top Cards */}
+
+      {/* ⚠ BE MISSING API BANNER */}
+      <div style={{
+        padding: '16px 20px', borderRadius: '10px',
+        background: 'rgba(234,179,8,0.08)',
+        border: '1.5px solid rgba(234,179,8,0.4)',
+        display: 'flex', gap: '12px', alignItems: 'flex-start'
+      }}>
+        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
+            ⚠ [BE CẦN BỔ SUNG API] — Trang này đang dùng Mock Data
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+            Thống kê hiện hiển thị dữ liệu giả lập. Backend cần bổ sung API:
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+              <li><code>GET /api/analytics/clubs</code> — Xếp hạng CLB theo điểm KPI</li>
+              <li><code>GET /api/analytics/events</code> — Thống kê sự kiện theo CLB / học kỳ</li>
+              <li><code>GET /api/analytics/members</code> — Thống kê số lượng thành viên</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+
       <div className="stats-grid">
         <div className="stats-card">
           <div className="stats-icon-box" style={{ color: 'var(--success)' }}><TrendingUp size={20} /></div>

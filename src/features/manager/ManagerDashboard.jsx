@@ -3,9 +3,6 @@ import { getAllEvents, approveEvent, rejectEvent } from '../../services/eventSer
 import apiClient from '../../utils/apiClient';
 import { Landmark, Users, TrendingUp, RefreshCw, Info, CheckCircle, XCircle, Clock, Calendar, Search, AlertTriangle } from 'lucide-react';
 
-// NOTE: BE chưa có API GET /api/clubs — tab Club Monitoring sẽ gọi API thật, hiển thị
-// thông báo rõ ràng nếu chưa có endpoint thay vì dùng mock data.
-
 const statusMapBEtoFE = {
   'Chờ duyệt': 'Pending', 'Đã duyệt': 'Approved', 'Bị từ chối': 'Rejected',
   'Đã hủy': 'Cancelled', 'Pending': 'Pending', 'Approved': 'Approved', 'Rejected': 'Rejected',

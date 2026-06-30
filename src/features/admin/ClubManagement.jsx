@@ -17,10 +17,9 @@ export default function ClubManagement({ triggerNotification }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastCreated, setLastCreated] = useState(null);
 
-  // Clubs từ API thật / LocalStorage fallback
+    // Clubs từ API thật
   const [clubs, setClubs] = useState([]);
   const [loadingClubs, setLoadingClubs] = useState(false);
-  const [hasClubApi, setHasClubApi] = useState(null);
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -37,42 +36,20 @@ export default function ClubManagement({ triggerNotification }) {
   const loadClubs = useCallback(async () => {
     setLoadingClubs(true);
     try {
-      const res = await apiClient.get('/api/clubs');
-      const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-      setClubs(data);
-      setHasClubApi(true);
+      const data = await clubService.getClubs();
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      setClubs(list);
     } catch (err) {
-      const status = err?.response?.status;
-      if (status === 404 || status === 405) {
-        setHasClubApi(false);
-        let localClubs = localStorage.getItem('mock_clubs');
-        if (!localClubs) {
-          const defaultClubs = [
-            { id: '1', clubName: 'JS Club - Japanese Software Engineering', clubCode: 'JS', logoImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=120&q=80', fanpageUrl: 'https://facebook.com/jsclub.fptu', description: 'CLB Kỹ nghệ phần mềm Nhật Bản tại FPT University.', foundedDate: '2026-01-10', status: 'Active', createdAt: new Date().toISOString() },
-            { id: '2', clubName: 'Melody Club - Music & Arts', clubCode: 'MELODY', logoImage: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=120&h=120&q=80', fanpageUrl: 'https://facebook.com/melodyclub.fptu', description: 'CLB Âm nhạc và biểu diễn nghệ thuật.', foundedDate: '2026-02-15', status: 'Active', createdAt: new Date().toISOString() },
-            { id: '3', clubName: 'FPT Chess Club', clubCode: 'CHESS', logoImage: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?auto=format&fit=crop&w=120&h=120&q=80', fanpageUrl: 'https://facebook.com/fptchess.fptu', description: 'CLB Cờ vua Đại học FPT.', foundedDate: '2026-03-05', status: 'Active', createdAt: new Date().toISOString() },
-          ];
-          localStorage.setItem('mock_clubs', JSON.stringify(defaultClubs));
-          localClubs = JSON.stringify(defaultClubs);
-        }
-        setClubs(JSON.parse(localClubs));
-      } else {
-        console.error('[ClubManagement] Lỗi tải CLB:', err);
-        setHasClubApi(false);
-      }
+      console.error('[ClubManagement] Lỗi tải CLB:', err);
+      triggerNotification('Không tải được danh sách câu lạc bộ từ máy chủ!', 'error');
     } finally {
       setLoadingClubs(false);
     }
-  }, []);
+  }, [triggerNotification]);
 
   useEffect(() => {
     loadClubs();
   }, [loadClubs]);
-
-  const syncLocalClubs = (updated) => {
-    setClubs(updated);
-    localStorage.setItem('mock_clubs', JSON.stringify(updated));
-  };
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -87,40 +64,19 @@ export default function ClubManagement({ triggerNotification }) {
     }
     setIsSubmitting(true);
     try {
-      if (hasClubApi) {
-        const result = await clubService.createClub({
-          clubName: form.clubName,
-          clubCode: form.clubCode || null,
-          description: form.description || null,
-          fanpageUrl: form.fanpageUrl || null,
-          logoImage: form.logoImage || null,
-          foundedDate: form.foundedDate || null,
-          managerStudentId: form.managerStudentId || null,
-        });
-        triggerNotification(`Đã tạo câu lạc bộ "${form.clubName}" thành công!`, 'success');
-        setForm({ clubName: '', clubCode: '', description: '', fanpageUrl: '', logoImage: '', foundedDate: '', managerStudentId: '' });
-        await loadClubs();
-        setActiveView('list');
-      } else {
-        // Mock
-        const newId = String(Date.now());
-        const newClub = {
-          id: newId,
-          clubName: form.clubName,
-          clubCode: form.clubCode || form.clubName.slice(0, 3).toUpperCase(),
-          description: form.description || '',
-          logoImage: form.logoImage || '',
-          fanpageUrl: form.fanpageUrl || '',
-          foundedDate: form.foundedDate || new Date().toISOString().split('T')[0],
-          status: 'Active',
-          createdAt: new Date().toISOString()
-        };
-        const updated = [...clubs, newClub];
-        syncLocalClubs(updated);
-        triggerNotification(`Đã tạo câu lạc bộ "${form.clubName}" thành công! (Mock)`, 'success');
-        setForm({ clubName: '', clubCode: '', description: '', fanpageUrl: '', logoImage: '', foundedDate: '', managerStudentId: '' });
-        setActiveView('list');
-      }
+      await clubService.createClub({
+        clubName: form.clubName,
+        clubCode: form.clubCode || null,
+        description: form.description || null,
+        fanpageUrl: form.fanpageUrl || null,
+        logoImage: form.logoImage || null,
+        foundedDate: form.foundedDate || null,
+        managerStudentId: form.managerStudentId || null,
+      });
+      triggerNotification(`Đã tạo câu lạc bộ "${form.clubName}" thành công!`, 'success');
+      setForm({ clubName: '', clubCode: '', description: '', fanpageUrl: '', logoImage: '', foundedDate: '', managerStudentId: '' });
+      await loadClubs();
+      setActiveView('list');
     } catch (err) {
       console.error('[ClubManagement] Lỗi tạo CLB:', err);
       triggerNotification(err?.response?.data?.message || 'Tạo câu lạc bộ thất bại!', 'error');
@@ -153,22 +109,12 @@ export default function ClubManagement({ triggerNotification }) {
     const cId = editingClub.id || editingClub.clubId;
     setIsSubmitting(true);
     try {
-      if (hasClubApi) {
-        await clubService.updateClub(cId, editForm);
-        triggerNotification(`Cập nhật thông tin CLB "${editForm.clubName}" thành công!`, 'success');
-        setShowEditModal(false);
-        loadClubs();
-      } else {
-        // Mock
-        const updated = clubs.map(c => {
-          const currentId = c.id || c.clubId;
-          return String(currentId) === String(cId) ? { ...c, ...editForm } : c;
-        });
-        syncLocalClubs(updated);
-        triggerNotification(`Cập nhật thông tin CLB "${editForm.clubName}" thành công! (Mock)`, 'success');
-        setShowEditModal(false);
-      }
+      await clubService.updateClub(cId, editForm);
+      triggerNotification(`Cập nhật thông tin CLB "${editForm.clubName}" thành công!`, 'success');
+      setShowEditModal(false);
+      await loadClubs();
     } catch (err) {
+      console.error('[ClubManagement] Lỗi cập nhật CLB:', err);
       triggerNotification(err?.response?.data?.message || 'Cập nhật CLB thất bại!', 'error');
     } finally {
       setIsSubmitting(false);
@@ -181,21 +127,11 @@ export default function ClubManagement({ triggerNotification }) {
     const nextStatus = club.status === 'Active' ? 'Suspended' : 'Active';
 
     try {
-      if (hasClubApi) {
-        // Nếu BE chưa có API status riêng, thử gửi update qua PUT updateClub
-        await clubService.updateClub(cId, { ...club, status: nextStatus });
-        triggerNotification(`Cập nhật trạng thái CLB sang: ${nextStatus === 'Active' ? 'Hoạt động' : 'Tạm dừng'}`, 'success');
-        loadClubs();
-      } else {
-        // Mock
-        const updated = clubs.map(c => {
-          const currentId = c.id || c.clubId;
-          return String(currentId) === String(cId) ? { ...c, status: nextStatus } : c;
-        });
-        syncLocalClubs(updated);
-        triggerNotification(`Đã chuyển trạng thái CLB thành: ${nextStatus === 'Active' ? 'Đang hoạt động' : 'Tạm dừng'}! (Mock)`, 'success');
-      }
+      await clubService.updateClubStatus(cId, nextStatus);
+      triggerNotification(`Cập nhật trạng thái CLB sang: ${nextStatus === 'Active' ? 'Hoạt động' : 'Tạm dừng'}`, 'success');
+      await loadClubs();
     } catch (err) {
+      console.error('[ClubManagement] Lỗi đổi trạng thái CLB:', err);
       triggerNotification('Thay đổi trạng thái CLB thất bại!', 'error');
     }
   };
@@ -236,17 +172,6 @@ export default function ClubManagement({ triggerNotification }) {
               <RefreshCw size={14} className={loadingClubs ? 'spin' : ''} /> Làm mới
             </button>
           </div>
-
-          {/* No API notice */}
-          {hasClubApi === false && (
-            <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.25)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-              <Info size={15} style={{ color: '#3b82f6', flexShrink: 0, marginTop: '1px' }} />
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                <strong style={{ color: '#3b82f6' }}>Đang sử dụng dữ liệu mô phỏng LocalStorage.</strong><br />
-                Server BE chưa có API: <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '4px' }}>GET /api/clubs</code>. Bạn vẫn chỉnh sửa và tạo CLB cục bộ bình thường.
-              </div>
-            </div>
-          )}
 
           {loadingClubs ? (
             <div className="empty-state-view">
