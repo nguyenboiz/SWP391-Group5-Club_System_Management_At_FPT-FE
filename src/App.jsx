@@ -15,8 +15,6 @@ import SemesterConfigPage from './pages/admin/SemesterConfigPage';
 import ReportAppraisalPage from './pages/admin/ReportAppraisalPage';
 import UserManagementPage from './pages/admin/UserManagementPage';
 import ClubManagementPage from './pages/admin/ClubManagementPage';
-import DepartmentManagementPage from './pages/admin/DepartmentManagementPage';
-import SystemSettingsPage from './pages/admin/SystemSettingsPage';
 
 // ── Manager Pages ──────────────────────────────────────────────────────────────
 import ManagerDashboardPage from './pages/manager/ManagerDashboardPage';
@@ -65,7 +63,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
       if (activeTab === 'dashboard') return 'Dashboard';
       if (activeTab === 'event-approval') return 'Duyệt Sự kiện';
       if (activeTab === 'event-monitoring') return 'Theo dõi Sự kiện';
-      if (activeTab === 'evidence-review') return 'Kiểm tra Minh chứng';
+      if (activeTab === 'evidence-review') return 'Kiểm tra Chứng nhận';
       if (activeTab === 'club-report-review') return 'Kiểm tra Báo cáo CLB';
       if (activeTab === 'submit-report') return 'Tổng hợp Báo cáo';
       if (activeTab === 'notification-management') return 'Thông báo CLB';
@@ -83,7 +81,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
     if (activeTab === 'club-announcements') return 'Thông báo CLB';
     if (activeTab === 'member-management') return 'Quản lý Thành viên';
     if (activeTab === 'event-manager') return 'Quản lý Sự kiện';
-    if (activeTab === 'evidence-review') return 'Kiểm tra Minh chứng';
+    if (activeTab === 'evidence-review') return 'Kiểm tra Chứng nhận';
     if (activeTab === 'club-report') return 'Nộp Báo cáo CLB';
     if (activeTab === 'leader-management') return 'Chuyển giao Leader';
     return 'Dashboard';
@@ -131,9 +129,7 @@ function AdminDashboard({ triggerNotification }) {
       {activeTab === 'club-management' && <ClubManagementPage triggerNotification={triggerNotification} />}
       {activeTab === 'semester-config' && <SemesterConfigPage triggerNotification={triggerNotification} />}
       {activeTab === 'report-appraisal' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
-      {activeTab === 'department-management' && <DepartmentManagementPage triggerNotification={triggerNotification} />}
       {activeTab === 'notification-management' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
-      {activeTab === 'system-settings' && <SystemSettingsPage triggerNotification={triggerNotification} />}
     </DashboardLayout>
   );
 }

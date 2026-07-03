@@ -29,8 +29,8 @@ export default function Header({
     <header className="top-header">
       <div className="page-title-section">
         <h2>{pageTitle}</h2>
-        {/* Show current club chip for MEMBER and MANAGER */}
-        {(currentRole === 'MANAGER' || currentRole === 'MEMBER') && selectedClub && (
+        {/* Show current club chip for MEMBER only */}
+        {currentRole === 'MEMBER' && selectedClub && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
             <img
               src={selectedClub.logo}
@@ -45,8 +45,8 @@ export default function Header({
       </div>
 
       <div className="header-actions">
-        {/* Switch club button for MEMBER and MANAGER */}
-        {(currentRole === 'MANAGER' || currentRole === 'MEMBER') && onSwitchClub && (
+        {/* Switch club button for MEMBER only */}
+        {currentRole === 'MEMBER' && onSwitchClub && (
           <button
             className="btn btn-secondary btn-sm"
             onClick={onSwitchClub}
@@ -56,6 +56,7 @@ export default function Header({
             <ArrowLeftRight size={13} /> Đổi CLB
           </button>
         )}
+
 
         {/* Current user info + Logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

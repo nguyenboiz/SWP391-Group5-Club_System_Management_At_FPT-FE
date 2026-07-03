@@ -1,12 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { createEvent, getEventsByClub } from '../../services/eventService';
-import { Calendar, Plus, UserCheck, MapPin, AlertTriangle } from 'lucide-react';
+import { createEvent, getEventsByClub, cancelEvent, updateEvent } from '../../services/eventService';
+import { Calendar, Plus, UserCheck, MapPin, AlertTriangle, Edit, X, Save, XCircle } from 'lucide-react';
 
 export default function EventManager({ selectedClubId, triggerNotification }) {
 
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Edit event
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Cancel event confirm
+  const [cancelTargetId, setCancelTargetId] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const [newEvent, setNewEvent] = useState({
     eventName: '',
@@ -99,6 +108,46 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
   //   POST /api/events/{eventId}/attendance
   //   GET  /api/events/{eventId}/participants
   const eventParticipants = [];
+
+  const handleCancelEvent = async () => {
+    if (!cancelTargetId) return;
+    setIsCancelling(true);
+    try {
+      await cancelEvent(cancelTargetId);
+      triggerNotification('Sự kiện đã được hủy thành công!', 'success');
+      setCancelTargetId(null);
+      await loadEvents();
+    } catch (err) {
+      triggerNotification(err?.response?.data?.message || 'Hủy sự kiện thất bại!', 'error');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleUpdateEvent = async (e) => {
+    e.preventDefault();
+    if (!editingEvent) return;
+    setIsUpdating(true);
+    try {
+      await updateEvent(editingEvent.id || editingEvent.eventId, {
+        eventName: editingEvent.eventName,
+        description: editingEvent.description || '',
+        location: editingEvent.location || '',
+        planBudget: editingEvent.planBudget || '0',
+        targetParticipants: Number(editingEvent.targetParticipants) || 0,
+        startTime: new Date(editingEvent.startTime).toISOString(),
+        endTime: editingEvent.endTime ? new Date(editingEvent.endTime).toISOString() : new Date(editingEvent.startTime).toISOString()
+      });
+      triggerNotification(`Cập nhật sự kiện: ${editingEvent.eventName} thành công!`, 'success');
+      setShowEditModal(false);
+      setEditingEvent(null);
+      await loadEvents();
+    } catch (err) {
+      triggerNotification(err?.response?.data?.message || 'Cập nhật sự kiện thất bại!', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="event-manager-container">
@@ -242,25 +291,53 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                   const eLocation = e.venue || e.location;
                   const eTime = e.dateTime || e.startTime;
                   const eBudget = e.budget || e.planBudget;
+                  const eStatus = e.status || '';
+                  const isCancelled = eStatus === 'Cancelled' || eStatus === 'Đã hủy';
                   return (
                     <div
                       key={eId}
                       className={`nav-item ${selectedEventId === eId ? 'active' : ''}`}
                       onClick={() => setSelectedEventId(eId)}
-                      style={{ border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', padding: '12px 16px' }}
+                      style={{ border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', padding: '12px 16px', alignItems: 'center' }}
                     >
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{eName}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, color: isCancelled ? 'var(--text-muted)' : 'var(--text-heading)', textDecoration: isCancelled ? 'line-through' : 'none' }}>{eName}</div>
                         <div style={{ fontSize: '11px', display: 'flex', gap: '12px', marginTop: '4px' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><MapPin size={10} /> {eLocation}</span>
                           {eTime && <span>{new Date(eTime).toLocaleString('vi-VN')}</span>}
+                          {eStatus && <span className={`badge ${isCancelled ? 'badge-blocked' : eStatus === 'Approved' || eStatus === 'Đã duyệt' ? 'badge-active' : 'badge-pending'}`} style={{ fontSize: '10px', padding: '1px 6px' }}>{eStatus}</span>}
                         </div>
                       </div>
-                      <div>
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px' }} onClick={ev => ev.stopPropagation()}>
                         {eBudget && (
-                          <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
+                          <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', fontSize: '11px' }}>
                             {typeof eBudget === 'number' ? eBudget.toLocaleString('vi-VN') : eBudget}đ
                           </span>
+                        )}
+                        {!isCancelled && (
+                          <>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              title="Sửa sự kiện"
+                              style={{ padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                              onClick={() => {
+                                const st = e.startTime ? e.startTime.slice(0,16) : '';
+                                const et = e.endTime ? e.endTime.slice(0,16) : '';
+                                setEditingEvent({ ...e, eventName: eName, location: eLocation, startTime: st, endTime: et, planBudget: eBudget || '' });
+                                setShowEditModal(true);
+                              }}
+                            >
+                              <Edit size={11} /> Sửa
+                            </button>
+                            <button
+                              className="btn btn-sm"
+                              title="Hủy sự kiện"
+                              style={{ padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '3px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                              onClick={() => setCancelTargetId(eId)}
+                            >
+                              <XCircle size={11} /> Hủy
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -307,6 +384,91 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
           )}
         </div>
       </div>
+
+      {/* MODAL: SỬA SỰ KIỆN */}
+      {showEditModal && editingEvent && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title"><Edit size={16} style={{ marginRight: '6px' }} /> Sửa Sự kiện</h3>
+              <button className="modal-close" onClick={() => { setShowEditModal(false); setEditingEvent(null); }}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleUpdateEvent} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
+              <div className="form-group">
+                <label>Tên sự kiện *</label>
+                <input type="text" className="input-field" value={editingEvent.eventName || ''}
+                  onChange={e => setEditingEvent({ ...editingEvent, eventName: e.target.value })} required />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Thời gian bắt đầu</label>
+                  <input type="datetime-local" className="input-field" value={editingEvent.startTime || ''}
+                    onChange={e => setEditingEvent({ ...editingEvent, startTime: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Thời gian kết thúc</label>
+                  <input type="datetime-local" className="input-field" value={editingEvent.endTime || ''}
+                    onChange={e => setEditingEvent({ ...editingEvent, endTime: e.target.value })} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Ngân sách (VNĐ)</label>
+                  <input type="text" className="input-field" value={editingEvent.planBudget || ''}
+                    onChange={e => setEditingEvent({ ...editingEvent, planBudget: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Số người tham gia dự kiến</label>
+                  <input type="number" className="input-field" value={editingEvent.targetParticipants || ''}
+                    onChange={e => setEditingEvent({ ...editingEvent, targetParticipants: e.target.value })} min="1" />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Địa điểm</label>
+                <input type="text" className="input-field" value={editingEvent.location || ''}
+                  onChange={e => setEditingEvent({ ...editingEvent, location: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Mô tả</label>
+                <textarea className="textarea-field" rows={2} value={editingEvent.description || ''}
+                  onChange={e => setEditingEvent({ ...editingEvent, description: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={isUpdating}>
+                  <Save size={14} /> {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowEditModal(false); setEditingEvent(null); }}>Hủy</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM: HỦY SỰ KIỆN */}
+      {cancelTargetId && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ color: 'var(--error)' }}><XCircle size={16} style={{ marginRight: '6px' }} /> Xác nhận Hủy Sự kiện</h3>
+              <button className="modal-close" onClick={() => setCancelTargetId(null)}><X size={18} /></button>
+            </div>
+            <p style={{ fontSize: '13px', lineHeight: 1.6, margin: '16px 0' }}>
+              Bạn có chắc chắn muốn hủy sự kiện này không? Hành động này <strong>không thể hoàn tác</strong>.
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-danger"
+                style={{ flex: 1 }}
+                onClick={handleCancelEvent}
+                disabled={isCancelling}
+              >
+                {isCancelling ? 'Đang hủy...' : 'Đồng ý Hủy sự kiện'}
+              </button>
+              <button className="btn btn-secondary" onClick={() => setCancelTargetId(null)}>Không</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

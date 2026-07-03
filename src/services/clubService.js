@@ -49,3 +49,14 @@ export async function updateClubStatus(clubId, status) {
   const response = await apiClient.patch(`/api/clubs/${clubId}/status`, { status });
   return response.data;
 }
+
+/**
+ * Lấy chi tiết câu lạc bộ
+ * GET /api/clubs/{clubId}
+ * @param {number|string} clubId
+ */
+export async function getClubDetail(clubId) {
+  const response = await apiClient.get(`/api/clubs/${clubId}`);
+  return response.data;
+}
+

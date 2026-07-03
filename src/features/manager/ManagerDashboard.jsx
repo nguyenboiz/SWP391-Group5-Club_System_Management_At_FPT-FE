@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getAllEvents, approveEvent, rejectEvent } from '../../services/eventService';
+import { getAllEvents, approveEvent, rejectEvent, getEventDetail } from '../../services/eventService';
 import apiClient from '../../utils/apiClient';
 import { Landmark, Users, TrendingUp, RefreshCw, Info, CheckCircle, XCircle, Clock, Calendar, Search, AlertTriangle } from 'lucide-react';
 
@@ -17,6 +17,10 @@ export default function ManagerDashboard({ triggerNotification }) {
   const [remarkMap, setRemarkMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+
+  // Cache for event details
+  const [eventDetails, setEventDetails] = useState({});
+  const [loadingDetails, setLoadingDetails] = useState({});
 
   // Club Monitoring state
   const [clubs, setClubs] = useState([]);
@@ -68,6 +72,26 @@ export default function ManagerDashboard({ triggerNotification }) {
   }, [triggerNotification]);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
+
+  const handleExpandEvent = async (eventId) => {
+    if (expandedId === eventId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(eventId);
+
+    if (!eventDetails[eventId]) {
+      setLoadingDetails(prev => ({ ...prev, [eventId]: true }));
+      try {
+        const data = await getEventDetail(eventId);
+        setEventDetails(prev => ({ ...prev, [eventId]: data?.data ?? data }));
+      } catch (err) {
+        console.error('[ManagerDashboard] Lỗi tải chi tiết sự kiện:', err);
+      } finally {
+        setLoadingDetails(prev => ({ ...prev, [eventId]: false }));
+      }
+    }
+  };
 
   const handleApprove = async (ev) => {
     const eventId = ev.id || ev.eventId;
@@ -278,7 +302,7 @@ export default function ManagerDashboard({ triggerNotification }) {
                         {ev.description && <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '10px 0 0', lineHeight: 1.6 }}>{ev.description}</p>}
                       </div>
                       {approvalStatus === 'Pending' && (
-                        <button className="btn btn-secondary btn-sm" onClick={() => setExpandedId(isExpanded ? null : eventId)} disabled={isProcessing}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => handleExpandEvent(eventId)} disabled={isProcessing}>
                           {isExpanded ? 'Đóng' : 'Xem xét'}
                         </button>
                       )}
@@ -286,34 +310,58 @@ export default function ManagerDashboard({ triggerNotification }) {
 
                     {isExpanded && approvalStatus === 'Pending' && (
                       <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-                        <div className="form-group" style={{ marginBottom: '12px' }}>
-                          <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Lý do từ chối (bắt buộc nếu từ chối):</label>
-                          <textarea
-                            className="textarea-field"
-                            rows={2}
-                            placeholder="Nhập lý do từ chối..."
-                            value={remarkMap[eventId] || ''}
-                            onChange={e => setRemarkMap(m => ({ ...m, [eventId]: e.target.value }))}
-                          />
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            className="btn btn-success btn-sm"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                            onClick={() => handleApprove(ev)}
-                            disabled={isProcessing}
-                          >
-                            {isProcessing ? <span className="login-spinner" /> : <><CheckCircle size={14} /> Phê duyệt</>}
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                            onClick={() => handleReject(ev)}
-                            disabled={isProcessing}
-                          >
-                            {isProcessing ? <span className="login-spinner" /> : <><XCircle size={14} /> Từ chối</>}
-                          </button>
-                        </div>
+                        {loadingDetails[eventId] ? (
+                          <div style={{ textAlign: 'center', padding: '12px' }}>
+                            <span className="login-spinner" style={{ width: '20px', height: '20px', margin: '0 auto' }} />
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.6, marginBottom: '16px' }}>
+                              <h5 style={{ fontWeight: 600, color: 'var(--primary)', marginBottom: '8px' }}>Thông tin chi tiết sự kiện:</h5>
+                              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px' }}>
+                                <span>Tên sự kiện:</span><strong>{eventDetails[eventId]?.eventName || eventDetails[eventId]?.name || ev.eventName}</strong>
+                                <span>Thời gian:</span><span>{eventDetails[eventId]?.startTime ? new Date(eventDetails[eventId]?.startTime).toLocaleString('vi-VN') : ''} → {eventDetails[eventId]?.endTime ? new Date(eventDetails[eventId]?.endTime).toLocaleString('vi-VN') : ''}</span>
+                                <span>Địa điểm:</span><span>{eventDetails[eventId]?.location || eventDetails[eventId]?.venue || 'Chưa rõ'}</span>
+                                <span>Ngân sách dự trù:</span><strong>{eventDetails[eventId]?.planBudget || eventDetails[eventId]?.budget || '0'}đ</strong>
+                                <span>Số người dự kiến:</span><span>{eventDetails[eventId]?.targetParticipants || 0} người</span>
+                                {eventDetails[eventId]?.description && (
+                                  <>
+                                    <span>Mô tả kế hoạch:</span><p style={{ margin: 0, whiteSpace: 'pre-line' }}>{eventDetails[eventId]?.description}</p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: '12px' }}>
+                              <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Lý do từ chối (bắt buộc nếu từ chối):</label>
+                              <textarea
+                                className="textarea-field"
+                                rows={2}
+                                placeholder="Nhập lý do từ chối..."
+                                value={remarkMap[eventId] || ''}
+                                onChange={e => setRemarkMap(m => ({ ...m, [eventId]: e.target.value }))}
+                              />
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                className="btn btn-success btn-sm"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => handleApprove(ev)}
+                                disabled={isProcessing}
+                              >
+                                {isProcessing ? <span className="login-spinner" /> : <><CheckCircle size={14} /> Phê duyệt</>}
+                              </button>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => handleReject(ev)}
+                                disabled={isProcessing}
+                              >
+                                {isProcessing ? <span className="login-spinner" /> : <><XCircle size={14} /> Từ chối</>}
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

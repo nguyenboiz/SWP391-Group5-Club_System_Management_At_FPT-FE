@@ -50,10 +50,10 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
   const handleSubmitEvidence = (e) => {
     e.preventDefault();
     if (!fileUrl.trim()) {
-      triggerNotification('Vui lòng cung cấp link hình ảnh hoặc tệp minh chứng!', 'warning');
+      triggerNotification('Vui lòng cung cấp link hình ảnh hoặc tệp chứng nhận!', 'warning');
       return;
     }
-    triggerNotification('Chưa thể nộp minh chứng: Backend chưa bổ sung API POST /api/evidences.', 'warning');
+    triggerNotification('Chưa thể nộp chứng nhận: Backend chưa bổ sung API POST /api/evidences.', 'warning');
     setFileUrl('');
     setSelectedEventId('');
   };
@@ -88,8 +88,8 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
             Tải sự kiện CLB đã kết nối thật. Các chức năng sau cần BE bổ sung:
             <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
               <li><code>PUT  /api/auth/profile</code> — Cập nhật hồ sơ cá nhân <code>{'{ fullName, phone, facebook }'}</code></li>
-              <li><code>POST /api/evidences</code> — Nộp minh chứng sự kiện <code>{'{ eventId, evidenceType, fileUrl }'}</code></li>
-              <li><code>GET  /api/evidences?userId={'{userId}'}</code> — Lịch sử minh chứng đã nộp</li>
+              <li><code>POST /api/evidences</code> — Nộp chứng nhận sự kiện <code>{'{ eventId, evidenceType, fileUrl }'}</code></li>
+              <li><code>GET  /api/evidences?userId={'{userId}'}</code> — Lịch sử chứng nhận đã nộp</li>
             </ul>
           </div>
         </div>
@@ -201,12 +201,12 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
         {/* Right Side: Evidence submission */}
         <div className="glass-card" style={{ height: 'fit-content' }}>
           <div className="glass-card-header">
-            <h3 className="glass-card-title"><ImageIcon size={18} /> Nộp minh chứng (Evidence)</h3>
+            <h3 className="glass-card-title"><ImageIcon size={18} /> Nộp chứng nhận (Certification)</h3>
           </div>
 
           <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
             <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
-            API nộp minh chứng chưa có. Yêu cầu BE bổ sung <code>POST /api/evidences</code>.
+            API nộp chứng nhận chưa có. Yêu cầu BE bổ sung <code>POST /api/evidences</code>.
           </div>
 
           <form onSubmit={handleSubmitEvidence}>
@@ -229,7 +229,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
             </div>
 
             <div className="form-group">
-              <label>Loại minh chứng nộp</label>
+              <label>Loại chứng nhận nộp</label>
               <select
                 className="select-field"
                 value={evidenceType}
@@ -242,19 +242,19 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
             </div>
 
             <div className="form-group">
-              <label>Đường dẫn Tệp minh chứng (Image/PDF Link)</label>
+              <label>Đường dẫn Tệp chứng nhận (Image/PDF Link)</label>
               <input
                 type="url"
                 className="input-field"
                 value={fileUrl}
                 onChange={e => setFileUrl(e.target.value)}
-                placeholder="Nhập link ảnh check-in hoặc PDF minh chứng..."
+                placeholder="Nhập link ảnh check-in hoặc PDF chứng nhận..."
                 required
               />
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-              <Send size={16} /> Gửi minh chứng lên PDP duyệt
+              <Send size={16} /> Gửi chứng nhận lên PDP duyệt
             </button>
           </form>
         </div>

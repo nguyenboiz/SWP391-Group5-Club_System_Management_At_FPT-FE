@@ -71,7 +71,7 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
         ? { ...e, status: 'Approved', approvedBy: 'Bạn (Leader)', approvedAt: new Date().toISOString() }
         : e
     ));
-    triggerNotification(`Đã duyệt minh chứng của ${ev.userFullName}! (Dữ liệu mẫu, chờ BE bổ sung API)`, 'success');
+    triggerNotification(`Đã duyệt chứng nhận của ${ev.userFullName}! (Dữ liệu mẫu, chờ BE bổ sung API)`, 'success');
     setExpandedId(null);
   };
 
@@ -84,7 +84,7 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
     setEvidences(prev => prev.map(e =>
       e.id === ev.id ? { ...e, status: 'Rejected', rejectReason: remark } : e
     ));
-    triggerNotification(`Đã từ chối minh chứng của ${ev.userFullName}! (Dữ liệu mẫu, chờ BE bổ sung API)`, 'success');
+    triggerNotification(`Đã từ chối chứng nhận của ${ev.userFullName}! (Dữ liệu mẫu, chờ BE bổ sung API)`, 'success');
     setExpandedId(null);
   };
 
@@ -115,13 +115,13 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
             ⚠ [BE CẦN BỔ SUNG API] — Trang này đang dùng Mock Data
           </div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
-            Chức năng Duyệt Minh chứng chưa thể kết nối thật. Backend cần bổ sung:
+            Chức năng Duyệt Chứng nhận chưa thể kết nối thật. Backend cần bổ sung:
             <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
-              <li><code>GET /api/evidences?clubId={'{clubId}'}&amp;status={'{status}'}</code> — Lấy danh sách minh chứng</li>
-              <li><code>PUT /api/evidences/{'{id}'}/approve</code> — Duyệt minh chứng</li>
-              <li><code>PUT /api/evidences/{'{id}'}/reject</code> — Từ chối minh chứng <code>{'{ rejectReason }'}</code></li>
-              <li><code>POST /api/evidences</code> — Nộp minh chứng (Sinh viên)</li>
-              <li><code>GET /api/evidences?userId={'{userId}'}</code> — Lịch sử minh chứng của sinh viên</li>
+              <li><code>GET /api/evidences?clubId={'{clubId}'}&amp;status={'{status}'}</code> — Lấy danh sách chứng nhận</li>
+              <li><code>PUT /api/evidences/{'{id}'}/approve</code> — Duyệt chứng nhận</li>
+              <li><code>PUT /api/evidences/{'{id}'}/reject</code> — Từ chối chứng nhận <code>{'{ rejectReason }'}</code></li>
+              <li><code>POST /api/evidences</code> — Nộp chứng nhận (Sinh viên)</li>
+              <li><code>GET /api/evidences?userId={'{userId}'}</code> — Lịch sử chứng nhận của sinh viên</li>
             </ul>
           </div>
         </div>
@@ -154,7 +154,7 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
 
       <div className="glass-card">
         <div className="glass-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 className="glass-card-title"><FileText size={18} /> Duyệt Minh chứng Tham gia</h3>
+          <h3 className="glass-card-title"><FileText size={18} /> Duyệt Chứng nhận Tham gia</h3>
           <button className="btn btn-secondary btn-sm" onClick={() => setFilterStatus('Pending')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <RefreshCw size={14} /> Làm mới
           </button>
@@ -176,7 +176,7 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
         {filtered.length === 0 ? (
           <div className="empty-state-view">
             <FileText className="empty-state-icon" />
-            <p>Không có minh chứng nào phù hợp.</p>
+            <p>Không có chứng nhận nào phù hợp.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>

@@ -145,7 +145,7 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
             </div>
             <div className="empty-state-view" style={{ padding: '20px' }}>
               <FileText className="empty-state-icon" style={{ color: 'var(--text-muted)' }} />
-              <p style={{ fontSize: '13px' }}>Lịch sử tham gia sự kiện và minh chứng của bạn sẽ hiển thị ở đây.</p>
+              <p style={{ fontSize: '13px' }}>Lịch sử tham gia sự kiện và chứng nhận của bạn sẽ hiển thị ở đây.</p>
             </div>
           </div>
 
@@ -155,8 +155,8 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
               <strong style={{ fontSize: '12px', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>BE cần bổ sung</strong>
             </div>
             <ul style={{ paddingLeft: '14px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              <li><code>GET /api/evidences?userId={'{id}'}</code> — Lịch sử minh chứng</li>
-              <li><code>POST /api/evidences</code> — Nộp minh chứng</li>
+              <li><code>GET /api/evidences?userId={'{id}'}</code> — Lịch sử chứng nhận</li>
+              <li><code>POST /api/evidences</code> — Nộp chứng nhận</li>
               <li><code>PUT /api/auth/profile</code> — Cập nhật hồ sơ cá nhân</li>
               <li><code>POST /api/events/{'{id}'}/register</code> — Đăng ký tham gia sự kiện</li>
             </ul>

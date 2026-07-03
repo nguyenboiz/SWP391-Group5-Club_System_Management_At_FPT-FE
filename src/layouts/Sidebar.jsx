@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Calendar, FileCheck, ClipboardList, UserCheck, 
   Landmark, BookOpen, Users, FolderOpen, User,
   CheckSquare, PlusSquare, Search, Send, FileText, Bell,
-  Building2, Settings, Crown, BarChart2, Eye, TrendingUp
+  Crown, BarChart2, Eye, TrendingUp
 } from 'lucide-react';
 
 export default function Sidebar({ currentRole, activeTab, setActiveTab, currentUserProfile, isLeader = false }) {
@@ -29,17 +29,9 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <ClipboardList size={18} />
         <span>Report Review</span>
       </div>
-      <div className={`nav-item ${activeTab === 'department-management' ? 'active' : ''}`} onClick={() => setActiveTab('department-management')}>
-        <Building2 size={18} />
-        <span>Quản lý Phòng ban</span>
-      </div>
       <div className={`nav-item ${activeTab === 'notification-management' ? 'active' : ''}`} onClick={() => setActiveTab('notification-management')}>
         <Bell size={18} />
         <span>Gửi Thông báo</span>
-      </div>
-      <div className={`nav-item ${activeTab === 'system-settings' ? 'active' : ''}`} onClick={() => setActiveTab('system-settings')}>
-        <Settings size={18} />
-        <span>Cấu hình Hệ thống</span>
       </div>
     </>
   );
@@ -60,7 +52,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
       </div>
       <div className={`nav-item ${activeTab === 'evidence-review' ? 'active' : ''}`} onClick={() => setActiveTab('evidence-review')}>
         <FileCheck size={18} />
-        <span>Kiểm tra Minh chứng</span>
+        <span>Kiểm tra Chứng nhận</span>
       </div>
       <div className={`nav-item ${activeTab === 'club-report-review' ? 'active' : ''}`} onClick={() => setActiveTab('club-report-review')}>
         <FileText size={18} />
@@ -132,7 +124,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
           </div>
           <div className={`nav-item ${activeTab === 'evidence-review' ? 'active' : ''}`} onClick={() => setActiveTab('evidence-review')}>
             <FileCheck size={18} />
-            <span>Kiểm tra Minh chứng</span>
+            <span>Kiểm tra Chứng nhận</span>
           </div>
           <div className={`nav-item ${activeTab === 'club-report' ? 'active' : ''}`} onClick={() => setActiveTab('club-report')}>
             <Send size={18} />

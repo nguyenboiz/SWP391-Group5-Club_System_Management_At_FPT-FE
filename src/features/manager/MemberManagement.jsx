@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as membershipService from '../../services/membershipService';
-import { UserPlus, UserCheck, ToggleLeft, ToggleRight, Search } from 'lucide-react';
+import { UserPlus, UserCheck, ToggleLeft, ToggleRight, Search, Eye, X } from 'lucide-react';
 
 export default function MemberManagement({ selectedClubId, triggerNotification }) {
   const [members, setMembers] = useState([]);
@@ -8,6 +8,11 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newUserId, setNewUserId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Member detail modal
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [memberDetail, setMemberDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const backendClubId = selectedClubId;
 
@@ -72,6 +77,23 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
     } catch (err) {
       console.error('[MemberManagement] Lỗi gỡ thành viên:', err);
       triggerNotification('Gỡ thành viên thất bại. Vui lòng thử lại!', 'error');
+    }
+  };
+
+  const handleViewDetail = async (m) => {
+    const membershipId = m.id || m.membershipId;
+    if (!membershipId) return;
+    setShowDetailModal(true);
+    setLoadingDetail(true);
+    setMemberDetail(null);
+    try {
+      const data = await membershipService.getMemberDetail(membershipId);
+      setMemberDetail(data?.data ?? data);
+    } catch (err) {
+      console.error('[MemberManagement] Lỗi tải chi tiết thành viên:', err);
+      setMemberDetail(m);
+    } finally {
+      setLoadingDetail(false);
     }
   };
 
@@ -148,7 +170,7 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
                 <thead>
                   <tr>
                     <th>MSSV</th>
-                    <th>Họ & Tên</th>
+                    <th>Họ &amp; Tên</th>
                     <th>Vai trò CLB</th>
                     <th>Khóa</th>
                     <th>Trạng thái</th>
@@ -172,23 +194,32 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        {(m.status === 'Active' || m.status === 'Open') ? (
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                           <button
-                            onClick={() => handleRemoveMember(m)}
-                            className="btn btn-sm btn-danger"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', minWidth: '110px', justifyContent: 'center' }}
+                            onClick={() => handleViewDetail(m)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px' }}
                           >
-                            <ToggleLeft size={12} /> Cho rút lui
+                            <Eye size={11} /> Chi tiết
                           </button>
-                        ) : (
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', minWidth: '110px', justifyContent: 'center', cursor: 'default' }}
-                            disabled
-                          >
-                            Đã rút lui
-                          </button>
-                        )}
+                          {(m.status === 'Active' || m.status === 'Open') ? (
+                            <button
+                              onClick={() => handleRemoveMember(m)}
+                              className="btn btn-sm btn-danger"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px' }}
+                            >
+                              <ToggleLeft size={12} /> Rút lui
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-sm btn-secondary"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', cursor: 'default' }}
+                              disabled
+                            >
+                              Đã rút lui
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -231,6 +262,43 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
           </form>
         </div>
       </div>
+
+      {/* MODAL: CHI TIẾT THÀNH VIÊN */}
+      {showDetailModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title"><UserCheck size={16} style={{ marginRight: '6px' }} /> Chi tiết Thành viên</h3>
+              <button className="modal-close" onClick={() => { setShowDetailModal(false); setMemberDetail(null); }}><X size={18} /></button>
+            </div>
+            {loadingDetail ? (
+              <div style={{ textAlign: 'center', padding: '32px' }}>
+                <div className="login-spinner" style={{ margin: '0 auto' }}></div>
+              </div>
+            ) : memberDetail ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
+                {[
+                  ['MSSV', memberDetail.studentId || memberDetail.userId || 'N/A'],
+                  ['Họ &amp; Tên', memberDetail.fullName || memberDetail.name || 'N/A'],
+                  ['Email', memberDetail.email || 'N/A'],
+                  ['Khóa', memberDetail.cohort || 'N/A'],
+                  ['Vai trò trong CLB', memberDetail.role || 'Member'],
+                  ['Trạng thái', memberDetail.status || 'N/A'],
+                  ['Lý do tham gia', memberDetail.joinReason || 'N/A'],
+                  ['Mục tiêu cá nhân', memberDetail.personalGoal || 'N/A'],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ minWidth: '140px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }} dangerouslySetInnerHTML={{ __html: String(value) }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', padding: '16px 0' }}>Không tải được thông tin thành viên.</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

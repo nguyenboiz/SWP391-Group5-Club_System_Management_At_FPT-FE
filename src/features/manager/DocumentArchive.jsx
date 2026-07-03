@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { uploadDocument, getDocumentsByClub, downloadDocument, deleteDocument } from '../../services/documentService';
-import { Folder, Upload, FileText, Globe, Lock, Download, Trash2, RefreshCw } from 'lucide-react';
+import { uploadDocument, getDocumentsByClub, downloadDocument, deleteDocument, updateDocument, getDocumentDetail } from '../../services/documentService';
+import { Folder, Upload, FileText, Globe, Lock, Download, Trash2, RefreshCw, Edit, X, Save, Eye } from 'lucide-react';
 
 export default function DocumentArchive({ selectedClubId, triggerNotification, readOnly = false }) {
   const [documents, setDocuments] = useState([]);
@@ -13,6 +13,16 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
   const [eventId, setEventId] = useState('');
   const [accessLevel, setAccessLevel] = useState('Public');
   const [files, setFiles] = useState(null);
+
+  // Edit document modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingDoc, setEditingDoc] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Detail document modal state
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [docDetail, setDocDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const [activeFolder, setActiveFolder] = useState('ALL');
 
@@ -115,6 +125,46 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
         err?.response?.data?.message || 'Xóa tài liệu thất bại!',
         'error'
       );
+    }
+  };
+
+  const handleUpdateDocument = async (e) => {
+    e.preventDefault();
+    if (!editingDoc) return;
+    setIsUpdating(true);
+    try {
+      await updateDocument(editingDoc.id || editingDoc.documentId, {
+        documentName: editingDoc.documentName,
+        documentTypeId: Number(editingDoc.documentTypeId),
+        eventId: editingDoc.eventId ? Number(editingDoc.eventId) : null,
+        accessLevel: editingDoc.accessLevel
+      });
+      triggerNotification(`Đã cập nhật tài liệu thành công!`, 'success');
+      setShowEditModal(false);
+      setEditingDoc(null);
+      await loadDocuments();
+    } catch (err) {
+      console.error('[DocumentArchive] Lỗi sửa tài liệu:', err);
+      triggerNotification(err?.response?.data?.message || 'Cập nhật tài liệu thất bại!', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleViewDetail = async (doc) => {
+    const docId = doc.id || doc.documentId;
+    if (!docId) return;
+    setShowDetailModal(true);
+    setLoadingDetail(true);
+    setDocDetail(null);
+    try {
+      const data = await getDocumentDetail(docId);
+      setDocDetail(data?.data ?? data);
+    } catch (err) {
+      console.error('[DocumentArchive] Lỗi tải chi tiết tài liệu:', err);
+      setDocDetail(doc);
+    } finally {
+      setLoadingDetail(false);
     }
   };
 
@@ -241,20 +291,47 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                               <button
                                 className="btn btn-secondary btn-sm"
                                 style={{ padding: '4px 8px' }}
+                                onClick={() => handleViewDetail(d)}
+                                title="Xem chi tiết"
+                              >
+                                <Eye size={12} />
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '4px 8px' }}
                                 onClick={() => handleDownload(d)}
                                 title="Tải về"
                               >
                                 <Download size={12} />
                               </button>
                               {!readOnly && (
-                                <button
-                                  className="btn btn-sm"
-                                  style={{ padding: '4px 8px', background: 'rgba(239,68,68,0.15)', color: 'var(--error)', border: '1px solid rgba(239,68,68,0.3)' }}
-                                  onClick={() => handleDelete(d)}
-                                  title="Xóa"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
+                                <>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ padding: '4px 8px' }}
+                                    onClick={() => {
+                                      setEditingDoc({
+                                        id: dId,
+                                        documentName: dName,
+                                        documentTypeId: d.documentTypeId || d.typeId || 1,
+                                        eventId: d.eventId || '',
+                                        accessLevel: dAccess
+                                      });
+                                      setShowEditModal(true);
+                                    }}
+                                    title="Chỉnh sửa"
+                                  >
+                                    <Edit size={12} />
+                                  </button>
+                                  <button
+                                    className="btn btn-sm"
+                                    style={{ padding: '4px 8px', background: 'rgba(239,68,68,0.15)', color: 'var(--error)', border: '1px solid rgba(239,68,68,0.3)' }}
+                                    onClick={() => handleDelete(d)}
+                                    title="Xóa"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -363,6 +440,113 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
           </div>
         )}
       </div>
+
+      {/* EDIT DOCUMENT MODAL */}
+      {showEditModal && editingDoc && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '480px', width: '90%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title"><Edit size={16} style={{ marginRight: '6px' }} /> Sửa thông tin tài liệu</h3>
+              <button className="modal-close" onClick={() => { setShowEditModal(false); setEditingDoc(null); }}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleUpdateDocument} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+              <div className="form-group">
+                <label>Tên tài liệu *</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={editingDoc.documentName}
+                  onChange={e => setEditingDoc({ ...editingDoc, documentName: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Phân loại Thư mục</label>
+                <select
+                  className="select-field"
+                  value={editingDoc.documentTypeId}
+                  onChange={e => setEditingDoc({ ...editingDoc, documentTypeId: e.target.value })}
+                >
+                  <option value="1">Thư mục Proposal (Kế hoạch)</option>
+                  <option value="2">Thư mục Kịch bản mẫu (Script)</option>
+                  <option value="3">Thư mục Báo cáo (Report)</option>
+                  <option value="4">Khác (Other)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Quyền truy cập (Access Level)</label>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="edit-doc-access"
+                      checked={editingDoc.accessLevel === 'Public'}
+                      onChange={() => setEditingDoc({ ...editingDoc, accessLevel: 'Public' })}
+                      style={{ accentColor: 'var(--primary)' }}
+                    />
+                    <span>Công khai (Public)</span>
+                  </label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="edit-doc-access"
+                      checked={editingDoc.accessLevel === 'Internal'}
+                      onChange={() => setEditingDoc({ ...editingDoc, accessLevel: 'Internal' })}
+                      style={{ accentColor: 'var(--primary)' }}
+                    />
+                    <span>Nội bộ (Internal)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} disabled={isUpdating}>
+                  <Save size={16} /> {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowEditModal(false); setEditingDoc(null); }}>Hủy</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DETAIL DOCUMENT MODAL */}
+      {showDetailModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '500px', width: '90%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title"><FileText size={18} style={{ marginRight: '6px' }} /> Chi tiết Tài liệu</h3>
+              <button className="modal-close" onClick={() => { setShowDetailModal(false); setDocDetail(null); }}><X size={18} /></button>
+            </div>
+            {loadingDetail ? (
+              <div style={{ textAlign: 'center', padding: '32px' }}>
+                <div className="login-spinner" style={{ margin: '0 auto' }}></div>
+              </div>
+            ) : docDetail ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
+                {[
+                  ['Tên tài liệu', docDetail.name || docDetail.documentName || 'N/A'],
+                  ['Mã tài liệu', docDetail.id || docDetail.documentId || 'N/A'],
+                  ['Phân loại thư mục', getDocType(docDetail)],
+                  ['Cấp độ truy cập', <span className={`badge ${docDetail.accessLevel === 'Public' ? 'badge-active' : 'badge-blocked'}`}>{docDetail.accessLevel === 'Public' ? 'Công khai' : 'Nội bộ'}</span>],
+                  ['Ngày tải lên', docDetail.uploadedAt || docDetail.createdAt ? new Date(docDetail.uploadedAt || docDetail.createdAt).toLocaleString('vi-VN') : 'N/A'],
+                  ['Đính kèm sự kiện ID', docDetail.eventId || 'Không có'],
+                  ['Đường dẫn file (URL)', docDetail.fileUrl ? <a href={docDetail.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Xem tệp</a> : 'N/A']
+                ].map(([label, value]) => (
+                  <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', padding: '16px 0' }}>Không tải được thông tin tài liệu.</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,10 @@ export default function ReportAppraisal({ triggerNotification }) {
   const [scoreMap, setScoreMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
 
+  // Report detailed data cache
+  const [reportDetails, setReportDetails] = useState({});
+  const [loadingDetails, setLoadingDetails] = useState({});
+
   // Announcements
   const [announcements, setAnnouncements] = useState([]);
   const [newAnn, setNewAnn] = useState({ title: '', content: '' });
@@ -42,6 +46,27 @@ export default function ReportAppraisal({ triggerNotification }) {
     loadReports();
     loadAnnouncements();
   }, []);
+
+  const handleExpand = async (reportId) => {
+    if (expandedId === reportId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(reportId);
+
+    // If detail is not cached yet, fetch from API
+    if (!reportDetails[reportId]) {
+      setLoadingDetails(prev => ({ ...prev, [reportId]: true }));
+      try {
+        const data = await clubReportService.getClubReportDetail(reportId);
+        setReportDetails(prev => ({ ...prev, [reportId]: data?.data ?? data }));
+      } catch (err) {
+        console.error('[ReportAppraisal] Lỗi tải chi tiết báo cáo:', err);
+      } finally {
+        setLoadingDetails(prev => ({ ...prev, [reportId]: false }));
+      }
+    }
+  };
 
   const handleAppraise = async (report) => {
     const score = parseInt(scoreMap[report.clubReportId || report.id]);
@@ -167,46 +192,57 @@ export default function ReportAppraisal({ triggerNotification }) {
                             </div>
                           )}
                         </div>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setExpandedId(isExpanded ? null : repId)}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => handleExpand(repId)}>
                           {isExpanded ? 'Đóng' : 'Xem chi tiết'}
                         </button>
                       </div>
 
                       {isExpanded && (
                         <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
-                          <div style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.7, marginBottom: '16px', whiteSpace: 'pre-line' }}>
-                            {report.summaryContent || report.content}
-                          </div>
-                          
-                          {isPending ? (
-                            <div>
-                              <div className="form-group" style={{ marginBottom: '12px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <Star size={14} style={{ color: 'var(--primary)' }} />
-                                  Nhập điểm đánh giá (0–100):
-                                </label>
-                                <input
-                                  type="number"
-                                  className="input-field"
-                                  min={0} max={100}
-                                  placeholder="Nhập điểm..."
-                                  value={scoreMap[repId] || ''}
-                                  onChange={e => setScoreMap(m => ({ ...m, [repId]: e.target.value }))}
-                                  style={{ maxWidth: '150px' }}
-                                />
-                              </div>
-                              <button
-                                className="btn btn-success btn-sm"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                                onClick={() => handleAppraise(report)}
-                              >
-                                <Award size={16} /> Xác nhận Phê duyệt & Chấm điểm
-                              </button>
+                          {loadingDetails[repId] ? (
+                            <div style={{ textAlign: 'center', padding: '16px' }}>
+                              <span className="login-spinner" style={{ width: '20px', height: '20px', margin: '0 auto' }} />
                             </div>
                           ) : (
-                            <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(34,197,94,0.05)', fontSize: '12px', borderLeft: '3px solid var(--success)', color: 'var(--text-muted)' }}>
-                              Báo cáo đã duyệt thành công. Phản hồi: <strong>{report.icpdpFeedback || 'Không có phản hồi'}</strong> {report.reviewedAt && `vào ${new Date(report.reviewedAt).toLocaleDateString('vi-VN')}`}
-                            </div>
+                            <>
+                              <div style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.7, marginBottom: '16px', whiteSpace: 'pre-line' }}>
+                                <strong>Nội dung báo cáo:</strong>
+                                <p style={{ marginTop: '6px' }}>
+                                  {(reportDetails[repId]?.summaryContent || reportDetails[repId]?.content || report.summaryContent || report.content)}
+                                </p>
+                              </div>
+
+                              {isPending ? (
+                                <div>
+                                  <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <Star size={14} style={{ color: 'var(--primary)' }} />
+                                      Nhập điểm đánh giá (0–100):
+                                    </label>
+                                    <input
+                                      type="number"
+                                      className="input-field"
+                                      min={0} max={100}
+                                      placeholder="Nhập điểm..."
+                                      value={scoreMap[repId] || ''}
+                                      onChange={e => setScoreMap(m => ({ ...m, [repId]: e.target.value }))}
+                                      style={{ maxWidth: '150px' }}
+                                    />
+                                  </div>
+                                  <button
+                                    className="btn btn-success btn-sm"
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                                    onClick={() => handleAppraise(report)}
+                                  >
+                                    <Award size={16} /> Phê duyệt & Chấm điểm
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(34,197,94,0.05)', fontSize: '12px', borderLeft: '3px solid var(--success)', color: 'var(--text-muted)' }}>
+                                  Báo cáo đã duyệt thành công. Phản hồi: <strong>{report.icpdpFeedback || reportDetails[repId]?.icpdpFeedback || 'Không có phản hồi'}</strong> {report.reviewedAt && `vào ${new Date(report.reviewedAt).toLocaleDateString('vi-VN')}`}
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )}

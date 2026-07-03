@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as clubService from '../../services/clubService';
 import apiClient from '../../utils/apiClient';
-import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, List, Info, RefreshCw, Edit2, Lock, Unlock, X, Save } from 'lucide-react';
+import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, List, Info, RefreshCw, Edit2, Lock, Unlock, X, Save, Eye } from 'lucide-react';
 
 export default function ClubManagement({ triggerNotification }) {
   const [activeView, setActiveView] = useState('list');
@@ -32,6 +32,11 @@ export default function ClubManagement({ triggerNotification }) {
     logoImage: '',
     foundedDate: '',
   });
+
+  // Detail modal state
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [clubDetail, setClubDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const loadClubs = useCallback(async () => {
     setLoadingClubs(true);
@@ -136,6 +141,24 @@ export default function ClubManagement({ triggerNotification }) {
     }
   };
 
+  // 4. Xem chi tiết CLB
+  const handleViewDetail = async (club) => {
+    const cId = club.id || club.clubId;
+    if (!cId) return;
+    setShowDetailModal(true);
+    setLoadingDetail(true);
+    setClubDetail(null);
+    try {
+      const data = await clubService.getClubDetail(cId);
+      setClubDetail(data?.data ?? data);
+    } catch (err) {
+      console.error('[ClubManagement] Lỗi tải chi tiết CLB:', err);
+      setClubDetail(club);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
   return (
     <div>
       {/* View Switcher */}
@@ -231,6 +254,14 @@ export default function ClubManagement({ triggerNotification }) {
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              title="Xem chi tiết CLB"
+                              onClick={() => handleViewDetail(club)}
+                              style={{ padding: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Eye size={12} /> Chi tiết
+                            </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               title="Thay đổi Trạng thái"
@@ -403,6 +434,58 @@ export default function ClubManagement({ triggerNotification }) {
                 <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Hủy</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DETAIL CLUB MODAL */}
+      {showDetailModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '520px', width: '90%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title"><Landmark size={18} style={{ marginRight: '6px' }} /> Chi tiết Câu lạc bộ</h3>
+              <button className="modal-close" onClick={() => { setShowDetailModal(false); setClubDetail(null); }}><X size={18} /></button>
+            </div>
+            {loadingDetail ? (
+              <div style={{ textAlign: 'center', padding: '32px' }}>
+                <div className="login-spinner" style={{ margin: '0 auto' }}></div>
+              </div>
+            ) : clubDetail ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '14px' }}>
+                  {clubDetail.logoImage ? (
+                    <img src={clubDetail.logoImage} alt="Logo" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
+                  ) : (
+                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '24px' }}>
+                      {(clubDetail.clubName || clubDetail.name || 'C').charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <h4 style={{ fontSize: '18px', color: 'var(--text-heading)', fontWeight: 700 }}>{clubDetail.clubName || clubDetail.name}</h4>
+                    <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', marginTop: '4px', display: 'inline-block' }}>
+                      Mã: {clubDetail.clubCode || clubDetail.code || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {[
+                    ['Ngày thành lập', clubDetail.foundedDate ? new Date(clubDetail.foundedDate).toLocaleDateString('vi-VN') : 'N/A'],
+                    ['Người quản lý (Student ID)', clubDetail.managerStudentId || clubDetail.managerUserId || 'N/A'],
+                    ['Fanpage Facebook', clubDetail.fanpageUrl ? <a href={clubDetail.fanpageUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{clubDetail.fanpageUrl}</a> : 'N/A'],
+                    ['Trạng thái', <span className={`badge ${clubDetail.status === 'Active' ? 'badge-active' : 'badge-blocked'}`}>{clubDetail.status === 'Active' ? 'Đang hoạt động' : 'Tạm dừng'}</span>],
+                    ['Mô tả hoạt động', clubDetail.description || 'N/A']
+                  ].map(([label, value]) => (
+                    <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                      <span style={{ minWidth: '165px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', padding: '16px 0' }}>Không tải được thông tin câu lạc bộ.</p>
+            )}
           </div>
         </div>
       )}

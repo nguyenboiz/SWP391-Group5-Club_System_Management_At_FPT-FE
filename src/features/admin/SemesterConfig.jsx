@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as semesterService from '../../services/semesterService';
 import * as reportPeriodService from '../../services/reportPeriodService';
-import { Calendar, Plus, Clock, AlertCircle } from 'lucide-react';
+import { Calendar, Plus, Clock, AlertCircle, Edit, X, Save } from 'lucide-react';
 
 export default function SemesterConfig({ triggerNotification }) {
   const [semesters, setSemesters] = useState([]);
@@ -14,17 +14,16 @@ export default function SemesterConfig({ triggerNotification }) {
   const [newSem, setNewSem] = useState({ name: '', description: '', startDate: '', endDate: '' });
   const [newRp, setNewRp] = useState({ semesterId: '', name: '', description: '', deadline: '' });
 
-  // Mock data dự phòng khi API chưa có dữ liệu
-  const MOCK_SEMESTERS = [
-    { id: 1, semesterName: 'Spring 2026', description: 'Học kỳ Xuân 2026', startDate: '2026-01-05', endDate: '2026-04-25', status: 'Finished' },
-    { id: 2, semesterName: 'Summer 2026', description: 'Học kỳ Hè 2026', startDate: '2026-05-04', endDate: '2026-08-15', status: 'Active' },
-    { id: 3, semesterName: 'Fall 2026', description: 'Học kỳ Thu 2026', startDate: '2026-09-07', endDate: '2026-12-19', status: 'Planned' },
-  ];
+  // Edit semester
+  const [showEditSemModal, setShowEditSemModal] = useState(false);
+  const [editingSem, setEditingSem] = useState(null);
+  const [isUpdatingSem, setIsUpdatingSem] = useState(false);
 
-  const MOCK_PERIODS = [
-    { id: 1, semesterId: 2, periodName: 'Báo cáo Giữa kỳ Summer 2026', description: 'Đợt báo cáo giữa kỳ', deadline: '2026-06-30T23:59:00', status: 'Open' },
-    { id: 2, semesterId: 2, periodName: 'Báo cáo Cuối kỳ Summer 2026', description: 'Đợt báo cáo cuối kỳ', deadline: '2026-08-10T23:59:00', status: 'Planned' },
-  ];
+  // Edit report period
+  const [showEditPeriodModal, setShowEditPeriodModal] = useState(false);
+  const [editingPeriod, setEditingPeriod] = useState(null);
+  const [isUpdatingPeriod, setIsUpdatingPeriod] = useState(false);
+
 
   // Load all semesters
   const loadSemesters = useCallback(async () => {
@@ -32,25 +31,16 @@ export default function SemesterConfig({ triggerNotification }) {
     try {
       const data = await semesterService.getSemesters();
       const sList = Array.isArray(data) ? data : (data?.data ?? []);
+      setSemesters(sList);
       if (sList.length > 0) {
-        setSemesters(sList);
         setNewRp(prev => ({ ...prev, semesterId: String(sList[0].id) }));
-      } else {
-        // API trả về rỗng → dùng mock để demo
-        setSemesters(MOCK_SEMESTERS);
-        setNewRp(prev => ({ ...prev, semesterId: String(MOCK_SEMESTERS[1].id) }));
-        console.warn('[SemesterConfig] API trả về rỗng, dùng mock data để demo.');
       }
     } catch (err) {
-      console.error('[SemesterConfig] Lỗi tải học kỳ (BE lỗi 500), dùng mock data:', err);
-      // API lỗi 500 → fallback mock data để demo không bị trắng trang
-      setSemesters(MOCK_SEMESTERS);
-      setNewRp(prev => ({ ...prev, semesterId: String(MOCK_SEMESTERS[1].id) }));
-      triggerNotification('Backend chưa có dữ liệu học kỳ — đang hiển thị dữ liệu mẫu để demo.', 'warning');
+      setSemesters([]);
     } finally {
       setLoadingSemesters(false);
     }
-  }, [triggerNotification]);
+  }, []);
 
   // Load report periods by selected semester
   const loadReportPeriods = useCallback(async (semesterId) => {
@@ -59,21 +49,13 @@ export default function SemesterConfig({ triggerNotification }) {
     try {
       const data = await reportPeriodService.getReportPeriods(semesterId);
       const list = Array.isArray(data) ? data : (data?.data ?? []);
-      if (list.length > 0) {
-        setReportPeriods(list);
-      } else {
-        // Lọc mock periods theo semesterId
-        const mockFiltered = MOCK_PERIODS.filter(p => String(p.semesterId) === String(semesterId));
-        setReportPeriods(mockFiltered);
-      }
+      setReportPeriods(list);
     } catch (err) {
-      console.error('[SemesterConfig] Lỗi tải đợt báo cáo:', err);
-      const mockFiltered = MOCK_PERIODS.filter(p => String(p.semesterId) === String(semesterId));
-      setReportPeriods(mockFiltered);
+      setReportPeriods([]);
     } finally {
       setLoadingPeriods(false);
     }
-  }, [triggerNotification]);
+  }, []);
 
   useEffect(() => {
     loadSemesters();
@@ -85,6 +67,52 @@ export default function SemesterConfig({ triggerNotification }) {
       loadReportPeriods(newRp.semesterId);
     }
   }, [newRp.semesterId, loadReportPeriods]);
+
+  const handleUpdateSemester = async (e) => {
+    e.preventDefault();
+    if (!editingSem) return;
+    setIsUpdatingSem(true);
+    try {
+      await semesterService.updateSemester(editingSem.id, {
+        semesterName: editingSem.semesterName,
+        description: editingSem.description || null,
+        startDate: editingSem.startDate,
+        endDate: editingSem.endDate,
+        status: editingSem.status
+      });
+      triggerNotification(`Đã cập nhật học kỳ: ${editingSem.semesterName}`, 'success');
+      setShowEditSemModal(false);
+      setEditingSem(null);
+      await loadSemesters();
+    } catch (err) {
+      triggerNotification(err?.response?.data?.message || 'Cập nhật học kỳ thất bại!', 'error');
+    } finally {
+      setIsUpdatingSem(false);
+    }
+  };
+
+  const handleUpdateReportPeriod = async (e) => {
+    e.preventDefault();
+    if (!editingPeriod) return;
+    setIsUpdatingPeriod(true);
+    try {
+      await reportPeriodService.updateReportPeriod(editingPeriod.id, {
+        semesterId: editingPeriod.semesterId,
+        periodName: editingPeriod.periodName,
+        description: editingPeriod.description || null,
+        deadline: editingPeriod.deadline,
+        status: editingPeriod.status
+      });
+      triggerNotification(`Đã cập nhật đợt báo cáo: ${editingPeriod.periodName}`, 'success');
+      setShowEditPeriodModal(false);
+      setEditingPeriod(null);
+      await loadReportPeriods(editingPeriod.semesterId);
+    } catch (err) {
+      triggerNotification(err?.response?.data?.message || 'Cập nhật đợt báo cáo thất bại!', 'error');
+    } finally {
+      setIsUpdatingPeriod(false);
+    }
+  };
 
   const handleCreateSemester = async (e) => {
     e.preventDefault();
@@ -246,6 +274,7 @@ export default function SemesterConfig({ triggerNotification }) {
                     <th>Bắt đầu</th>
                     <th>Kết thúc</th>
                     <th>Trạng thái</th>
+                    <th style={{ textAlign: 'center' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -261,6 +290,15 @@ export default function SemesterConfig({ triggerNotification }) {
                         }`}>
                           {s.status === 'Active' || s.status === 'Open' ? 'Đang diễn ra' : s.status === 'Finished' ? 'Đã kết thúc' : 'Chưa diễn ra'}
                         </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => { setEditingSem({ ...s, semesterName: s.semesterName || s.name }); setShowEditSemModal(true); }}
+                        >
+                          <Edit size={12} /> Sửa
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -347,6 +385,7 @@ export default function SemesterConfig({ triggerNotification }) {
                     <th>Tên đợt</th>
                     <th>Hạn nộp</th>
                     <th>Trạng thái</th>
+                    <th style={{ textAlign: 'center' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -364,6 +403,19 @@ export default function SemesterConfig({ triggerNotification }) {
                           {r.status === 'Open' || r.status === 'Active' ? 'Đang mở cổng' : r.status === 'Closed' ? 'Đã khóa' : 'Lên lịch'}
                         </span>
                       </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => {
+                            const dl = r.deadline ? r.deadline.slice(0, 16) : '';
+                            setEditingPeriod({ ...r, periodName: r.periodName || r.name, deadline: dl });
+                            setShowEditPeriodModal(true);
+                          }}
+                        >
+                          <Edit size={12} /> Sửa
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {reportPeriods.length === 0 && (
@@ -377,6 +429,101 @@ export default function SemesterConfig({ triggerNotification }) {
           )}
         </div>
       </div>
+
+      {/* MODAL: SỬA HỌC KỲ */}
+      {showEditSemModal && editingSem && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title"><Edit size={16} style={{ marginRight: '6px' }} /> Sửa Học kỳ</h3>
+              <button className="modal-close" onClick={() => { setShowEditSemModal(false); setEditingSem(null); }}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleUpdateSemester} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+              <div className="form-group">
+                <label>Tên học kỳ *</label>
+                <input type="text" className="input-field" value={editingSem.semesterName}
+                  onChange={e => setEditingSem({ ...editingSem, semesterName: e.target.value })} required />
+              </div>
+              <div className="form-group">
+                <label>Mô tả</label>
+                <input type="text" className="input-field" value={editingSem.description || ''}
+                  onChange={e => setEditingSem({ ...editingSem, description: e.target.value })} />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Ngày bắt đầu *</label>
+                  <input type="date" className="input-field" value={editingSem.startDate?.slice(0,10) || ''}
+                    onChange={e => setEditingSem({ ...editingSem, startDate: e.target.value })} required />
+                </div>
+                <div className="form-group">
+                  <label>Ngày kết thúc *</label>
+                  <input type="date" className="input-field" value={editingSem.endDate?.slice(0,10) || ''}
+                    onChange={e => setEditingSem({ ...editingSem, endDate: e.target.value })} required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Trạng thái</label>
+                <select className="select-field" value={editingSem.status || 'Planned'}
+                  onChange={e => setEditingSem({ ...editingSem, status: e.target.value })}>
+                  <option value="Planned">Chưa diễn ra (Planned)</option>
+                  <option value="Active">Đang diễn ra (Active)</option>
+                  <option value="Finished">Đã kết thúc (Finished)</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={isUpdatingSem}>
+                  <Save size={14} /> {isUpdatingSem ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowEditSemModal(false); setEditingSem(null); }}>Hủy</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SỬA ĐỢT BÁO CÁO */}
+      {showEditPeriodModal && editingPeriod && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title"><Edit size={16} style={{ marginRight: '6px' }} /> Sửa Đợt Báo cáo</h3>
+              <button className="modal-close" onClick={() => { setShowEditPeriodModal(false); setEditingPeriod(null); }}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleUpdateReportPeriod} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+              <div className="form-group">
+                <label>Tên đợt báo cáo *</label>
+                <input type="text" className="input-field" value={editingPeriod.periodName}
+                  onChange={e => setEditingPeriod({ ...editingPeriod, periodName: e.target.value })} required />
+              </div>
+              <div className="form-group">
+                <label>Mô tả</label>
+                <input type="text" className="input-field" value={editingPeriod.description || ''}
+                  onChange={e => setEditingPeriod({ ...editingPeriod, description: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Hạn nộp *</label>
+                <input type="datetime-local" className="input-field" value={editingPeriod.deadline}
+                  onChange={e => setEditingPeriod({ ...editingPeriod, deadline: e.target.value })} required />
+              </div>
+              <div className="form-group">
+                <label>Trạng thái</label>
+                <select className="select-field" value={editingPeriod.status || 'Planned'}
+                  onChange={e => setEditingPeriod({ ...editingPeriod, status: e.target.value })}>
+                  <option value="Planned">Lên lịch (Planned)</option>
+                  <option value="Open">Đang mở cổng (Open)</option>
+                  <option value="Closed">Đã khóa (Closed)</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={isUpdatingPeriod}>
+                  <Save size={14} /> {isUpdatingPeriod ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowEditPeriodModal(false); setEditingPeriod(null); }}>Hủy</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
