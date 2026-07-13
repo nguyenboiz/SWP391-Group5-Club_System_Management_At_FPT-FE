@@ -45,3 +45,15 @@ export async function removeClubMember(membershipId) {
   const response = await apiClient.put(`/api/member/remove-member/${membershipId}`);
   return response.data;
 }
+
+/**
+ * Xác nhận kích hoạt tài khoản thành viên (từ link email)
+ * GET /api/member/confirm-activation?token={token}
+ * @param {string} token - Token kích hoạt từ email
+ */
+export async function confirmActivation(token) {
+  const response = await apiClient.get('/api/member/confirm-activation', {
+    params: { token }
+  });
+  return response.data;
+}

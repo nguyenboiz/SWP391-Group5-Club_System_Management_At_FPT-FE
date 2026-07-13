@@ -38,3 +38,13 @@ export async function updateReportPeriod(id, dto) {
   const response = await apiClient.put(`/api/report-periods/${id}`, dto);
   return response.data;
 }
+
+/**
+ * Lấy số báo cáo CLB đang chờ duyệt
+ * GET /api/report-periods/reports/count/pending
+ */
+export async function getReportsPendingCount() {
+  const response = await apiClient.get('/api/report-periods/reports/count/pending');
+  return response.data;
+}
+

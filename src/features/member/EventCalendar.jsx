@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getApprovedEventsByClub, getEventDetail } from '../../services/eventService';
-import { Calendar, MapPin, RefreshCw, CheckCircle, Eye, X } from 'lucide-react';
+import { getApprovedEventsByClub, getEventDetail, registerEvent } from '../../services/eventService';
+import { Calendar, MapPin, RefreshCw, CheckCircle, Eye, X, UserPlus, Check } from 'lucide-react';
 
 export default function EventCalendar({ currentUserId, triggerNotification, selectedClubId }) {
   const [events, setEvents] = useState([]);
@@ -10,6 +10,23 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [eventDetail, setEventDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // Tracking registered events locally
+  const [registeredIds, setRegisteredIds] = useState(new Set());
+  const [registeringId, setRegisteringId] = useState(null);
+
+  useEffect(() => {
+    if (currentUserId) {
+      const saved = localStorage.getItem(`fpt_registered_events_${currentUserId}`);
+      if (saved) {
+        try {
+          setRegisteredIds(new Set(JSON.parse(saved)));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, [currentUserId]);
 
   const loadEvents = useCallback(async () => {
     if (!selectedClubId) return;
@@ -43,6 +60,27 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
       setEventDetail(eFallback);
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  const handleRegister = async (eventId, eventName) => {
+    if (!currentUserId) {
+      triggerNotification('Vui lòng đăng nhập để đăng ký sự kiện!', 'warning');
+      return;
+    }
+    setRegisteringId(eventId);
+    try {
+      await registerEvent(eventId, { roleInEvent: 'Participant' });
+      triggerNotification(`Đăng ký tham gia sự kiện "${eventName}" thành công!`, 'success');
+      
+      const nextSet = new Set([...registeredIds, eventId]);
+      setRegisteredIds(nextSet);
+      localStorage.setItem(`fpt_registered_events_${currentUserId}`, JSON.stringify(Array.from(nextSet)));
+    } catch (err) {
+      console.error('[EventCalendar] Lỗi đăng ký sự kiện:', err);
+      triggerNotification(err?.response?.data?.message || 'Đăng ký tham gia sự kiện thất bại!', 'error');
+    } finally {
+      setRegisteringId(null);
     }
   };
 
@@ -123,14 +161,33 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                   )}
                 </div>
 
-                <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'flex', gap: '8px' }}>
                   <button
                     className="btn btn-secondary btn-sm"
-                    style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                     onClick={() => handleViewDetail(eId, e)}
                   >
-                    <Eye size={12} /> Chi tiết sự kiện
+                    <Eye size={12} /> Chi tiết
                   </button>
+
+                  {registeredIds.has(eId) ? (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'default', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.2)' }}
+                      disabled
+                    >
+                      <Check size={12} /> Đã đăng ký
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      onClick={() => handleRegister(eId, eName)}
+                      disabled={registeringId === eId}
+                    >
+                      <UserPlus size={12} /> {registeringId === eId ? 'Đang gửi...' : 'Đăng ký'}
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -171,6 +228,30 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                       <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }}>{value}</span>
                     </div>
                   ))}
+                </div>
+
+                <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
+                  {registeredIds.has(eventDetail.id || eventDetail.eventId) ? (
+                    <button
+                      className="btn btn-secondary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'default', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.2)' }}
+                      disabled
+                    >
+                      <Check size={14} /> Đã đăng ký tham gia sự kiện
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      onClick={() => {
+                        const evId = eventDetail.id || eventDetail.eventId;
+                        handleRegister(evId, eventDetail.eventName || eventDetail.name);
+                      }}
+                      disabled={registeringId === (eventDetail.id || eventDetail.eventId)}
+                    >
+                      <UserPlus size={14} /> {registeringId === (eventDetail.id || eventDetail.eventId) ? 'Đang xử lý...' : 'Đăng ký tham gia ngay'}
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (

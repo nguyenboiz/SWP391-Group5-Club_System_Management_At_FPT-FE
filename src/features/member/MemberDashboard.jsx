@@ -155,10 +155,10 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
               <strong style={{ fontSize: '12px', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>BE cần bổ sung</strong>
             </div>
             <ul style={{ paddingLeft: '14px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              <li><code>GET /api/evidences?userId={'{id}'}</code> — Lịch sử chứng nhận</li>
-              <li><code>POST /api/evidences</code> — Nộp chứng nhận</li>
-              <li><code>PUT /api/auth/profile</code> — Cập nhật hồ sơ cá nhân</li>
-              <li><code>POST /api/events/{'{id}'}/register</code> — Đăng ký tham gia sự kiện</li>
+              <li>✓ Đã kết nối: <code>POST /api/events/{"{eventId}"}/evidence</code> — Nộp tệp chứng nhận thật</li>
+              <li>✓ Đã kết nối: <code>POST /api/events/{"{eventId}"}/register</code> — Đăng ký tham gia sự kiện thật</li>
+              <li>✓ Đã kết nối: <code>PUT /api/users/profile</code> — Cập nhật số điện thoại thật</li>
+              <li><code>GET /api/users/{"{userId}"}/activity-history</code> — Xem lịch sử tham gia của sinh viên</li>
             </ul>
           </div>
         </div>

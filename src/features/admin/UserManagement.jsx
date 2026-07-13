@@ -19,6 +19,7 @@ export default function UserManagement({ triggerNotification }) {
   // User detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [userDetail, setUserDetail] = useState(null);
+  const [activityHistory, setActivityHistory] = useState([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Load users
@@ -88,9 +89,18 @@ export default function UserManagement({ triggerNotification }) {
     setShowDetailModal(true);
     setLoadingDetail(true);
     setUserDetail(null);
+    setActivityHistory([]);
     try {
       const data = await userService.getUserDetail(uid);
       setUserDetail(data?.data ?? data);
+      
+      try {
+        const historyData = await userService.getUserActivityHistory(uid);
+        setActivityHistory(Array.isArray(historyData) ? historyData : (historyData?.data ?? []));
+      } catch (histErr) {
+        console.error('[UserManagement] Lỗi tải lịch sử hoạt động:', histErr);
+        setActivityHistory([]);
+      }
     } catch (err) {
       setUserDetail(user);
     } finally {
@@ -298,32 +308,59 @@ export default function UserManagement({ triggerNotification }) {
       {/* MODAL: CHI TIẾT NGƯỜI DÙNG */}
       {showDetailModal && (
         <div className="modal-backdrop">
-          <div className="modal-content glass-card" style={{ maxWidth: '480px' }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '540px', width: '90%' }}>
             <div className="modal-header">
-              <h3 className="modal-title"><Eye size={16} style={{ marginRight: '6px' }} /> Chi tiết Người dùng</h3>
-              <button className="modal-close" onClick={() => { setShowDetailModal(false); setUserDetail(null); }}><X size={18} /></button>
+              <h3 className="modal-title"><Eye size={16} style={{ marginRight: '6px' }} /> Chi tiết Người dùng & Lịch sử</h3>
+              <button className="modal-close" onClick={() => { setShowDetailModal(false); setUserDetail(null); setActivityHistory([]); }}><X size={18} /></button>
             </div>
             {loadingDetail ? (
               <div style={{ textAlign: 'center', padding: '32px' }}>
                 <div className="login-spinner" style={{ margin: '0 auto' }}></div>
               </div>
             ) : userDetail ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-                {[
-                  ['Username', userDetail.username || 'N/A'],
-                  ['Họ &amp; Tên', userDetail.fullName || userDetail.name || 'N/A'],
-                  ['Email', userDetail.schoolEmail || userDetail.email || 'N/A'],
-                  ['Vai trò', (userDetail.role || userDetail.systemRole || 'N/A').toUpperCase()],
-                  ['Trạng thái', userDetail.status === 'Active' ? 'Hoạt động' : userDetail.status || 'N/A'],
-                  ['ID hệ thống', userDetail.userId || userDetail.id || 'N/A'],
-                  ['MSSV', userDetail.studentId || 'N/A'],
-                  ['Khóa', userDetail.cohort || 'N/A'],
-                ].map(([label, value]) => (
-                  <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                    <span style={{ minWidth: '120px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
-                    <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }} dangerouslySetInnerHTML={{ __html: String(value) }} />
-                  </div>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {[
+                    ['Username', userDetail.username || 'N/A'],
+                    ['Họ & Tên', userDetail.fullName || userDetail.name || 'N/A'],
+                    ['Email', userDetail.schoolEmail || userDetail.email || 'N/A'],
+                    ['Vai trò', (userDetail.role || userDetail.systemRole || 'N/A').toUpperCase()],
+                    ['Trạng thái', userDetail.status === 'Active' ? 'Hoạt động' : userDetail.status || 'N/A'],
+                    ['MSSV', userDetail.studentId || 'N/A'],
+                    ['Khóa', userDetail.cohort || 'N/A'],
+                  ].map(([label, value]) => (
+                    <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                      <span style={{ minWidth: '120px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Activity History Timeline */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                  <h4 style={{ fontSize: '14px', color: 'var(--text-heading)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    📅 Lịch sử Hoạt động ({activityHistory.length})
+                  </h4>
+                  {activityHistory.length === 0 ? (
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
+                      Chưa ghi nhận hoạt động hoặc lịch sử rỗng.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {activityHistory.map((act, index) => (
+                        <div key={act.id || index} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-heading)', fontWeight: 600 }}>
+                            <span>{act.activityName || act.title || 'Hoạt động'}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                              {act.timestamp ? new Date(act.timestamp).toLocaleString('vi-VN') : ''}
+                            </span>
+                          </div>
+                          {act.description && <div style={{ color: 'var(--text-muted)', marginTop: '4px', fontSize: '11px' }}>{act.description}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <p style={{ color: 'var(--text-muted)', padding: '16px 0' }}>Không tải được thông tin người dùng.</p>

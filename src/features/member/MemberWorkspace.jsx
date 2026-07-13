@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getEventsByClub } from '../../services/eventService';
-import { User, Image as ImageIcon, Send, Clock, AlertTriangle } from 'lucide-react';
+import { getEventsByClub, submitEvidence } from '../../services/eventService';
+import { updateProfile } from '../../services/userService';
+import { User, Image as ImageIcon, Send, Clock, AlertTriangle, Upload } from 'lucide-react';
 
 export default function MemberWorkspace({ currentUserId, triggerNotification, selectedClubId }) {
   const { currentUser } = useAuth();
@@ -16,8 +17,12 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
   // Events list from club (for evidence form reference)
   const [clubEvents, setClubEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState('');
-  const [evidenceType, setEvidenceType] = useState('Check-In Photo');
-  const [fileUrl, setFileUrl] = useState('');
+  const [feedbackText, setFeedbackText] = useState('');
+  const [evidenceFiles, setEvidenceFiles] = useState(null);
+  
+  // Loading states
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isSubmittingEvidence, setIsSubmittingEvidence] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -42,20 +47,58 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     loadClubEvents();
   }, [loadClubEvents]);
 
-  const handleUpdateProfile = (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    triggerNotification('Chưa thể lưu hồ sơ: Backend chưa bổ sung API PUT /api/auth/profile.', 'warning');
+    setIsUpdatingProfile(true);
+    try {
+      const formData = new FormData();
+      formData.append('PhoneNumber', phone);
+      // We can append gender and date of birth if user object has them, or defaults
+      formData.append('Gender', 'Other');
+      
+      await updateProfile(formData);
+      triggerNotification('Cập nhật số điện thoại thành công!', 'success');
+    } catch (err) {
+      console.error('[MemberWorkspace] Lỗi cập nhật hồ sơ:', err);
+      triggerNotification(err?.response?.data?.message || 'Cập nhật hồ sơ thất bại!', 'error');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
   };
 
-  const handleSubmitEvidence = (e) => {
+  const handleSubmitEvidence = async (e) => {
     e.preventDefault();
-    if (!fileUrl.trim()) {
-      triggerNotification('Vui lòng cung cấp link hình ảnh hoặc tệp chứng nhận!', 'warning');
+    if (!selectedEventId) {
+      triggerNotification('Vui lòng chọn sự kiện để nộp chứng nhận!', 'warning');
       return;
     }
-    triggerNotification('Chưa thể nộp chứng nhận: Backend chưa bổ sung API POST /api/evidences.', 'warning');
-    setFileUrl('');
-    setSelectedEventId('');
+    if (!evidenceFiles || evidenceFiles.length === 0) {
+      triggerNotification('Vui lòng chọn tệp chứng nhận để tải lên!', 'warning');
+      return;
+    }
+
+    setIsSubmittingEvidence(true);
+    try {
+      const formData = new FormData();
+      Array.from(evidenceFiles).forEach(file => {
+        formData.append('EvidenceFiles', file);
+      });
+      formData.append('Feedback', feedbackText || 'Nộp chứng nhận tham gia sự kiện');
+
+      await submitEvidence(selectedEventId, formData);
+      triggerNotification('Nộp chứng nhận sự kiện thành công! Chờ PDP phê duyệt.', 'success');
+      
+      // Reset form
+      setFeedbackText('');
+      setEvidenceFiles(null);
+      const fileInput = document.getElementById('evidence-file-input');
+      if (fileInput) fileInput.value = '';
+    } catch (err) {
+      console.error('[MemberWorkspace] Lỗi nộp chứng nhận:', err);
+      triggerNotification(err?.response?.data?.message || 'Nộp chứng nhận thất bại!', 'error');
+    } finally {
+      setIsSubmittingEvidence(false);
+    }
   };
 
   if (!user) {
@@ -71,29 +114,6 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
 
   return (
     <div className="member-workspace-container">
-
-      {/* ⚠ BE MISSING API BANNER */}
-      <div style={{
-        marginBottom: '20px', padding: '16px 20px', borderRadius: '10px',
-        background: 'rgba(234,179,8,0.08)',
-        border: '1.5px solid rgba(234,179,8,0.4)',
-        display: 'flex', gap: '12px', alignItems: 'flex-start'
-      }}>
-        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
-        <div>
-          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
-            ⚠ [BE CẦN BỔ SUNG API] — Một số chức năng chưa hoạt động thật
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
-            Tải sự kiện CLB đã kết nối thật. Các chức năng sau cần BE bổ sung:
-            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
-              <li><code>PUT  /api/auth/profile</code> — Cập nhật hồ sơ cá nhân <code>{'{ fullName, phone, facebook }'}</code></li>
-              <li><code>POST /api/evidences</code> — Nộp chứng nhận sự kiện <code>{'{ eventId, evidenceType, fileUrl }'}</code></li>
-              <li><code>GET  /api/evidences?userId={'{userId}'}</code> — Lịch sử chứng nhận đã nộp</li>
-            </ul>
-          </div>
-        </div>
-      </div>
 
       <div className="dashboard-grid-2col">
         {/* Left Side: Profile */}
@@ -154,13 +174,12 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                 </div>
               </div>
 
-              <div style={{ marginBottom: '12px', padding: '10px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
-                <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
-                API cập nhật hồ sơ chưa có. Vui lòng yêu cầu BE bổ sung <code>PUT /api/auth/profile</code>.
+              <div style={{ marginBottom: '12px', padding: '10px', borderRadius: '8px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
+                <span>✓ Đã liên kết API cập nhật số điện thoại (<code>PUT /api/users/profile</code>).</span>
               </div>
 
-              <button type="submit" className="btn btn-primary">
-                Cập nhật thông tin cá nhân
+              <button type="submit" className="btn btn-primary" disabled={isUpdatingProfile}>
+                {isUpdatingProfile ? 'Đang lưu...' : 'Cập nhật số điện thoại'}
               </button>
             </form>
           </div>
@@ -204,9 +223,8 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
             <h3 className="glass-card-title"><ImageIcon size={18} /> Nộp chứng nhận (Certification)</h3>
           </div>
 
-          <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
-            <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
-            API nộp chứng nhận chưa có. Yêu cầu BE bổ sung <code>POST /api/evidences</code>.
+          <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
+            <span>✓ Đã liên kết API nộp chứng nhận sự kiện thật (<code>POST /api/events/{"{eventId}"}/evidence</code>).</span>
           </div>
 
           <form onSubmit={handleSubmitEvidence}>
@@ -216,45 +234,44 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                 className="select-field"
                 value={selectedEventId}
                 onChange={e => setSelectedEventId(e.target.value)}
+                required
               >
-                <option value="">-- Chọn sự kiện (tuỳ chọn) --</option>
+                <option value="">-- Chọn sự kiện bắt buộc --</option>
                 {clubEvents.map(ev => {
                   const eName = ev.eventName || ev.name;
                   return (
                     <option key={ev.id || ev.eventId} value={ev.id || ev.eventId}>{eName}</option>
                   );
                 })}
-                <option value="general">Khác / Hoạt động CLB chung</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label>Loại chứng nhận nộp</label>
-              <select
-                className="select-field"
-                value={evidenceType}
-                onChange={e => setEvidenceType(e.target.value)}
-              >
-                <option value="Check-In Photo">Ảnh chụp check-in tại sự kiện</option>
-                <option value="Certificate">Chứng nhận hoàn thành hoạt động (Certificate)</option>
-                <option value="Other">Khác (Other)</option>
-              </select>
+              <label>Ghi chú / Nhận xét phản hồi</label>
+              <textarea
+                className="textarea-field"
+                rows={2}
+                value={feedbackText}
+                onChange={e => setFeedbackText(e.target.value)}
+                placeholder="Nhập ghi chú phản hồi..."
+              />
             </div>
 
             <div className="form-group">
-              <label>Đường dẫn Tệp chứng nhận (Image/PDF Link)</label>
+              <label>Chọn tệp chứng nhận (Ảnh/Tài liệu) *</label>
               <input
-                type="url"
+                id="evidence-file-input"
+                type="file"
                 className="input-field"
-                value={fileUrl}
-                onChange={e => setFileUrl(e.target.value)}
-                placeholder="Nhập link ảnh check-in hoặc PDF chứng nhận..."
+                multiple
+                onChange={e => setEvidenceFiles(e.target.files)}
+                style={{ padding: '8px' }}
                 required
               />
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-              <Send size={16} /> Gửi chứng nhận lên PDP duyệt
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isSubmittingEvidence}>
+              <Send size={16} /> {isSubmittingEvidence ? 'Đang tải lên...' : 'Gửi chứng nhận lên hệ thống'}
             </button>
           </form>
         </div>

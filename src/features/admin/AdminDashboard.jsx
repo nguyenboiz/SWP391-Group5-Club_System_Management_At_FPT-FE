@@ -3,6 +3,7 @@ import { Users, Landmark, Calendar, FileText, TrendingUp, AlertCircle, RefreshCw
 import * as semesterService from '../../services/semesterService';
 import * as eventService from '../../services/eventService';
 import * as dashboardService from '../../services/dashboardService';
+import { getReportsPendingCount } from '../../services/reportPeriodService';
 
 export default function AdminDashboard({ triggerNotification }) {
   const [stats, setStats] = useState({
@@ -28,11 +29,30 @@ export default function AdminDashboard({ triggerNotification }) {
         console.error('[AdminDashboard] Lỗi tải thống kê từ BE:', dashErr);
       }
 
-      // 2. Lấy sự kiện thật từ BE
+      // 2. Lấy tổng sự kiện từ API đếm chính xác
+      let totalEventsCount = 0;
+      let pendingEventsCount = 0;
+      try {
+        const totalRes = await eventService.getEventsCountTotal();
+        totalEventsCount = typeof totalRes === 'number' ? totalRes : (totalRes?.data ?? totalRes?.count ?? 0);
+      } catch {}
+      try {
+        const pendingRes = await eventService.getEventsCountPending();
+        pendingEventsCount = typeof pendingRes === 'number' ? pendingRes : (pendingRes?.data ?? pendingRes?.count ?? 0);
+      } catch {}
+
+      // 3. Lấy số báo cáo chờ duyệt từ API đếm chính xác
+      let pendingReportsCount = 0;
+      try {
+        const reportsRes = await getReportsPendingCount();
+        pendingReportsCount = typeof reportsRes === 'number' ? reportsRes : (reportsRes?.data ?? reportsRes?.count ?? 0);
+      } catch {}
+
+      // 4. Lấy sự kiện thật từ BE cho bảng danh sách
       const eventsData = await eventService.getAllEvents();
       const allEvents = Array.isArray(eventsData) ? eventsData : (eventsData?.data ?? []);
 
-      // 3. Lấy học kỳ thật
+      // 5. Lấy học kỳ thật
       let activeSemesterName = 'N/A';
       try {
         const semData = await semesterService.getSemesters();
@@ -41,17 +61,12 @@ export default function AdminDashboard({ triggerNotification }) {
         activeSemesterName = active ? (active.semesterName || active.name) : 'N/A';
       } catch {}
 
-      const pendingEvents = allEvents.filter(e => {
-        const status = e.status || e.approvalStatus || '';
-        return status === 'Pending' || status === 'Chờ duyệt';
-      }).length;
-
       setStats({
         totalClubs: dashboardData?.totalClubs ?? 0,
         totalUsers: dashboardData?.totalUsers ?? 0,
-        totalEvents: dashboardData?.totalEvents ?? allEvents.length,
-        pendingReports: dashboardData?.pendingReportsForAdmin ?? 0,
-        pendingEvents: dashboardData?.upcomingOrOngoingEvents ?? pendingEvents,
+        totalEvents: dashboardData?.totalEvents ?? totalEventsCount,
+        pendingReports: dashboardData?.pendingReportsForAdmin ?? pendingReportsCount,
+        pendingEvents: dashboardData?.upcomingOrOngoingEvents ?? pendingEventsCount,
         activeSemester: activeSemesterName,
       });
 

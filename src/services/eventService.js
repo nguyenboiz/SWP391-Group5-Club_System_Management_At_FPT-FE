@@ -6,6 +6,24 @@ import apiClient from '../utils/apiClient';
  */
 
 /**
+ * Lấy tổng số sự kiện
+ * GET /api/events/count/total
+ */
+export async function getEventsCountTotal() {
+  const response = await apiClient.get('/api/events/count/total');
+  return response.data;
+}
+
+/**
+ * Lấy số sự kiện đang chờ duyệt
+ * GET /api/events/count/pending
+ */
+export async function getEventsCountPending() {
+  const response = await apiClient.get('/api/events/count/pending');
+  return response.data;
+}
+
+/**
  * Tạo sự kiện mới (multipart/form-data)
  * POST /api/events/create
  * @param {FormData} formData
@@ -95,5 +113,29 @@ export async function approveEvent(eventId) {
  */
 export async function rejectEvent(eventId, dto) {
   const response = await apiClient.put(`/api/events/reject/${eventId}`, dto);
+  return response.data;
+}
+
+/**
+ * Đăng ký tham gia sự kiện
+ * POST /api/events/{eventId}/register
+ * @param {number|string} eventId
+ * @param {Object} dto - RegisterEventRequestDto { roleInEvent }
+ */
+export async function registerEvent(eventId, dto) {
+  const response = await apiClient.post(`/api/events/${eventId}/register`, dto);
+  return response.data;
+}
+
+/**
+ * Nộp chứng nhận (minh chứng) sự kiện
+ * POST /api/events/{eventId}/evidence
+ * @param {number|string} eventId
+ * @param {FormData} formData - EvidenceFiles[] (files), Feedback (string)
+ */
+export async function submitEvidence(eventId, formData) {
+  const response = await apiClient.post(`/api/events/${eventId}/evidence`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 }

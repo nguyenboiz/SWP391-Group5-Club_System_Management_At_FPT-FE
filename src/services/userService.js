@@ -51,3 +51,28 @@ export async function unblockUser(userId) {
   const response = await apiClient.put(`/api/users/${userId}/unblock`);
   return response.data;
 }
+
+/**
+ * Cập nhật hồ sơ cá nhân
+ * PUT /api/users/profile
+ * @param {FormData} formData
+ *   Fields: PhoneNumber, Gender, DateOfBirth, AvatarFile
+ */
+export async function updateProfile(formData) {
+  const response = await apiClient.put('/api/users/profile', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+/**
+ * Lấy lịch sử hoạt động của người dùng
+ * GET /api/users/{userId}/activity-history
+ * @param {number|string} userId
+ */
+export async function getUserActivityHistory(userId) {
+  const response = await apiClient.get(`/api/users/${userId}/activity-history`);
+  return response.data;
+}
+
+

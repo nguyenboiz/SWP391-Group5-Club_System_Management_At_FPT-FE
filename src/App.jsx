@@ -8,6 +8,7 @@ import Toast from './components/Toast';
 import ProtectedRoute from './routes/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import ClubSelectorPage from './pages/ClubSelectorPage';
+import ConfirmActivationPage from './pages/ConfirmActivationPage';
 
 // ── Admin Pages ────────────────────────────────────────────────────────────────
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
@@ -37,6 +38,9 @@ import ClubAnnouncementsPage from './pages/member/ClubAnnouncementsPage';
 
 // Shared: Evidence Approval (for both Manager and Leader)
 import EvidenceApprovalPage from './pages/admin/EvidenceApprovalPage';
+
+// Shared: Notification Management (for both Admin and Manager)
+import NotificationManagementPage from './pages/shared/NotificationManagementPage';
 
 import { Bell } from 'lucide-react';
 
@@ -129,7 +133,7 @@ function AdminDashboard({ triggerNotification }) {
       {activeTab === 'club-management' && <ClubManagementPage triggerNotification={triggerNotification} />}
       {activeTab === 'semester-config' && <SemesterConfigPage triggerNotification={triggerNotification} />}
       {activeTab === 'report-appraisal' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
-      {activeTab === 'notification-management' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
+      {activeTab === 'notification-management' && <NotificationManagementPage triggerNotification={triggerNotification} />}
     </DashboardLayout>
   );
 }
@@ -154,7 +158,7 @@ function ManagerDashboard({ triggerNotification }) {
       {activeTab === 'evidence-review' && <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
       {activeTab === 'club-report-review' && <ReviewMemberReportsPage triggerNotification={triggerNotification} />}
       {activeTab === 'submit-report' && <SubmitReportPage triggerNotification={triggerNotification} />}
-      {activeTab === 'notification-management' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
+      {activeTab === 'notification-management' && <NotificationManagementPage triggerNotification={triggerNotification} />}
       {activeTab === 'analytics' && <AnalyticsPage triggerNotification={triggerNotification} />}
     </DashboardLayout>
   );
@@ -248,6 +252,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/select-club" element={<ClubSelectorPage />} />
+        <Route path="/confirm-activation" element={<ConfirmActivationPage />} />
         <Route path="/admin/*" element={
           <ProtectedRoute requiredRole="ADMIN">
             <AdminDashboard triggerNotification={triggerNotification} />
