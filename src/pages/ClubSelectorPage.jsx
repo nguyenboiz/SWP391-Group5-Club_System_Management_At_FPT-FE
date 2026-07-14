@@ -102,6 +102,11 @@ export default function ClubSelectorPage() {
       await refreshUser();
 
       sessionStorage.setItem('fpt_selected_club', clubId);
+      // Lưu role của CLB vừa chọn để các trang dùng
+      const selectedMembership = myMemberships.find(m => String(m.clubId) === String(clubId));
+      const clubRole = selectedMembership?.role === 'Leader' ? 'LEADER' : 'MEMBER';
+      sessionStorage.setItem('fpt_club_role', clubRole);
+
       if (asRole === 'MANAGER') {
         navigate('/manager');
       } else {

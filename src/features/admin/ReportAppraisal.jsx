@@ -69,9 +69,14 @@ export default function ReportAppraisal({ triggerNotification }) {
   };
 
   const handleAppraise = async (report) => {
-    const score = parseInt(scoreMap[report.clubReportId || report.id]);
+    const rawScore = scoreMap[report.clubReportId || report.id];
+    const score = parseInt(rawScore, 10);
+    if (rawScore === undefined || rawScore === '') {
+      triggerNotification('❌ Vui lòng nhập điểm đánh giá (0–100) trước khi duyệt!', 'warning');
+      return;
+    }
     if (isNaN(score) || score < 0 || score > 100) {
-      triggerNotification('Vui lòng nhập điểm đánh giá từ 0–100!', 'warning');
+      triggerNotification('❌ Điểm đánh giá phải là số nguyên từ 0 đến 100!', 'warning');
       return;
     }
     const reportId = report.clubReportId || report.id;
@@ -80,34 +85,53 @@ export default function ReportAppraisal({ triggerNotification }) {
         status: 'Đã duyệt',
         icpdpFeedback: `Điểm: ${score}. Đã duyệt từ Admin.`
       });
-      triggerNotification(`Đã duyệt và đánh giá báo cáo: ${score}/100 điểm!`, 'success');
+      triggerNotification(`✅ Đã duyệt và đánh giá báo cáo: ${score}/100 điểm!`, 'success');
       setExpandedId(null);
       await loadReports();
     } catch (err) {
       console.error('[ReportAppraisal] Lỗi duyệt báo cáo:', err);
-      triggerNotification(err?.response?.data?.message || 'Phê duyệt báo cáo thất bại!', 'error');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 403) triggerNotification('❌ Bạn không có quyền duyệt báo cáo này!', 'error');
+      else if (status === 404) triggerNotification('❌ Không tìm thấy báo cáo này!', 'error');
+      else triggerNotification(`❌ Phê duyệt thất bại: ${serverMsg || 'Lỗi máy chủ!'}`, 'error');
     }
   };
 
   const handleCreateAnnouncement = async (e) => {
     e.preventDefault();
-    if (!newAnn.title.trim() || !newAnn.content.trim()) {
-      triggerNotification('Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo!', 'warning');
+    if (!newAnn.title.trim()) {
+      triggerNotification('❌ Vui lòng nhập Tiêu đề thông báo!', 'warning');
+      return;
+    }
+    if (newAnn.title.trim().length < 5) {
+      triggerNotification('❌ Tiêu đề thông báo phải có ít nhất 5 ký tự!', 'warning');
+      return;
+    }
+    if (!newAnn.content.trim()) {
+      triggerNotification('❌ Vui lòng nhập Nội dung thông báo!', 'warning');
+      return;
+    }
+    if (newAnn.content.trim().length < 10) {
+      triggerNotification('❌ Nội dung thông báo quá ngắn, phải có ít nhất 10 ký tự!', 'warning');
       return;
     }
     try {
       await notificationService.createNotification({
         title: newAnn.title.trim(),
         content: newAnn.content.trim(),
-        targetType: 'All', // Toàn hệ thống
+        targetType: 'All',
         notificationType: 'System'
       });
-      triggerNotification('Đã phát hành thông báo toàn hệ thống thành công!', 'success');
+      triggerNotification('✅ Đã phát hành thông báo toàn hệ thống thành công!', 'success');
       setNewAnn({ title: '', content: '' });
       await loadAnnouncements();
     } catch (err) {
       console.error('[ReportAppraisal] Lỗi tạo thông báo:', err);
-      triggerNotification(err?.response?.data?.message || 'Phát hành thông báo thất bại!', 'error');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 403) triggerNotification('❌ Bạn không có quyền gửi thông báo hệ thống!', 'error');
+      else triggerNotification(`❌ Phát hành thông báo thất bại: ${serverMsg || 'Lỗi máy chủ!'}`, 'error');
     }
   };
 

@@ -83,7 +83,6 @@ export default function Header({
   const handleLogout = () => {
     sessionStorage.removeItem('fpt_selected_club');
     logout();
-    triggerNotification('Đã đăng xuất khỏi hệ thống.', 'info');
     navigate('/login');
   };
 

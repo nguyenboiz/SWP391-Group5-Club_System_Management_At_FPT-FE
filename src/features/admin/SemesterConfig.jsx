@@ -116,25 +116,46 @@ export default function SemesterConfig({ triggerNotification }) {
 
   const handleCreateSemester = async (e) => {
     e.preventDefault();
-    if (!newSem.name || !newSem.startDate || !newSem.endDate) {
-      triggerNotification('Vui lòng điền đầy đủ thông tin bắt buộc (Tên học kỳ, Ngày bắt đầu, Ngày kết thúc)!', 'warning');
+    const now = new Date();
+    if (!newSem.name.trim()) {
+      triggerNotification('❌ Vui lòng nhập Tên học kỳ!', 'warning');
+      return;
+    }
+    if (!newSem.startDate) {
+      triggerNotification('❌ Vui lòng chọn Ngày bắt đầu học kỳ!', 'warning');
+      return;
+    }
+    if (new Date(newSem.startDate) < now) {
+      triggerNotification('❌ Ngày bắt đầu học kỳ không được là ngày trong quá khứ!', 'warning');
+      return;
+    }
+    if (!newSem.endDate) {
+      triggerNotification('❌ Vui lòng chọn Ngày kết thúc học kỳ!', 'warning');
+      return;
+    }
+    if (newSem.endDate <= newSem.startDate) {
+      triggerNotification('❌ Ngày kết thúc phải sau ngày bắt đầu!', 'warning');
       return;
     }
     
     setIsSubmittingSem(true);
     try {
       await semesterService.createSemester({
-        semesterName: newSem.name,
+        semesterName: newSem.name.trim(),
         description: newSem.description || null,
         startDate: newSem.startDate,
         endDate: newSem.endDate
       });
-      triggerNotification(`Đã thiết lập học kỳ mới: ${newSem.name}`, 'success');
+      triggerNotification(`✅ Đã thiết lập học kỳ mới: ${newSem.name}`, 'success');
       setNewSem({ name: '', description: '', startDate: '', endDate: '' });
       await loadSemesters();
     } catch (err) {
       console.error('[SemesterConfig] Lỗi tạo học kỳ:', err);
-      triggerNotification(err?.response?.data?.message || 'Tạo học kỳ thất bại!', 'error');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 400) triggerNotification(`❌ Dữ liệu không hợp lệ: ${serverMsg || 'Kiểm tra lại thông tin!'}`, 'error');
+      else if (status === 403) triggerNotification('❌ Bạn không có quyền thực hiện thao tác này!', 'error');
+      else triggerNotification(`❌ Tạo học kỳ thất bại: ${serverMsg || 'Lỗi máy chủ, vui lòng thử lại!'}`, 'error');
     } finally {
       setIsSubmittingSem(false);
     }
@@ -142,8 +163,21 @@ export default function SemesterConfig({ triggerNotification }) {
 
   const handleCreateReportPeriod = async (e) => {
     e.preventDefault();
-    if (!newRp.semesterId || !newRp.name || !newRp.deadline) {
-      triggerNotification('Vui lòng điền đầy đủ thông tin đợt báo cáo!', 'warning');
+    const now = new Date();
+    if (!newRp.semesterId) {
+      triggerNotification('❌ Vui lòng chọn Học kỳ trước khi tạo đợt báo cáo!', 'warning');
+      return;
+    }
+    if (!newRp.name.trim()) {
+      triggerNotification('❌ Vui lòng nhập Tên đợt báo cáo!', 'warning');
+      return;
+    }
+    if (!newRp.deadline) {
+      triggerNotification('❌ Vui lòng chọn Hạn nộp báo cáo!', 'warning');
+      return;
+    }
+    if (new Date(newRp.deadline) <= now) {
+      triggerNotification('❌ Hạn nộp báo cáo phải là thời điểm trong tương lai!', 'warning');
       return;
     }
 
@@ -151,16 +185,20 @@ export default function SemesterConfig({ triggerNotification }) {
     try {
       await reportPeriodService.createReportPeriod({
         semesterId: parseInt(newRp.semesterId, 10),
-        periodName: newRp.name,
+        periodName: newRp.name.trim(),
         description: newRp.description || null,
         deadline: new Date(newRp.deadline).toISOString()
       });
-      triggerNotification(`Đã mở cổng báo cáo: ${newRp.name}`, 'success');
+      triggerNotification(`✅ Đã mở cổng báo cáo: ${newRp.name}`, 'success');
       setNewRp(prev => ({ ...prev, name: '', description: '', deadline: '' }));
       await loadReportPeriods(newRp.semesterId);
     } catch (err) {
       console.error('[SemesterConfig] Lỗi tạo đợt báo cáo:', err);
-      triggerNotification(err?.response?.data?.message || 'Tạo đợt báo cáo thất bại!', 'error');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 400) triggerNotification(`❌ Dữ liệu không hợp lệ: ${serverMsg || 'Kiểm tra lại!'}`, 'error');
+      else if (status === 403) triggerNotification('❌ Bạn không có quyền thực hiện thao tác này!', 'error');
+      else triggerNotification(`❌ Tạo đợt báo cáo thất bại: ${serverMsg || 'Lỗi máy chủ, vui lòng thử lại!'}`, 'error');
     } finally {
       setIsSubmittingPeriod(false);
     }
@@ -357,14 +395,14 @@ export default function SemesterConfig({ triggerNotification }) {
             </div>
 
             <div className="form-group">
-              <label>Hạn nộp báo cáo *</label>
+              <label>Hạn nộp báo cáo <span style={{ color: 'var(--error, #ef4444)' }}>*</span></label>
               <input 
                 type="datetime-local" 
                 className="input-field" 
                 value={newRp.deadline} 
                 onChange={e => setNewRp({ ...newRp, deadline: e.target.value })}
-                required
               />
+              {!newRp.deadline && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>Bắt buộc — chọn ngày giờ hạn nộp báo cáo</span>}
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isSubmittingPeriod}>

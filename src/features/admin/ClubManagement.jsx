@@ -64,27 +64,48 @@ export default function ClubManagement({ triggerNotification }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.clubName.trim()) {
-      triggerNotification('Vui lòng nhập tên câu lạc bộ!', 'warning');
+      triggerNotification('❌ Vui lòng nhập Tên câu lạc bộ!', 'warning');
+      return;
+    }
+    if (form.clubName.trim().length < 3) {
+      triggerNotification('❌ Tên câu lạc bộ phải có ít nhất 3 ký tự!', 'warning');
+      return;
+    }
+    if (form.clubCode && !/^[A-Z0-9_-]{2,10}$/i.test(form.clubCode.trim())) {
+      triggerNotification('❌ Mã CLB chỉ gồm chữ, số, gạch dưới, dài 2–10 ký tự (ví dụ: MCC, FPT_CHESS)!', 'warning');
+      return;
+    }
+    if (form.foundedDate && new Date(form.foundedDate) > new Date()) {
+      triggerNotification('❌ Ngày thành lập không thể là ngày trong tương lai!', 'warning');
+      return;
+    }
+    if (form.fanpageUrl && !/^https?:\/\//.test(form.fanpageUrl.trim())) {
+      triggerNotification('❌ Đường dẫn Fanpage không hợp lệ, phải bắt đầu bằng http:// hoặc https://!', 'warning');
       return;
     }
     setIsSubmitting(true);
     try {
       await clubService.createClub({
-        clubName: form.clubName,
-        clubCode: form.clubCode || null,
+        clubName: form.clubName.trim(),
+        clubCode: form.clubCode?.trim() || null,
         description: form.description || null,
-        fanpageUrl: form.fanpageUrl || null,
+        fanpageUrl: form.fanpageUrl?.trim() || null,
         logoImage: form.logoImage || null,
         foundedDate: form.foundedDate || null,
-        managerStudentId: form.managerStudentId || null,
+        managerStudentId: form.managerStudentId?.trim() || null,
       });
-      triggerNotification(`Đã tạo câu lạc bộ "${form.clubName}" thành công!`, 'success');
+      triggerNotification(`✅ Đã tạo câu lạc bộ "${form.clubName}" thành công!`, 'success');
       setForm({ clubName: '', clubCode: '', description: '', fanpageUrl: '', logoImage: '', foundedDate: '', managerStudentId: '' });
       await loadClubs();
       setActiveView('list');
     } catch (err) {
       console.error('[ClubManagement] Lỗi tạo CLB:', err);
-      triggerNotification(err?.response?.data?.message || 'Tạo câu lạc bộ thất bại!', 'error');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 400) triggerNotification(`❌ Dữ liệu không hợp lệ: ${serverMsg || 'Kiểm tra lại thông tin!'}`, 'error');
+      else if (status === 409) triggerNotification(`❌ Tên hoặc mã CLB đã tồn tại trong hệ thống!`, 'error');
+      else if (status === 403) triggerNotification('❌ Bạn không có quyền tạo câu lạc bộ!', 'error');
+      else triggerNotification(`❌ Tạo câu lạc bộ thất bại: ${serverMsg || 'Lỗi máy chủ!'}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +128,15 @@ export default function ClubManagement({ triggerNotification }) {
   const handleUpdateClub = async (e) => {
     e.preventDefault();
     if (!editForm.clubName.trim()) {
-      triggerNotification('Vui lòng nhập tên câu lạc bộ!', 'warning');
+      triggerNotification('❌ Vui lòng nhập Tên câu lạc bộ!', 'warning');
+      return;
+    }
+    if (editForm.clubName.trim().length < 3) {
+      triggerNotification('❌ Tên câu lạc bộ phải có ít nhất 3 ký tự!', 'warning');
+      return;
+    }
+    if (editForm.fanpageUrl && !/^https?:\/\//.test(editForm.fanpageUrl.trim())) {
+      triggerNotification('❌ Đường dẫn Fanpage không hợp lệ, phải bắt đầu bằng http:// hoặc https://!', 'warning');
       return;
     }
 

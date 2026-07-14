@@ -39,7 +39,7 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newUserId.trim()) {
-      triggerNotification('Vui lòng điền mã số sinh viên!', 'warning');
+      triggerNotification('❌ Vui lòng nhập Mã số sinh viên cần thêm!', 'warning');
       return;
     }
 
@@ -52,12 +52,17 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
         joinReason: 'Thêm trực tiếp bởi Ban chủ nhiệm CLB.',
         personalGoal: 'Tham gia sinh hoạt CLB.'
       });
-      triggerNotification(`Đã thêm thành viên (${formattedId}) thành công!`, 'success');
+      triggerNotification(`✅ Đã thêm thành viên (${formattedId}) thành công!`, 'success');
       setNewUserId('');
       await loadMembers();
     } catch (err) {
       console.error('[MemberManagement] Lỗi thêm thành viên:', err);
-      triggerNotification(err?.response?.data?.message || 'Không thể thêm thành viên này vào CLB!', 'error');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 404) triggerNotification(`❌ Không tìm thấy sinh viên có mã “${formattedId}” trong hệ thống!`, 'error');
+      else if (status === 409) triggerNotification(`❌ Sinh viên ${formattedId} đã là thành viên của CLB này rồi!`, 'error');
+      else if (status === 403) triggerNotification('❌ Bạn không có quyền thêm thành viên!', 'error');
+      else triggerNotification(`❌ Không thể thêm thành viên: ${serverMsg || 'Lỗi máy chủ, vui lòng thử lại!'}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -72,11 +77,15 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
 
     try {
       await membershipService.removeClubMember(membershipId);
-      triggerNotification(`Đã cho thành viên ${m.fullName} rút lui thành công!`, 'success');
+      triggerNotification(`✅ Đã cho thành viên ${m.fullName} rút lui thành công!`, 'success');
       await loadMembers();
     } catch (err) {
       console.error('[MemberManagement] Lỗi gỡ thành viên:', err);
-      triggerNotification('Gỡ thành viên thất bại. Vui lòng thử lại!', 'error');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 403) triggerNotification('❌ Bạn không có quyền xóa thành viên!', 'error');
+      else if (status === 404) triggerNotification('❌ Không tìm thấy thông tin thành viên này!', 'error');
+      else triggerNotification(`❌ Gỡ thành viên thất bại: ${serverMsg || 'Vui lòng thử lại!'}`, 'error');
     }
   };
 

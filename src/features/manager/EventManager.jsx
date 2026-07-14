@@ -55,8 +55,37 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
 
   const handleCreateEvent = async (e) => {
     e.preventDefault();
-    if (!newEvent.eventName || !newEvent.startTime || !newEvent.location || !newEvent.planBudget) {
-      triggerNotification('Vui lòng nhập đầy đủ thông tin sự kiện!', 'warning');
+
+    const now = new Date();
+
+    // --- Kiểm tra từng trường rõ ràng ---
+    if (!newEvent.eventName.trim()) {
+      triggerNotification('❌ Vui lòng nhập Tên chương trình / sự kiện!', 'warning');
+      return;
+    }
+    if (!newEvent.startTime) {
+      triggerNotification('❌ Vui lòng chọn Thời gian bắt đầu!', 'warning');
+      return;
+    }
+    if (new Date(newEvent.startTime) <= now) {
+      triggerNotification('❌ Thời gian bắt đầu phải là thời điểm trong tương lai!', 'warning');
+      return;
+    }
+    if (!newEvent.location.trim()) {
+      triggerNotification('❌ Vui lòng nhập Địa điểm tổ chức!', 'warning');
+      return;
+    }
+    const budgetNum = Number(String(newEvent.planBudget).replace(/,/g, ''));
+    if (!newEvent.planBudget || isNaN(budgetNum) || budgetNum < 0) {
+      triggerNotification('❌ Ngân sách dự trù không hợp lệ (phải là số không âm, ví dụ: 1500000)!', 'warning');
+      return;
+    }
+    if (newEvent.endTime && new Date(newEvent.endTime) <= new Date(newEvent.startTime)) {
+      triggerNotification('❌ Thời gian kết thúc phải sau thời gian bắt đầu!', 'warning');
+      return;
+    }
+    if (!selectedClubId) {
+      triggerNotification('❌ Không xác định được CLB. Vui lòng chọn lại CLB trước khi tạo sự kiện!', 'error');
       return;
     }
 
@@ -65,10 +94,10 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
       // Build multipart/form-data
       const formData = new FormData();
       formData.append('ClubId', backendClubId);
-      formData.append('EventName', newEvent.eventName);
+      formData.append('EventName', newEvent.eventName.trim());
       formData.append('Description', newEvent.description || '');
-      formData.append('Location', newEvent.location);
-      formData.append('PlanBudget', newEvent.planBudget);
+      formData.append('Location', newEvent.location.trim());
+      formData.append('PlanBudget', String(newEvent.planBudget).replace(/,/g, ''));
       formData.append('TargetParticipants', newEvent.targetParticipants || 0);
       formData.append('StartTime', new Date(newEvent.startTime).toISOString());
       formData.append('EndTime', newEvent.endTime ? new Date(newEvent.endTime).toISOString() : new Date(newEvent.startTime).toISOString());
@@ -80,7 +109,7 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
       }
 
       await createEvent(formData);
-      triggerNotification(`Đã tạo kế hoạch sự kiện: ${newEvent.eventName}`, 'success');
+      triggerNotification(`✅ Đã tạo kế hoạch sự kiện: ${newEvent.eventName}`, 'success');
       setNewEvent({
         eventName: '',
         startTime: '',
@@ -95,10 +124,17 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
       await loadEvents();
     } catch (err) {
       console.error('[EventManager] Lỗi tạo sự kiện:', err);
-      triggerNotification(
-        err?.response?.data?.message || 'Tạo sự kiện thất bại. Vui lòng thử lại!',
-        'error'
-      );
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 400) {
+        triggerNotification(`❌ Dữ liệu không hợp lệ: ${serverMsg || 'Kiểm tra lại các trường nhập liệu!'}`, 'error');
+      } else if (status === 401) {
+        triggerNotification('❌ Phiên đăng nhập hết hạn. Vui lòng đăng xuất và đăng nhập lại!', 'error');
+      } else if (status === 403) {
+        triggerNotification('❌ Bạn không có quyền tạo sự kiện cho CLB này!', 'error');
+      } else {
+        triggerNotification(`❌ Tạo sự kiện thất bại: ${serverMsg || 'Lỗi máy chủ, vui lòng thử lại!'}`, 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -163,27 +199,26 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
             
             <form onSubmit={handleCreateEvent}>
               <div className="form-group">
-                <label>Tên chương trình / sự kiện</label>
+                <label>Tên chương trình / sự kiện <span style={{ color: 'var(--error, #ef4444)' }}>*</span></label>
                 <input
                   type="text"
                   className="input-field"
                   value={newEvent.eventName}
                   onChange={e => setNewEvent({ ...newEvent, eventName: e.target.value })}
                   placeholder="Workshop, Đại hội, Teambuilding..."
-                  required
                 />
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Thời gian bắt đầu</label>
+                  <label>Thời gian bắt đầu <span style={{ color: 'var(--error, #ef4444)' }}>*</span></label>
                   <input
                     type="datetime-local"
                     className="input-field"
                     value={newEvent.startTime}
                     onChange={e => setNewEvent({ ...newEvent, startTime: e.target.value })}
-                    required
                   />
+                  {!newEvent.startTime && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>Bắt buộc — chọn ngày giờ bắt đầu sự kiện</span>}
                 </div>
                 <div className="form-group">
                   <label>Thời gian kết thúc</label>
@@ -191,8 +226,12 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                     type="datetime-local"
                     className="input-field"
                     value={newEvent.endTime}
+                    min={newEvent.startTime || undefined}
                     onChange={e => setNewEvent({ ...newEvent, endTime: e.target.value })}
                   />
+                  {newEvent.endTime && newEvent.endTime <= newEvent.startTime && (
+                    <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>Thời gian kết thúc phải sau thời gian bắt đầu!</span>
+                  )}
                 </div>
               </div>
 
@@ -222,14 +261,13 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
               </div>
 
               <div className="form-group">
-                <label>Địa điểm tổ chức</label>
+                <label>Địa điểm tổ chức <span style={{ color: 'var(--error, #ef4444)' }}>*</span></label>
                 <input
                   type="text"
                   className="input-field"
                   value={newEvent.location}
                   onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
                   placeholder="Phòng họp Alpha, Sân thượng Gamma..."
-                  required
                 />
               </div>
 

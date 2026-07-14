@@ -44,8 +44,16 @@ export default function UserManagement({ triggerNotification }) {
   // 1. Tạo tài khoản cán bộ (ADMIN / MANAGER)
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    if (!createForm.username || !createForm.password) {
-      triggerNotification('Vui lòng điền đầy đủ Tên đăng nhập và Mật khẩu!', 'warning');
+    if (!createForm.username.trim()) {
+      triggerNotification('❌ Vui lòng nhập Tên đăng nhập!', 'warning');
+      return;
+    }
+    if (!createForm.password) {
+      triggerNotification('❌ Vui lòng nhập Mật khẩu khởi tạo!', 'warning');
+      return;
+    }
+    if (createForm.password.length < 6) {
+      triggerNotification('❌ Mật khẩu phải có ít nhất 6 ký tự!', 'warning');
       return;
     }
     try {
@@ -54,13 +62,18 @@ export default function UserManagement({ triggerNotification }) {
         password: createForm.password,
         systemRole: createForm.role
       });
-      triggerNotification(`Đã tạo thành công tài khoản cán bộ: ${createForm.username}`, 'success');
+      triggerNotification(`✅ Đã tạo thành công tài khoản cán bộ: ${createForm.username}`, 'success');
       setShowCreateModal(false);
       setCreateForm({ username: '', fullName: '', email: '', password: '', role: 'MANAGER' });
       await loadUsers();
     } catch (err) {
       console.error('[UserManagement] Lỗi tạo user:', err);
-      triggerNotification(err?.response?.data?.message || 'Tạo người dùng thất bại!', 'error');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+      if (status === 400) triggerNotification(`❌ Dữ liệu không hợp lệ: ${serverMsg || 'Tên đăng nhập có thể đã tồn tại!'}`, 'error');
+      else if (status === 403) triggerNotification('❌ Bạn không có quyền tạo tài khoản!', 'error');
+      else if (status === 409) triggerNotification(`❌ Tên đăng nhập “${createForm.username}” đã tồn tại trong hệ thống!`, 'error');
+      else triggerNotification(`❌ Tạo tài khoản thất bại: ${serverMsg || 'Lỗi máy chủ, vui lòng thử lại!'}`, 'error');
     }
   };
 

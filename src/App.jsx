@@ -187,16 +187,29 @@ function MemberDashboard({ triggerNotification }) {
 
   if (!selectedClubId) return <Navigate to="/select-club" replace />;
 
-  // Determine isLeader from available clubs
-  let isLeader = false;
-  if (availableClubs) {
+  // Determine isLeader — ưu tiên fpt_club_role (lưu lúc chọn CLB)
+  const storedClubRole = sessionStorage.getItem('fpt_club_role');
+  let isLeader = storedClubRole ? ['LEADER', 'MANAGER', 'CHAIRMAN'].includes(storedClubRole.toUpperCase()) : false;
+
+  // Fallback: tính từ availableClubs nếu chưa có fpt_club_role
+  if (!storedClubRole && availableClubs) {
     const myClub = availableClubs.find(c => String(c.clubId || c.id) === String(selectedClubId));
     if (myClub) {
-      const role = (myClub.role || myClub.clubRole || '').toUpperCase();
-      isLeader = role === 'LEADER' || role === 'MANAGER';
+      const roleRaw = myClub.role || myClub.clubRole || myClub.roleName || myClub.memberRole || myClub.position || '';
+      const role = roleRaw.toUpperCase();
+      isLeader = role === 'LEADER' || role === 'MANAGER' || role === 'CHAIRMAN' || role === 'PRESIDENT';
+      if (!isLeader && (myClub.isLeader === true || myClub.isChairman === true)) isLeader = true;
     }
   }
   if (!isLeader && currentUser?.role === 'MANAGER') isLeader = true;
+  // Fallback: check sessionStorage nếu có lưu role CLB riêng
+  if (!isLeader) {
+    const storedClubRole = sessionStorage.getItem('fpt_club_role');
+    if (storedClubRole) {
+      const r = storedClubRole.toUpperCase();
+      isLeader = r === 'LEADER' || r === 'MANAGER' || r === 'CHAIRMAN';
+    }
+  }
 
   return (
     <DashboardLayout
@@ -209,8 +222,8 @@ function MemberDashboard({ triggerNotification }) {
     >
       {/* All Members */}
       {activeTab === 'dashboard' && <MemberDashboardPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />}
-      {activeTab === 'club-info' && <ClubInfoPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={true} />}
-      {activeTab === 'document-archive' && <DocumentArchivePage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={true} />}
+      {activeTab === 'club-info' && <ClubInfoPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={!isLeader} />}
+      {activeTab === 'document-archive' && <DocumentArchivePage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={!isLeader} />}
       {activeTab === 'member-search' && <MemberSearchPage currentUserId={currentUser.id} selectedClubId={selectedClubId} />}
       {activeTab === 'event-calendar' && <EventCalendarPage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
       {activeTab === 'member-workspace' && <MemberWorkspacePage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}

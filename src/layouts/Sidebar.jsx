@@ -118,10 +118,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
             <PlusSquare size={18} />
             <span>Quản lý Sự kiện</span>
           </div>
-          <div className={`nav-item ${activeTab === 'document-upload' ? 'active' : ''}`} onClick={() => setActiveTab('document-upload')}>
-            <FolderOpen size={18} />
-            <span>Tài liệu CLB (Upload)</span>
-          </div>
+
           <div className={`nav-item ${activeTab === 'evidence-review' ? 'active' : ''}`} onClick={() => setActiveTab('evidence-review')}>
             <FileCheck size={18} />
             <span>Kiểm tra Chứng nhận</span>
