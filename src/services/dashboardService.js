@@ -13,3 +13,12 @@ export async function getAdminDashboard() {
   const response = await apiClient.get('/api/admin/dashboard');
   return response.data;
 }
+
+/**
+ * Lấy số liệu thống kê Dashboard Manager
+ * GET /api/dashboard/manager
+ */
+export async function getManagerDashboard() {
+  const response = await apiClient.get('/api/dashboard/manager');
+  return response.data;
+}

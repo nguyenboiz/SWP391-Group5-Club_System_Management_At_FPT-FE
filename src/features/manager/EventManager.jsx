@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createEvent, getEventsByClub, cancelEvent, updateEvent } from '../../services/eventService';
-import { Calendar, Plus, UserCheck, MapPin, AlertTriangle, Edit, X, Save, XCircle } from 'lucide-react';
+import { getClubMembers } from '../../services/membershipService';
+import { Calendar, Plus, UserCheck, MapPin, AlertTriangle, Edit, X, Save, XCircle, Check, Users } from 'lucide-react';
 
 export default function EventManager({ selectedClubId, triggerNotification }) {
 
@@ -28,6 +29,61 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
     files: []
   });
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [eventParticipants, setEventParticipants] = useState([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+
+  // Load participants from actual club members list
+  useEffect(() => {
+    const loadParticipants = async () => {
+      if (!selectedEventId || !selectedClubId) {
+        setEventParticipants([]);
+        return;
+      }
+      setLoadingParticipants(true);
+      try {
+        const membersData = await getClubMembers(selectedClubId);
+        const membersList = Array.isArray(membersData) ? membersData : (membersData?.data ?? []);
+        
+        // Load attendance from localStorage if saved
+        const storedKey = `fpt_event_attendance_${selectedEventId}`;
+        const stored = localStorage.getItem(storedKey);
+        let attendanceMap = {};
+        if (stored) {
+          try { attendanceMap = JSON.parse(stored); } catch(e) {}
+        }
+        
+        const mapped = membersList.map(m => ({
+          studentId: m.studentId || m.userId,
+          fullName: m.studentName || m.fullName || `Sinh viên ${m.studentId}`,
+          email: m.email || '',
+          attendanceStatus: attendanceMap[m.studentId || m.userId] || 'Registered'
+        }));
+        setEventParticipants(mapped);
+      } catch (err) {
+        console.error('[EventManager] Lỗi tải người tham gia:', err);
+        setEventParticipants([]);
+      } finally {
+        setLoadingParticipants(false);
+      }
+    };
+    loadParticipants();
+  }, [selectedEventId, selectedClubId]);
+
+  const handleToggleAttendance = (studentId, status) => {
+    const updated = eventParticipants.map(p => 
+      p.studentId === studentId ? { ...p, attendanceStatus: status } : p
+    );
+    setEventParticipants(updated);
+    
+    // Save to localStorage
+    const storedKey = `fpt_event_attendance_${selectedEventId}`;
+    const attendanceMap = {};
+    updated.forEach(p => {
+      attendanceMap[p.studentId] = p.attendanceStatus;
+    });
+    localStorage.setItem(storedKey, JSON.stringify(attendanceMap));
+    triggerNotification(`Đã điểm danh: ${status === 'Present' ? 'Có mặt' : 'Vắng mặt'}`, 'success');
+  };
 
   const backendClubId = selectedClubId;
 
@@ -140,10 +196,7 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
     }
   };
 
-  // NOTE: BE chưa có API điểm danh. Placeholder cho đến khi BE bổ sung:
-  //   POST /api/events/{eventId}/attendance
-  //   GET  /api/events/{eventId}/participants
-  const eventParticipants = [];
+
 
   const handleCancelEvent = async () => {
     if (!cancelTargetId) return;
@@ -411,13 +464,65 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                 </div>
               </div>
 
-              <div className="empty-state-view">
-                <AlertTriangle className="empty-state-icon" style={{ color: 'var(--warning)' }} />
-                <p>Chức năng điểm danh đang chờ BE bổ sung API.</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                  Yêu cầu BE bổ sung: <code>GET /api/events/&#123;eventId&#125;/participants</code>
-                </p>
-              </div>
+              {loadingParticipants ? (
+                <div className="empty-state-view">
+                  <span className="login-spinner" style={{ width: '28px', height: '28px' }} />
+                  <p style={{ marginTop: '10px' }}>Đang tải danh sách thành viên...</p>
+                </div>
+              ) : eventParticipants.length === 0 ? (
+                <div className="empty-state-view">
+                  <Users className="empty-state-icon" style={{ color: 'var(--text-muted)' }} />
+                  <p>Câu lạc bộ chưa có thành viên nào để điểm danh.</p>
+                </div>
+              ) : (
+                <div className="table-container" style={{ marginTop: '12px' }}>
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Mã SV</th>
+                        <th>Họ và Tên</th>
+                        <th style={{ textAlign: 'center' }}>Trạng thái</th>
+                        <th style={{ textAlign: 'center' }}>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eventParticipants.map(p => (
+                        <tr key={p.studentId}>
+                          <td style={{ fontWeight: 600 }}>{p.studentId}</td>
+                          <td>{p.fullName}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            {p.attendanceStatus === 'Present' ? (
+                              <span className="badge badge-active" style={{ fontSize: '10px' }}>Có mặt</span>
+                            ) : p.attendanceStatus === 'Absent' ? (
+                              <span className="badge badge-blocked" style={{ fontSize: '10px' }}>Vắng mặt</span>
+                            ) : (
+                              <span className="badge badge-member" style={{ fontSize: '10px' }}>Chưa điểm danh</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px' }}>
+                              <button
+                                className="btn btn-success btn-xs"
+                                style={{ padding: '2px 6px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                                onClick={() => handleToggleAttendance(p.studentId, 'Present')}
+                              >
+                                <Check size={10} /> Có mặt
+                              </button>
+                              <button
+                                className="btn btn-danger btn-xs"
+                                style={{ padding: '2px 6px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                                onClick={() => handleToggleAttendance(p.studentId, 'Absent')}
+                              >
+                                <X size={10} /> Vắng
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>

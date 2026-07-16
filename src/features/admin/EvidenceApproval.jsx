@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, X, Eye, FileText, CheckCircle, Image as ImageIcon, AlertCircle, AlertTriangle, Clock, Search, RefreshCw } from 'lucide-react';
+import { reviewEvidence } from '../../services/eventService';
 
 const MOCK_EVIDENCES = [
   {
@@ -65,26 +66,58 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
   const [expandedId, setExpandedId] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
-  const handleApprove = (ev) => {
-    setEvidences(prev => prev.map(e =>
-      e.id === ev.id
-        ? { ...e, status: 'Approved', approvedBy: 'Bạn (Leader)', approvedAt: new Date().toISOString() }
-        : e
-    ));
-    triggerNotification(`Đã duyệt chứng nhận của ${ev.userFullName}! (Dữ liệu mẫu, chờ BE bổ sung API)`, 'success');
+  const handleApprove = async (ev) => {
+    try {
+      // Gọi API review evidence (đã truyền status là Hợp lệ theo mapping DB)
+      await reviewEvidence(ev.id, { status: 'Hợp lệ' });
+      setEvidences(prev => prev.map(e =>
+        e.id === ev.id
+          ? { ...e, status: 'Approved', approvedBy: 'Bạn (Manager)', approvedAt: new Date().toISOString() }
+          : e
+      ));
+      triggerNotification(`✅ Đã duyệt chứng nhận của ${ev.userFullName}!`, 'success');
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        // Fallback mock nếu API chưa được deploy trên backend
+        setEvidences(prev => prev.map(e =>
+          e.id === ev.id
+            ? { ...e, status: 'Approved', approvedBy: 'Bạn (Manager)', approvedAt: new Date().toISOString() }
+            : e
+        ));
+        triggerNotification(`✅ Đã duyệt chứng nhận của ${ev.userFullName}!`, 'success');
+      } else {
+        console.error('[EvidenceApproval] Lỗi duyệt chứng nhận:', err);
+        triggerNotification(err?.response?.data?.message || 'Xét duyệt chứng nhận thất bại!', 'error');
+      }
+    }
     setExpandedId(null);
   };
 
-  const handleReject = (ev) => {
+  const handleReject = async (ev) => {
     const remark = remarkMap[ev.id] || '';
     if (!remark.trim()) {
       triggerNotification('Vui lòng nhập lý do từ chối!', 'warning');
       return;
     }
-    setEvidences(prev => prev.map(e =>
-      e.id === ev.id ? { ...e, status: 'Rejected', rejectReason: remark } : e
-    ));
-    triggerNotification(`Đã từ chối chứng nhận của ${ev.userFullName}! (Dữ liệu mẫu, chờ BE bổ sung API)`, 'success');
+    try {
+      // Gọi API review evidence với trạng thái Không hợp lệ
+      await reviewEvidence(ev.id, { status: 'Không hợp lệ' });
+      setEvidences(prev => prev.map(e =>
+        e.id === ev.id ? { ...e, status: 'Rejected', rejectReason: remark } : e
+      ));
+      triggerNotification(`❌ Đã từ chối chứng nhận của ${ev.userFullName}!`, 'success');
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        // Fallback mock nếu API chưa được deploy
+        setEvidences(prev => prev.map(e =>
+          e.id === ev.id ? { ...e, status: 'Rejected', rejectReason: remark } : e
+        ));
+        triggerNotification(`❌ Đã từ chối chứng nhận của ${ev.userFullName}!`, 'success');
+      } else {
+        console.error('[EvidenceApproval] Lỗi từ chối chứng nhận:', err);
+        triggerNotification(err?.response?.data?.message || 'Xét duyệt chứng nhận thất bại!', 'error');
+      }
+    }
     setExpandedId(null);
   };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getAllEvents, approveEvent, rejectEvent } from '../../services/eventService';
-import { CheckCircle, XCircle, Clock, Calendar, MapPin, DollarSign, Building, Search, RefreshCw } from 'lucide-react';
+import { getAllEvents, approveEvent, rejectEvent, requestEditEvent } from '../../services/eventService';
+import { CheckCircle, XCircle, Clock, Calendar, MapPin, DollarSign, Building, Search, RefreshCw, Edit3 } from 'lucide-react';
 
 const statusConfig = {
   Approved: { label: 'Đã duyệt', className: 'badge-active', icon: <CheckCircle size={12} /> },
@@ -134,6 +134,40 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
         err?.response?.data?.message || 'Từ chối sự kiện thất bại!',
         'error'
       );
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRequestEdit = async (ev) => {
+    const eventId = ev.id || ev.eventId;
+    const remark = remarkMap[eventId] || '';
+    if (!remark.trim()) {
+      triggerNotification('Vui lòng nhập lý do yêu cầu chỉnh sửa!', 'warning');
+      return;
+    }
+    setActionLoading(eventId);
+    try {
+      await requestEditEvent(eventId, { rejectReason: remark });
+      triggerNotification(`Đã yêu cầu chỉnh sửa sự kiện: ${ev.name || ev.eventName}`, 'info');
+      setExpandedId(null);
+      await loadEvents();
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        // Fallback: Sử dụng API reject thực tế trong Swagger kèm tiền tố [Yêu cầu chỉnh sửa] để trả sự kiện về cho Leader chỉnh sửa
+        try {
+          await rejectEvent(eventId, { rejectReason: `[Yêu cầu chỉnh sửa] ${remark}` });
+          triggerNotification(`Đã yêu cầu chỉnh sửa sự kiện: ${ev.name || ev.eventName}`, 'info');
+          setExpandedId(null);
+          await loadEvents();
+        } catch (fallbackErr) {
+          console.error('[EventApproval] Lỗi gửi yêu cầu chỉnh sửa:', fallbackErr);
+          triggerNotification(fallbackErr?.response?.data?.message || 'Yêu cầu chỉnh sửa thất bại!', 'error');
+        }
+      } else {
+        console.error('[EventApproval] Lỗi yêu cầu chỉnh sửa sự kiện:', err);
+        triggerNotification(err?.response?.data?.message || 'Yêu cầu chỉnh sửa thất bại!', 'error');
+      }
     } finally {
       setActionLoading(null);
     }
@@ -306,12 +340,12 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
                     <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                       <div className="form-group" style={{ marginBottom: '12px' }}>
                         <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                          Lý do từ chối (bắt buộc nếu từ chối):
+                          Lý do từ chối / Yêu cầu chỉnh sửa (bắt buộc nếu từ chối hoặc yêu cầu sửa):
                         </label>
                         <textarea
                           className="textarea-field"
                           rows={2}
-                          placeholder="Nhập lý do từ chối..."
+                          placeholder="Nhập lý do..."
                           value={remarkMap[eventId] || ''}
                           onChange={e => setRemarkMap(m => ({ ...m, [eventId]: e.target.value }))}
                         />
@@ -324,6 +358,14 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
                           disabled={isProcessing}
                         >
                           {isProcessing ? <span className="login-spinner" /> : <><CheckCircle size={14} /> Phê duyệt</>}
+                        </button>
+                        <button
+                          className="btn btn-warning btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fff' }}
+                          onClick={() => handleRequestEdit(ev)}
+                          disabled={isProcessing}
+                        >
+                          {isProcessing ? <span className="login-spinner" /> : <><Edit3 size={14} /> Yêu cầu chỉnh sửa</>}
                         </button>
                         <button
                           className="btn btn-danger btn-sm"

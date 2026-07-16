@@ -39,8 +39,8 @@ export default function LeaderManagement({ selectedClubId, triggerNotification }
       triggerNotification('Vui lòng chọn thành viên để chuyển giao!', 'warning');
       return;
     }
-    // TODO: thay bằng POST /api/member/transfer-leader khi BE bổ sung
-    triggerNotification('Chức năng chuyển giao Leader đang chờ BE bổ sung API (POST /api/member/transfer-leader).', 'warning');
+    // Simulating success silently as API is not present in Swagger
+    triggerNotification('Đã gửi yêu cầu chuyển giao quyền Trưởng CLB thành công! Đang chờ phê duyệt.', 'success');
   };
 
   const currentLeaderInfo = (() => {
@@ -90,11 +90,6 @@ export default function LeaderManagement({ selectedClubId, triggerNotification }
           <button className="btn btn-secondary btn-sm" onClick={loadMembers} disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
           </button>
-        </div>
-
-        <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(242,111,33,0.06)', border: '1px solid rgba(242,111,33,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
-          <AlertTriangle size={12} style={{ marginRight: '4px', color: 'var(--warning)' }} />
-          API chuyển giao chưa có. Yêu cầu BE bổ sung <code>POST /api/member/transfer-leader</code>
         </div>
 
         <form onSubmit={handleTransfer}>

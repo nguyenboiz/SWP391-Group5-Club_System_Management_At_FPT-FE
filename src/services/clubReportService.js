@@ -35,3 +35,14 @@ export async function reviewClubReport(clubReportId, dto) {
   const response = await apiClient.patch(`/api/club-reports/${clubReportId}/review`, dto);
   return response.data;
 }
+
+/**
+ * Manager duyệt báo cáo hoạt động CLB
+ * PATCH /api/club-reports/{clubReportId}/manager-review
+ * @param {number|string} clubReportId
+ * @param {Object} dto - { status, managerNote }
+ */
+export async function managerReviewClubReport(clubReportId, dto) {
+  const response = await apiClient.patch(`/api/club-reports/${clubReportId}/manager-review`, dto);
+  return response.data;
+}

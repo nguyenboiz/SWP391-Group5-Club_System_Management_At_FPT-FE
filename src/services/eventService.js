@@ -139,3 +139,25 @@ export async function submitEvidence(eventId, formData) {
   });
   return response.data;
 }
+
+/**
+ * Yêu cầu chỉnh sửa sự kiện
+ * PUT /api/events/request-edit/{eventId}
+ * @param {number|string} eventId
+ * @param {Object} dto - { rejectReason }
+ */
+export async function requestEditEvent(eventId, dto) {
+  const response = await apiClient.put(`/api/events/request-edit/${eventId}`, dto);
+  return response.data;
+}
+
+/**
+ * Xét duyệt minh chứng (evidence)
+ * PATCH /api/events/evidence/{evidenceId}/review
+ * @param {number|string} evidenceId
+ * @param {Object} dto - { status } // "Hợp lệ" | "Yêu cầu bổ sung" | "Không hợp lệ"
+ */
+export async function reviewEvidence(evidenceId, dto) {
+  const response = await apiClient.patch(`/api/events/evidence/${evidenceId}/review`, dto);
+  return response.data;
+}

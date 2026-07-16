@@ -2,6 +2,23 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, Send, RefreshCw, Search, Clock, CheckCircle, Users, Megaphone, AlertCircle, Trash2 } from 'lucide-react';
 import { createNotification, getNotifications } from '../../services/notificationService';
 
+const MOCK_NOTIFICATIONS = [
+  {
+    id: 1,
+    title: 'Nhắc nhở nộp báo cáo quý 1',
+    content: 'Các CLB vui lòng hoàn thành báo cáo trước ngày 30/4',
+    notificationType: 'Thông báo chung',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 2,
+    title: 'Chuẩn bị cho ngày hội câu lạc bộ FPT Club Day',
+    content: 'Tất cả các câu lạc bộ chuẩn bị gian hàng giới thiệu tại sân Alpha.',
+    notificationType: 'Sự kiện',
+    createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
+  }
+];
+
 export default function NotificationManagement({ triggerNotification }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,7 +41,13 @@ export default function NotificationManagement({ triggerNotification }) {
       setNotifications(list);
     } catch (err) {
       console.error('[NotificationManagement] Lỗi tải thông báo:', err);
-      triggerNotification('Không tải được danh sách thông báo!', 'error');
+      const status = err?.response?.status;
+      if (status === 403) {
+        triggerNotification('🔒 Tài khoản chưa được Backend phân quyền gọi API thông báo (403 Forbidden). Đang dùng dữ liệu mẫu để bạn test.', 'warning');
+      } else {
+        triggerNotification('Không tải được danh sách thông báo!', 'error');
+      }
+      setNotifications(MOCK_NOTIFICATIONS);
     } finally {
       setLoading(false);
     }

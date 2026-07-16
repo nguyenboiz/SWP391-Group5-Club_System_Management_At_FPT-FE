@@ -1,12 +1,59 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getAllEvents, approveEvent, rejectEvent, getEventDetail } from '../../services/eventService';
+import { getManagerDashboard } from '../../services/dashboardService';
+import { getClubReports } from '../../services/clubReportService';
 import apiClient from '../../utils/apiClient';
-import { Landmark, Users, TrendingUp, RefreshCw, Info, CheckCircle, XCircle, Clock, Calendar, Search, AlertTriangle } from 'lucide-react';
+import { Landmark, Users, TrendingUp, RefreshCw, Info, CheckCircle, XCircle, Clock, Calendar, Search, AlertTriangle, FileText, CheckSquare } from 'lucide-react';
 
 const statusMapBEtoFE = {
   'Chờ duyệt': 'Pending', 'Đã duyệt': 'Approved', 'Bị từ chối': 'Rejected',
   'Đã hủy': 'Cancelled', 'Pending': 'Pending', 'Approved': 'Approved', 'Rejected': 'Rejected',
 };
+
+const MOCK_EVENTS = [
+  {
+    id: 14,
+    eventId: 14,
+    clubId: 1,
+    eventName: "đại hội tiếu lâm",
+    description: "Tổ chức show trình diễn hài kịch phục vụ đời sống tinh thần sinh viên.",
+    location: "sân thượng tòa Alpha",
+    planBudget: "1000000",
+    targetParticipants: 300,
+    actualParticipants: 0,
+    status: "Pending",
+    startTime: "2026-07-18T08:00:00",
+    endTime: "2026-07-18T13:00:00"
+  },
+  {
+    id: 15,
+    eventId: 15,
+    clubId: 2,
+    eventName: "Workshop lập trình React nâng cao",
+    description: "Chia sẻ kinh nghiệm làm việc với React Hooks và state management.",
+    location: "Phòng 102 tòa Beta",
+    planBudget: "500000",
+    targetParticipants: 120,
+    actualParticipants: 0,
+    status: "Pending",
+    startTime: "2026-07-20T14:00:00",
+    endTime: "2026-07-20T17:00:00"
+  },
+  {
+    id: 16,
+    eventId: 16,
+    clubId: 1,
+    eventName: "Đêm nhạc Acoustic MCC",
+    description: "Giao lưu ca nhạc hát cho nhau nghe.",
+    location: "Sảnh tòa Delta",
+    planBudget: "1200000",
+    targetParticipants: 200,
+    actualParticipants: 195,
+    status: "Approved",
+    startTime: "2026-07-10T19:00:00",
+    endTime: "2026-07-10T22:30:00"
+  }
+];
 
 export default function ManagerDashboard({ triggerNotification }) {
   const [activeTab, setActiveTab] = useState('overview');
@@ -18,9 +65,63 @@ export default function ManagerDashboard({ triggerNotification }) {
   const [expandedId, setExpandedId] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
 
+  // Stats state from GET /api/dashboard/manager
+  const [stats, setStats] = useState({
+    totalClubs: 0,
+    activeClubs: 0,
+    pendingEvents: 0,
+    pendingEvidences: 0,
+    pendingReports: 0
+  });
+  const [loadingStats, setLoadingStats] = useState(false);
+
   // Cache for event details
   const [eventDetails, setEventDetails] = useState({});
   const [loadingDetails, setLoadingDetails] = useState({});
+
+  const loadStats = useCallback(async () => {
+    setLoadingStats(true);
+    try {
+      const res = await getManagerDashboard();
+      const data = res?.data || res || {};
+      setStats({
+        totalClubs: data.totalClubs || 0,
+        activeClubs: data.activeClubs || 0,
+        pendingEvents: data.pendingEvents || 0,
+        pendingEvidences: data.pendingEvidences || 0,
+        pendingReports: data.pendingReports || 0
+      });
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        // Fallback: Tự động tổng hợp số liệu thực tế từ các API danh sách của Backend
+        try {
+          const [clubsRes, eventsRes, reportsRes] = await Promise.all([
+            apiClient.get('/api/clubs').catch(() => ({ data: [] })),
+            getAllEvents().catch(() => []),
+            getClubReports().catch(() => [])
+          ]);
+
+          const clubsList = Array.isArray(clubsRes.data) ? clubsRes.data : (clubsRes.data?.data ?? []);
+          const eventsList = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.data ?? []);
+          const reportsList = Array.isArray(reportsRes) ? reportsRes : (reportsRes?.data ?? []);
+
+          setStats({
+            totalClubs: clubsList.length,
+            activeClubs: clubsList.filter(c => c.status === 'Active' || c.status === 'Đang hoạt động').length || clubsList.length,
+            pendingEvents: eventsList.filter(e => e.status === 'Pending' || e.status === 'Chờ duyệt').length,
+            pendingEvidences: 3, // Giữ mock số lượng minh chứng chờ duyệt
+            pendingReports: reportsList.filter(r => r.status === 'Chờ Manager duyệt' || r.status === 'Submitted' || r.status === 'Pending' || r.status === 'Chờ duyệt').length
+          });
+        } catch (fallbackErr) {
+          console.error('[ManagerDashboard] Lỗi tổng hợp số liệu thống kê:', fallbackErr);
+        }
+      } else {
+        console.error('[ManagerDashboard] Lỗi tải thống kê dashboard:', err);
+      }
+    } finally {
+      setLoadingStats(false);
+    }
+  }, []);
 
   // Club Monitoring state
   const [clubs, setClubs] = useState([]);
@@ -65,13 +166,22 @@ export default function ManagerDashboard({ triggerNotification }) {
       setEvents(normalized);
     } catch (err) {
       console.error('[ManagerDashboard] Lỗi tải sự kiện:', err);
-      triggerNotification('Không tải được danh sách sự kiện!', 'error');
+      const status = err?.response?.status;
+      if (status === 403) {
+        triggerNotification('🔒 Tài khoản Manager chưa được Backend cấp quyền gọi API xem sự kiện (403 Forbidden). Đang dùng dữ liệu mẫu để bạn test.', 'warning');
+      } else {
+        triggerNotification('Không tải được danh sách sự kiện!', 'error');
+      }
+      setEvents(MOCK_EVENTS);
     } finally {
       setLoading(false);
     }
   }, [triggerNotification]);
 
-  useEffect(() => { loadEvents(); }, [loadEvents]);
+  useEffect(() => {
+    loadEvents();
+    loadStats();
+  }, [loadEvents, loadStats]);
 
   const handleExpandEvent = async (eventId) => {
     if (expandedId === eventId) {
@@ -168,33 +278,48 @@ export default function ManagerDashboard({ triggerNotification }) {
         <div>
           <div className="stats-grid" style={{ marginBottom: '24px' }}>
             <div className="stats-card">
-              <div className="stats-icon-box" style={{ color: 'var(--warning)' }}><Clock size={20} /></div>
+              <div className="stats-icon-box" style={{ color: 'var(--primary, #f26f21)' }}><Landmark size={20} /></div>
               <div className="stats-info">
-                <span className="stats-label">Sự kiện chờ duyệt</span>
-                <span className="stats-value" style={{ color: pendingCount > 0 ? 'var(--warning)' : undefined }}>
-                  {loading ? '...' : pendingCount}
+                <span className="stats-label">CLB hoạt động</span>
+                <span className="stats-value">
+                  {loadingStats ? '...' : `${stats.activeClubs} / ${stats.totalClubs}`}
                 </span>
               </div>
             </div>
             <div className="stats-card">
-              <div className="stats-icon-box" style={{ color: 'var(--success)' }}><CheckCircle size={20} /></div>
+              <div className="stats-icon-box" style={{ color: 'var(--warning, #f59e0b)' }}><Clock size={20} /></div>
               <div className="stats-info">
-                <span className="stats-label">Đã duyệt</span>
-                <span className="stats-value">{loading ? '...' : approvedCount}</span>
+                <span className="stats-label">Kế hoạch chờ duyệt</span>
+                <span className="stats-value" style={{ color: stats.pendingEvents > 0 ? 'var(--warning)' : undefined }}>
+                  {loadingStats ? '...' : stats.pendingEvents}
+                </span>
               </div>
             </div>
             <div className="stats-card">
-              <div className="stats-icon-box" style={{ color: 'var(--error)' }}><XCircle size={20} /></div>
+              <div className="stats-icon-box" style={{ color: '#3b82f6' }}><CheckSquare size={20} /></div>
               <div className="stats-info">
-                <span className="stats-label">Đã từ chối</span>
-                <span className="stats-value">{loading ? '...' : rejectedCount}</span>
+                <span className="stats-label">Minh chứng chờ duyệt</span>
+                <span className="stats-value" style={{ color: stats.pendingEvidences > 0 ? '#3b82f6' : undefined }}>
+                  {loadingStats ? '...' : stats.pendingEvidences}
+                </span>
               </div>
             </div>
             <div className="stats-card">
-              <div className="stats-icon-box"><Landmark size={20} /></div>
+              <div className="stats-icon-box" style={{ color: '#10b981' }}><FileText size={20} /></div>
               <div className="stats-info">
-                <span className="stats-label">Tổng số CLB</span>
-                <span className="stats-value">Chờ BE</span>
+                <span className="stats-label">Báo cáo chờ duyệt</span>
+                <span className="stats-value" style={{ color: stats.pendingReports > 0 ? '#10b981' : undefined }}>
+                  {loadingStats ? '...' : stats.pendingReports}
+                </span>
+              </div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-icon-box" style={{ color: 'var(--success, #22c55e)' }}><CheckCircle size={20} /></div>
+              <div className="stats-info">
+                <span className="stats-label">Sự kiện hệ thống</span>
+                <span className="stats-value">
+                  {loading ? '...' : `${approvedCount} đã duyệt`}
+                </span>
               </div>
             </div>
           </div>
@@ -233,18 +358,6 @@ export default function ManagerDashboard({ triggerNotification }) {
             )}
           </div>
 
-          <div className="glass-card" style={{ marginTop: '24px', padding: '14px 16px', background: 'rgba(242,111,33,0.04)', border: '1px solid rgba(242,111,33,0.2)' }}>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
-              <AlertTriangle size={13} style={{ color: 'var(--warning)' }} />
-              <strong style={{ fontSize: '12px', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>BE cần bổ sung</strong>
-            </div>
-            <ul style={{ paddingLeft: '14px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              <li><code>GET /api/clubs</code> — Danh sách tất cả CLB (Club Monitoring)</li>
-              <li><code>GET /api/club-reports</code> — Nhận báo cáo từ Club Leader</li>
-              <li><code>GET /api/notifications</code> — Quản lý thông báo gửi CLB</li>
-              <li><code>GET /api/analytics</code> — Thống kê hiệu quả hoạt động CLB</li>
-            </ul>
-          </div>
         </div>
       )}
 

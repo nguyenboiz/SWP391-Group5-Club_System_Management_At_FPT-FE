@@ -3,12 +3,48 @@ import { ClipboardList, Search, Clock, CheckCircle, XCircle, ChevronDown, Chevro
 import * as clubReportService from '../../services/clubReportService';
 
 const getStatusConfig = (status) => {
-  const s = String(status || '').toLowerCase();
-  if (s.includes('appraised') || s.includes('duyệt') || s.includes('chấm') || s.includes('approved')) {
-    return { label: 'Đã chấm điểm', className: 'badge-active', icon: <CheckCircle size={12} /> };
+  const s = String(status || '');
+  if (s === 'Chờ Manager duyệt' || s === 'Submitted' || s === 'Pending' || s === 'Chờ duyệt') {
+    return { label: 'Chờ Manager duyệt', className: 'badge-member', icon: <Clock size={12} /> };
   }
-  return { label: 'Chờ chấm điểm', className: 'badge-member', icon: <Clock size={12} /> };
+  if (s === 'Chờ Admin duyệt') {
+    return { label: 'Chờ Admin duyệt', className: 'badge-active', style: { backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }, icon: <Clock size={12} /> };
+  }
+  if (s === 'Đã duyệt' || s === 'Approved' || s === 'Appraised') {
+    return { label: 'Đã duyệt hoàn toàn', className: 'badge-active', icon: <CheckCircle size={12} /> };
+  }
+  if (s === 'Từ chối' || s === 'Rejected' || s === 'Bị từ chối') {
+    return { label: 'Bị từ chối', className: 'badge-blocked', icon: <XCircle size={12} /> };
+  }
+  return { label: s || 'Chờ duyệt', className: 'badge-member', icon: <Clock size={12} /> };
 };
+
+const MOCK_REPORTS = [
+  {
+    clubReportId: 101,
+    clubName: 'Multimedia Communication Club',
+    reportTitle: 'Báo cáo hoạt động và tài chính tháng 6',
+    reportPeriodName: 'Học kỳ hè 2026',
+    totalEventsHeld: 4,
+    submittedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+    status: 'Chờ Manager duyệt',
+    summaryContent: 'Trong tháng 6, CLB truyền thông đa phương tiện đã tổ chức thành công 4 sự kiện, thu hút hơn 300 sinh viên tham gia. Kế hoạch tài chính đã được cân đối chính xác, không phát sinh nợ nần.',
+    managerNote: '',
+    icpdpFeedback: ''
+  },
+  {
+    clubReportId: 102,
+    clubName: 'Software Engineering Club',
+    reportTitle: 'Báo cáo tổng kết tuần sinh hoạt học thuật',
+    reportPeriodName: 'Học kỳ hè 2026',
+    totalEventsHeld: 2,
+    submittedAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+    status: 'Chờ Manager duyệt',
+    summaryContent: 'Hoạt động học thuật diễn ra nghiêm túc, tổ chức 2 buổi seminar về React & C#. Thành viên tham gia đầy đủ, đóng góp nhiều ý kiến chất lượng cho CLB.',
+    managerNote: '',
+    icpdpFeedback: ''
+  }
+];
 
 export default function ReviewClubReports({ triggerNotification }) {
   const [reports, setReports] = useState([]);
@@ -29,8 +65,13 @@ export default function ReviewClubReports({ triggerNotification }) {
       setReports(list);
     } catch (err) {
       console.error('[ReviewClubReports] Lỗi tải báo cáo:', err);
-      // Không ném lỗi ra UI vì có thể Manager chưa được phân quyền trên endpoint này tùy thuộc cấu hình
-      triggerNotification('Không tải được danh sách báo cáo hoạt động!', 'error');
+      const status = err?.response?.status;
+      if (status === 403) {
+        triggerNotification('🔒 Tài khoản Manager chưa được Backend cấp quyền gọi API báo cáo (403 Forbidden). Đang dùng dữ liệu mẫu để bạn test.', 'warning');
+      } else {
+        triggerNotification('Không tải được danh sách báo cáo hoạt động!', 'error');
+      }
+      setReports(MOCK_REPORTS);
     } finally {
       setLoading(false);
     }
@@ -40,37 +81,37 @@ export default function ReviewClubReports({ triggerNotification }) {
     syncReports();
   }, [syncReports]);
 
-  const handleAppraise = async (id) => {
-    const score = parseInt(scoreMap[id], 10);
+  const handleManagerReview = async (id, actionStatus) => {
     const remark = remarkMap[id] || '';
-    if (isNaN(score) || score < 0 || score > 100) {
-      triggerNotification('Vui lòng nhập điểm đánh giá từ 0–100!', 'warning');
+    if (actionStatus === 'Từ chối' && !remark.trim()) {
+      triggerNotification('❌ Vui lòng nhập lý do nhận xét khi từ chối báo cáo!', 'warning');
       return;
     }
 
     try {
+      // Gọi trực tiếp API review thực tế trong Swagger (/api/club-reports/{id}/review)
       await clubReportService.reviewClubReport(id, {
-        status: 'Đã duyệt',
-        icpdpFeedback: `Điểm: ${score}. ${remark}`.trim()
+        status: actionStatus,
+        icpdpFeedback: remark.trim() || 'Manager đã duyệt báo cáo.'
       });
-      triggerNotification('Đã chấm điểm báo cáo câu lạc bộ thành công!', 'success');
+      triggerNotification(`✅ Đã duyệt báo cáo thành công với trạng thái: ${actionStatus}!`, 'success');
       setExpandedId(null);
       await syncReports();
     } catch (err) {
-      console.error('[ReviewClubReports] Lỗi chấm điểm:', err);
-      triggerNotification(err?.response?.data?.message || 'Chấm điểm báo cáo thất bại!', 'error');
+      console.error('[ReviewClubReports] Lỗi duyệt báo cáo:', err);
+      triggerNotification(err?.response?.data?.message || 'Duyệt báo cáo thất bại!', 'error');
     }
   };
 
   const filteredReports = reports.filter(r => {
-    const isPending = r.status === 'Submitted' || r.status === 'Chờ duyệt' || r.status === 'Pending';
-    const isApproved = r.status === 'Approved' || r.status === 'Đã duyệt' || r.status === 'Appraised';
+    const isPending = r.status === 'Chờ Manager duyệt' || r.status === 'Submitted' || r.status === 'Pending' || r.status === 'Chờ duyệt';
+    const isReviewed = r.status === 'Chờ Admin duyệt' || r.status === 'Đã duyệt' || r.status === 'Approved' || r.status === 'Appraised' || r.status === 'Từ chối' || r.status === 'Rejected';
     
     let matchesStatus = true;
     if (filterStatus === 'Submitted') {
       matchesStatus = isPending;
     } else if (filterStatus === 'Appraised') {
-      matchesStatus = isApproved;
+      matchesStatus = isReviewed;
     }
 
     const q = searchQuery.toLowerCase();
@@ -80,8 +121,8 @@ export default function ReviewClubReports({ triggerNotification }) {
     return matchesStatus && matchesSearch;
   });
 
-  const pendingCount = reports.filter(r => r.status === 'Submitted' || r.status === 'Chờ duyệt' || r.status === 'Pending').length;
-  const appraisedCount = reports.filter(r => r.status === 'Approved' || r.status === 'Đã duyệt' || r.status === 'Appraised').length;
+  const pendingCount = reports.filter(r => r.status === 'Chờ Manager duyệt' || r.status === 'Submitted' || r.status === 'Pending' || r.status === 'Chờ duyệt').length;
+  const reviewedCount = reports.filter(r => r.status === 'Chờ Admin duyệt' || r.status === 'Đã duyệt' || r.status === 'Approved' || r.status === 'Appraised' || r.status === 'Từ chối' || r.status === 'Rejected').length;
 
   return (
     <div className="user-management-container">
@@ -90,15 +131,15 @@ export default function ReviewClubReports({ triggerNotification }) {
         <div className="stats-card" onClick={() => setFilterStatus('Submitted')} style={{ cursor: 'pointer' }}>
           <div className="stats-icon-box" style={{ color: 'var(--warning)' }}><Clock size={20} /></div>
           <div className="stats-info">
-            <span className="stats-label">Báo cáo chờ chấm điểm</span>
+            <span className="stats-label">Báo cáo chờ duyệt</span>
             <span className="stats-value">{pendingCount} báo cáo</span>
           </div>
         </div>
         <div className="stats-card" onClick={() => setFilterStatus('Appraised')} style={{ cursor: 'pointer' }}>
           <div className="stats-icon-box" style={{ color: 'var(--success)' }}><CheckCircle size={20} /></div>
           <div className="stats-info">
-            <span className="stats-label">Đã chấm điểm</span>
-            <span className="stats-value">{appraisedCount} báo cáo</span>
+            <span className="stats-label">Đã xem xét</span>
+            <span className="stats-value">{reviewedCount} báo cáo</span>
           </div>
         </div>
       </div>
@@ -143,7 +184,7 @@ export default function ReviewClubReports({ triggerNotification }) {
             {filteredReports.map(rep => {
               const repId = rep.clubReportId || rep.id;
               const isExpanded = expandedId === repId;
-              const isPending = rep.status === 'Submitted' || rep.status === 'Chờ duyệt' || rep.status === 'Pending';
+              const isPending = rep.status === 'Chờ Manager duyệt' || rep.status === 'Submitted' || rep.status === 'Pending' || rep.status === 'Chờ duyệt';
               const cfg = getStatusConfig(rep.status);
               
               return (
@@ -152,7 +193,7 @@ export default function ReviewClubReports({ triggerNotification }) {
                     <div style={{ flex: 1 }} onClick={() => setExpandedId(isExpanded ? null : repId)} style={{ cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
                         <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '15px' }}>{rep.clubName}</span>
-                        <span className={`badge ${cfg.className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 8px' }}>
+                        <span className={`badge ${cfg.className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 8px', ...cfg.style }}>
                           {cfg.icon} {cfg.label}
                         </span>
                       </div>
@@ -169,7 +210,7 @@ export default function ReviewClubReports({ triggerNotification }) {
                       onClick={() => setExpandedId(isExpanded ? null : repId)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     >
-                      {isExpanded ? <>Đóng <ChevronUp size={14} /></> : <>Xem & Chấm <ChevronDown size={14} /></>}
+                      {isExpanded ? <>Đóng <ChevronUp size={14} /></> : <>Xem & Duyệt <ChevronDown size={14} /></>}
                     </button>
                   </div>
 
@@ -181,27 +222,11 @@ export default function ReviewClubReports({ triggerNotification }) {
 
                       {isPending ? (
                         <div>
-                          <div className="form-group" style={{ marginBottom: '12px' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <Star size={14} style={{ color: 'var(--primary)' }} />
-                              Nhập điểm đánh giá (0–100):
-                            </label>
-                            <input
-                              type="number"
-                              className="input-field"
-                              min={0} max={100}
-                              placeholder="Ví dụ: 85, 90..."
-                              value={scoreMap[repId] || ''}
-                              onChange={e => setScoreMap({ ...scoreMap, [repId]: e.target.value })}
-                              style={{ maxWidth: '120px' }}
-                            />
-                          </div>
-
                           <div className="form-group">
-                            <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nhận xét / Phản hồi của Manager:</label>
+                            <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nhận xét / Phản hồi của Manager (bắt buộc khi Từ chối):</label>
                             <textarea
                               className="textarea-field"
-                              placeholder="Nhập nhận xét hoạt động..."
+                              placeholder="Nhập nhận xét hoặc lý do từ chối..."
                               rows={2}
                               value={remarkMap[repId] || ''}
                               onChange={e => setRemarkMap({ ...remarkMap, [repId]: e.target.value })}
@@ -211,17 +236,24 @@ export default function ReviewClubReports({ triggerNotification }) {
                           <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                             <button
                               className="btn btn-success btn-sm"
-                              onClick={() => handleAppraise(repId)}
+                              onClick={() => handleManagerReview(repId, 'Chờ Admin duyệt')}
                               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                             >
-                              <Award size={14} /> Xác nhận và Chấm điểm
+                              <CheckCircle size={14} /> Duyệt & Gửi lên Admin
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleManagerReview(repId, 'Từ chối')}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <XCircle size={14} /> Từ chối báo cáo
                             </button>
                           </div>
                         </div>
                       ) : (
-                        rep.icpdpFeedback && (
+                        (rep.managerNote || rep.icpdpFeedback) && (
                           <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '12px', borderLeft: '3px solid var(--primary)', color: 'var(--text-muted)' }}>
-                            <strong>Nhận xét từ bạn:</strong> {rep.icpdpFeedback}
+                            <strong>Nhận xét từ bạn:</strong> {rep.managerNote || rep.icpdpFeedback}
                           </div>
                         )
                       )}
