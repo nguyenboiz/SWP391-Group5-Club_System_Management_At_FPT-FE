@@ -1,41 +1,48 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { mockDb } from '../../utils/mockDb';
-import { Bell, Megaphone, PlusSquare, Search, Calendar, User, Clock, AlertTriangle, Send } from 'lucide-react';
+import { Bell, Megaphone, Search, User, Clock, Send, RefreshCw } from 'lucide-react';
+import { createNotification, getNotifications } from '../../services/notificationService';
 
+/**
+ * ClubAnnouncements
+ * - Lấy danh sách thông báo: GET /api/notifications
+ * - Tạo thông báo mới (Leader): POST /api/notifications
+ */
 export default function ClubAnnouncements({ selectedClubId, triggerNotification, isLeader }) {
   const { currentUser } = useAuth();
   const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Form state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [importance, setImportance] = useState('Normal');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Sync data from mockDb
-  const syncData = useCallback(() => {
-    const db = mockDb.getData();
-    // Lấy thông tin thông báo:
-    // 1. Thông báo hệ thống (không có clubId)
-    // 2. Thông báo nội bộ của CLB này (clubId === selectedClubId)
-    const list = (db.announcements || []).filter(
-      ann => !ann.clubId || String(ann.clubId) === String(selectedClubId)
-    );
-    
-    // Sắp xếp theo ngày mới nhất lên đầu
-    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    setAnnouncements(list);
+  const loadAnnouncements = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getNotifications();
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      // Lọc thông báo theo CLB hiện tại hoặc thông báo hệ thống (không có clubId)
+      const filtered = list.filter(n =>
+        !n.clubId || String(n.clubId) === String(selectedClubId)
+      );
+      filtered.sort((a, b) => new Date(b.createdAt || b.sentAt || 0) - new Date(a.createdAt || a.sentAt || 0));
+      setAnnouncements(filtered);
+    } catch (err) {
+      console.error('[ClubAnnouncements] Lỗi tải thông báo:', err);
+      setAnnouncements([]);
+    } finally {
+      setLoading(false);
+    }
   }, [selectedClubId]);
 
   useEffect(() => {
-    syncData();
-    window.addEventListener('mockDbUpdate', syncData);
-    return () => window.removeEventListener('mockDbUpdate', syncData);
-  }, [syncData]);
+    loadAnnouncements();
+  }, [loadAnnouncements]);
 
-  // Handle post new announcement
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
@@ -44,64 +51,41 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
     }
 
     setIsSubmitting(true);
-    // Giả lập độ trễ mạng
-    await new Promise(r => setTimeout(r, 600));
-
     try {
-      const author = currentUser?.fullName || currentUser?.username || 'Trưởng CLB';
-      mockDb.addAnnouncement({
+      await createNotification({
         title: title.trim(),
         content: content.trim(),
-        importance,
-        clubId: selectedClubId,
-        authorName: `${author} (Trưởng CLB)`
+        notificationType: importance === 'High' ? 'Important' : 'General',
+        targetType: 'Club',
+        targetRole: null,
+        clubId: selectedClubId ? Number(selectedClubId) : null,
+        targetUserIds: [],
+        eventId: null,
+        clubReportId: null,
+        reportPeriodId: null,
       });
 
-      triggerNotification('Phát hành thông báo nội bộ CLB thành công!', 'success');
+      triggerNotification('✅ Phát hành thông báo CLB thành công!', 'success');
       setTitle('');
       setContent('');
       setImportance('Normal');
+      await loadAnnouncements();
     } catch (err) {
-      triggerNotification('Đăng thông báo thất bại!', 'error');
+      console.error('[ClubAnnouncements] Lỗi đăng thông báo:', err);
+      triggerNotification(err?.response?.data?.message || 'Đăng thông báo thất bại!', 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Filter list
   const filteredList = announcements.filter(ann => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    const matchesTitle = (ann.title || '').toLowerCase().includes(q);
-    const matchesContent = (ann.content || '').toLowerCase().includes(q);
-    return matchesTitle || matchesContent;
+    return (ann.title || '').toLowerCase().includes(q) || (ann.content || '').toLowerCase().includes(q);
   });
 
   return (
     <div className="club-announcements-container">
-
-      {/* ⚠ BE MISSING API BANNER */}
-      <div style={{
-        marginBottom: '20px', padding: '16px 20px', borderRadius: '10px',
-        background: 'rgba(234,179,8,0.08)',
-        border: '1.5px solid rgba(234,179,8,0.4)',
-        display: 'flex', gap: '12px', alignItems: 'flex-start'
-      }}>
-        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
-        <div>
-          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
-            ⚠ [BE CẦN BỔ SUNG API] — Thông báo nội bộ CLB đang lưu cục bộ (Local Storage)
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
-            Thông báo hệ thống từ Admin đã hiển thị thật. Thông báo nội bộ CLB cần BE bổ sung:
-            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
-              <li><code>POST /api/announcements</code> — Phát hành thông báo nội bộ CLB <code>{'{ clubId, title, content, importance }'}</code></li>
-              <li><code>GET  /api/announcements?clubId={'{clubId}'}</code> — Lấy danh sách thông báo của CLB</li>
-              <li><code>DELETE /api/announcements/{'{id}'}</code> — Xóa thông báo</li>
-            </ul>
-          </div>
-        </div>
-      </div>
 
       {/* 1. Leader-only Announcement Creator */}
       {isLeader && (
@@ -175,9 +159,9 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
       <div className="glass-card">
         <div className="glass-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 className="glass-card-title"><Bell size={18} /> Bảng tin Thông báo</h3>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            CLB #{selectedClubId} · {filteredList.length} thông báo
-          </span>
+          <button className="btn btn-secondary btn-sm" onClick={loadAnnouncements} disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <RefreshCw size={13} /> Làm mới
+          </button>
         </div>
 
         <div className="search-filter-row" style={{ marginTop: '16px' }}>
@@ -193,28 +177,33 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
           </div>
         </div>
 
-        {filteredList.length === 0 ? (
+        {loading ? (
+          <div className="empty-state-view">
+            <span className="login-spinner" style={{ width: '28px', height: '28px' }} />
+          </div>
+        ) : filteredList.length === 0 ? (
           <div className="empty-state-view" style={{ padding: '40px 0' }}>
             <Bell className="empty-state-icon" style={{ opacity: 0.3 }} />
             <p>Không có thông báo nào được tìm thấy.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '18px' }}>
-            {filteredList.map(ann => {
+            {filteredList.map((ann, idx) => {
               const isSystem = !ann.clubId;
-              const isHighImportance = ann.importance === 'High' || ann.importance === 'Quan trọng';
+              const isHighImportance = ann.notificationType === 'Important' || ann.importance === 'High';
+              const ts = ann.createdAt || ann.sentAt;
               return (
                 <div
-                  key={ann.id}
+                  key={ann.notificationId || ann.id || idx}
                   className="glass-card"
                   style={{
                     padding: '18px',
                     marginBottom: 0,
-                    borderLeft: isSystem 
-                      ? '4px solid #a855f7' // Purple for System/Admin
-                      : isHighImportance 
-                      ? '4px solid var(--error)' // Red for High importance
-                      : '4px solid var(--primary)', // Orange for normal club
+                    borderLeft: isSystem
+                      ? '4px solid #a855f7'
+                      : isHighImportance
+                      ? '4px solid var(--error)'
+                      : '4px solid var(--primary)',
                     background: 'rgba(255, 255, 255, 0.01)'
                   }}
                 >
@@ -233,33 +222,20 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
                           <span className="badge badge-blocked" style={{ fontSize: '9px', fontWeight: 700 }}>QUAN TRỌNG</span>
                         )}
                       </div>
-                      
-                      <p style={{
-                        fontSize: '13px',
-                        color: 'var(--text-main)',
-                        margin: '10px 0',
-                        lineHeight: 1.6,
-                        whiteSpace: 'pre-line'
-                      }}>
+
+                      <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '10px 0', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
                         {ann.content}
                       </p>
 
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '16px',
-                        fontSize: '11px',
-                        color: 'var(--text-muted)',
-                        marginTop: '12px',
-                        borderTop: '1px solid rgba(255, 255, 255, 0.03)',
-                        paddingTop: '8px'
-                      }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.03)', paddingTop: '8px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <User size={12} /> {ann.authorName || 'Ban Quản Trị'}
+                          <User size={12} /> {ann.senderName || ann.authorName || 'Hệ thống'}
                         </span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Clock size={12} /> {new Date(ann.createdAt).toLocaleString('vi-VN')}
-                        </span>
+                        {ts && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <Clock size={12} /> {new Date(ts).toLocaleString('vi-VN')}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

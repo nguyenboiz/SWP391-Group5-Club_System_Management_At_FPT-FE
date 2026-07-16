@@ -1,23 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, Send, RefreshCw, Search, Clock, CheckCircle, Users, Megaphone, AlertCircle, Trash2 } from 'lucide-react';
 import { createNotification, getNotifications } from '../../services/notificationService';
-
-const MOCK_NOTIFICATIONS = [
-  {
-    id: 1,
-    title: 'Nhắc nhở nộp báo cáo quý 1',
-    content: 'Các CLB vui lòng hoàn thành báo cáo trước ngày 30/4',
-    notificationType: 'Thông báo chung',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 2,
-    title: 'Chuẩn bị cho ngày hội câu lạc bộ FPT Club Day',
-    content: 'Tất cả các câu lạc bộ chuẩn bị gian hàng giới thiệu tại sân Alpha.',
-    notificationType: 'Sự kiện',
-    createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
-  }
-];
+import { validateNoSpecialChars } from '../../utils/validator';
 
 export default function NotificationManagement({ triggerNotification }) {
   const [notifications, setNotifications] = useState([]);
@@ -31,6 +15,9 @@ export default function NotificationManagement({ triggerNotification }) {
   const [targetType, setTargetType] = useState('All');
   const [targetRole, setTargetRole] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Validation errors
+  const [errors, setErrors] = useState({});
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -41,13 +28,8 @@ export default function NotificationManagement({ triggerNotification }) {
       setNotifications(list);
     } catch (err) {
       console.error('[NotificationManagement] Lỗi tải thông báo:', err);
-      const status = err?.response?.status;
-      if (status === 403) {
-        triggerNotification('🔒 Tài khoản chưa được Backend phân quyền gọi API thông báo (403 Forbidden). Đang dùng dữ liệu mẫu để bạn test.', 'warning');
-      } else {
-        triggerNotification('Không tải được danh sách thông báo!', 'error');
-      }
-      setNotifications(MOCK_NOTIFICATIONS);
+      triggerNotification('Không tải được danh sách thông báo!', 'error');
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -59,11 +41,27 @@ export default function NotificationManagement({ triggerNotification }) {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) {
-      triggerNotification('Vui lòng nhập đầy đủ tiêu đề và nội dung!', 'warning');
+    const newErrors = {};
+
+    if (!title.trim()) {
+      newErrors.title = 'Vui lòng nhập tiêu đề thông báo!';
+    } else if (!validateNoSpecialChars(title)) {
+      newErrors.title = 'Tiêu đề không được chứa ký tự lạ!';
+    }
+
+    if (!content.trim()) {
+      newErrors.content = 'Vui lòng nhập nội dung thông báo!';
+    } else if (!validateNoSpecialChars(content)) {
+      newErrors.content = 'Nội dung không được chứa ký tự lạ!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu bên dưới!', 'warning');
       return;
     }
 
+    setErrors({});
     setIsSubmitting(true);
     try {
       const dto = {
@@ -106,17 +104,20 @@ export default function NotificationManagement({ triggerNotification }) {
             <h3 className="glass-card-title"><Megaphone size={18} /> Gửi Thông báo mới</h3>
           </div>
 
-          <form onSubmit={handleSend} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <form onSubmit={handleSend} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>Tiêu đề thông báo *</label>
               <input
                 type="text"
                 className="input-field"
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={e => {
+                  setTitle(e.target.value);
+                  if (errors.title) setErrors(prev => ({ ...prev, title: null }));
+                }}
                 placeholder="Ví dụ: Thông báo kế hoạch học kỳ mới..."
-                required
               />
+              {errors.title && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.title}</span>}
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -124,11 +125,14 @@ export default function NotificationManagement({ triggerNotification }) {
               <textarea
                 className="textarea-field"
                 value={content}
-                onChange={e => setContent(e.target.value)}
+                onChange={e => {
+                  setContent(e.target.value);
+                  if (errors.content) setErrors(prev => ({ ...prev, content: null }));
+                }}
                 placeholder="Nhập nội dung thông báo chi tiết..."
                 rows={5}
-                required
               />
+              {errors.content && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.content}</span>}
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>

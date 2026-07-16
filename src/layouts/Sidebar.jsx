@@ -29,6 +29,10 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <ClipboardList size={18} />
         <span>Report Review</span>
       </div>
+      <div className={`nav-item ${activeTab === 'evidence-review' ? 'active' : ''}`} onClick={() => setActiveTab('evidence-review')}>
+        <FileCheck size={18} />
+        <span>Kiểm tra Chứng nhận</span>
+      </div>
       <div className={`nav-item ${activeTab === 'notification-management' ? 'active' : ''}`} onClick={() => setActiveTab('notification-management')}>
         <Bell size={18} />
         <span>Gửi Thông báo</span>
@@ -57,10 +61,6 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
       <div className={`nav-item ${activeTab === 'club-report-review' ? 'active' : ''}`} onClick={() => setActiveTab('club-report-review')}>
         <FileText size={18} />
         <span>Kiểm tra Báo cáo CLB</span>
-      </div>
-      <div className={`nav-item ${activeTab === 'submit-report' ? 'active' : ''}`} onClick={() => setActiveTab('submit-report')}>
-        <Send size={18} />
-        <span>Tổng hợp Báo cáo</span>
       </div>
       <div className={`nav-item ${activeTab === 'notification-management' ? 'active' : ''}`} onClick={() => setActiveTab('notification-management')}>
         <Bell size={18} />
@@ -118,18 +118,9 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
             <PlusSquare size={18} />
             <span>Quản lý Sự kiện</span>
           </div>
-
           <div className={`nav-item ${activeTab === 'evidence-review' ? 'active' : ''}`} onClick={() => setActiveTab('evidence-review')}>
             <FileCheck size={18} />
             <span>Kiểm tra Chứng nhận</span>
-          </div>
-          <div className={`nav-item ${activeTab === 'club-report' ? 'active' : ''}`} onClick={() => setActiveTab('club-report')}>
-            <Send size={18} />
-            <span>Nộp Báo cáo CLB</span>
-          </div>
-          <div className={`nav-item ${activeTab === 'leader-management' ? 'active' : ''}`} onClick={() => setActiveTab('leader-management')}>
-            <Crown size={18} />
-            <span>Chuyển giao Leader</span>
           </div>
         </>
       )}

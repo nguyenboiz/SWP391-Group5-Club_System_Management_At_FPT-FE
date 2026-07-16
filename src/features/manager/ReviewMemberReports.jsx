@@ -19,33 +19,6 @@ const getStatusConfig = (status) => {
   return { label: s || 'Chờ duyệt', className: 'badge-member', icon: <Clock size={12} /> };
 };
 
-const MOCK_REPORTS = [
-  {
-    clubReportId: 101,
-    clubName: 'Multimedia Communication Club',
-    reportTitle: 'Báo cáo hoạt động và tài chính tháng 6',
-    reportPeriodName: 'Học kỳ hè 2026',
-    totalEventsHeld: 4,
-    submittedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-    status: 'Chờ Manager duyệt',
-    summaryContent: 'Trong tháng 6, CLB truyền thông đa phương tiện đã tổ chức thành công 4 sự kiện, thu hút hơn 300 sinh viên tham gia. Kế hoạch tài chính đã được cân đối chính xác, không phát sinh nợ nần.',
-    managerNote: '',
-    icpdpFeedback: ''
-  },
-  {
-    clubReportId: 102,
-    clubName: 'Software Engineering Club',
-    reportTitle: 'Báo cáo tổng kết tuần sinh hoạt học thuật',
-    reportPeriodName: 'Học kỳ hè 2026',
-    totalEventsHeld: 2,
-    submittedAt: new Date(Date.now() - 3600000 * 48).toISOString(),
-    status: 'Chờ Manager duyệt',
-    summaryContent: 'Hoạt động học thuật diễn ra nghiêm túc, tổ chức 2 buổi seminar về React & C#. Thành viên tham gia đầy đủ, đóng góp nhiều ý kiến chất lượng cho CLB.',
-    managerNote: '',
-    icpdpFeedback: ''
-  }
-];
-
 export default function ReviewClubReports({ triggerNotification }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -65,13 +38,8 @@ export default function ReviewClubReports({ triggerNotification }) {
       setReports(list);
     } catch (err) {
       console.error('[ReviewClubReports] Lỗi tải báo cáo:', err);
-      const status = err?.response?.status;
-      if (status === 403) {
-        triggerNotification('🔒 Tài khoản Manager chưa được Backend cấp quyền gọi API báo cáo (403 Forbidden). Đang dùng dữ liệu mẫu để bạn test.', 'warning');
-      } else {
-        triggerNotification('Không tải được danh sách báo cáo hoạt động!', 'error');
-      }
-      setReports(MOCK_REPORTS);
+      triggerNotification('Không tải được danh sách báo cáo hoạt động!', 'error');
+      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -89,10 +57,9 @@ export default function ReviewClubReports({ triggerNotification }) {
     }
 
     try {
-      // Gọi trực tiếp API review thực tế trong Swagger (/api/club-reports/{id}/review)
-      await clubReportService.reviewClubReport(id, {
+      await clubReportService.managerReviewClubReport(id, {
         status: actionStatus,
-        icpdpFeedback: remark.trim() || 'Manager đã duyệt báo cáo.'
+        managerNote: remark.trim() || 'Manager đã duyệt báo cáo.'
       });
       triggerNotification(`✅ Đã duyệt báo cáo thành công với trạng thái: ${actionStatus}!`, 'success');
       setExpandedId(null);

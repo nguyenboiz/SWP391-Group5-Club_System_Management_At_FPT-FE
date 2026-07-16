@@ -1,37 +1,47 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getEventsByClub, submitEvidence } from '../../services/eventService';
-import { updateProfile } from '../../services/userService';
-import { User, Image as ImageIcon, Send, Clock, AlertTriangle, Upload } from 'lucide-react';
+import { updateProfile, getUserActivityHistory } from '../../services/userService';
+import { User, Image as ImageIcon, Send, Clock, Activity, Upload, Phone, Calendar, Users } from 'lucide-react';
+import { validatePhone, validateNoSpecialChars } from '../../utils/validator';
 
 export default function MemberWorkspace({ currentUserId, triggerNotification, selectedClubId }) {
   const { currentUser } = useAuth();
-
-  // Profile state (from currentUser)
   const user = currentUser;
-  const [fullName, setFullName] = useState(user?.fullName || '');
-  const [cohort, setCohort] = useState(user?.cohort || '');
-  const [phone, setPhone] = useState(user?.phone || '');
-  const [facebook, setFacebook] = useState(user?.facebook || '');
+  const userId = user?.id || user?.userId || currentUserId;
 
-  // Events list from club (for evidence form reference)
+  // Active tab
+  const [activeTab, setActiveTab] = useState('profile');
+
+  // Profile state
+  const [phone, setPhone] = useState(user?.phone || user?.phoneNumber || '');
+  const [gender, setGender] = useState(user?.gender || 'Other');
+  const [dateOfBirth, setDateOfBirth] = useState(user?.dateOfBirth ? user.dateOfBirth.substring(0, 10) : '');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
+  // Events + evidence state
   const [clubEvents, setClubEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState(null);
-  
-  // Loading states
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isSubmittingEvidence, setIsSubmittingEvidence] = useState(false);
+
+  // Activity history state
+  const [activityHistory, setActivityHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Validation errors
+  const [profileErrors, setProfileErrors] = useState({});
+  const [evidenceErrors, setEvidenceErrors] = useState({});
 
   useEffect(() => {
     if (user) {
-      setFullName(user.fullName || '');
-      setCohort(user.cohort || '');
-      setPhone(user.phone || '');
-      setFacebook(user.facebook || '');
+      setPhone(user.phone || user.phoneNumber || '');
+      setGender(user.gender || 'Other');
+      setDateOfBirth(user.dateOfBirth ? user.dateOfBirth.substring(0, 10) : '');
     }
-  }, [currentUserId]);
+  }, [user]);
 
   const loadClubEvents = useCallback(async () => {
     if (!selectedClubId) return;
@@ -47,17 +57,60 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     loadClubEvents();
   }, [loadClubEvents]);
 
+  const loadActivityHistory = useCallback(async () => {
+    if (!userId) return;
+    setLoadingHistory(true);
+    try {
+      const data = await getUserActivityHistory(userId);
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      setActivityHistory(list);
+    } catch (err) {
+      console.error('[MemberWorkspace] Lỗi tải lịch sử hoạt động:', err);
+      setActivityHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (activeTab === 'activity') {
+      loadActivityHistory();
+    }
+  }, [activeTab, loadActivityHistory]);
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+
+    if (phone && !validatePhone(phone)) {
+      newErrors.phone = 'Số điện thoại không hợp lệ (phải bắt đầu bằng 0, gồm 10 chữ số)!';
+    }
+
+    if (dateOfBirth) {
+      const dob = new Date(dateOfBirth);
+      const now = new Date();
+      if (dob > now) {
+        newErrors.dateOfBirth = 'Ngày sinh không được ở tương lai!';
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setProfileErrors(newErrors);
+      triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu bên dưới!', 'warning');
+      return;
+    }
+
+    setProfileErrors({});
     setIsUpdatingProfile(true);
     try {
       const formData = new FormData();
-      formData.append('PhoneNumber', phone);
-      // We can append gender and date of birth if user object has them, or defaults
-      formData.append('Gender', 'Other');
-      
+      if (phone) formData.append('PhoneNumber', phone);
+      if (gender) formData.append('Gender', gender);
+      if (dateOfBirth) formData.append('DateOfBirth', new Date(dateOfBirth).toISOString());
+      if (avatarFile) formData.append('AvatarFile', avatarFile);
+
       await updateProfile(formData);
-      triggerNotification('Cập nhật số điện thoại thành công!', 'success');
+      triggerNotification('✅ Cập nhật hồ sơ thành công!', 'success');
     } catch (err) {
       console.error('[MemberWorkspace] Lỗi cập nhật hồ sơ:', err);
       triggerNotification(err?.response?.data?.message || 'Cập nhật hồ sơ thất bại!', 'error');
@@ -68,15 +121,25 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
 
   const handleSubmitEvidence = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+
     if (!selectedEventId) {
-      triggerNotification('Vui lòng chọn sự kiện để nộp chứng nhận!', 'warning');
-      return;
+      newErrors.selectedEventId = 'Vui lòng chọn sự kiện để nộp chứng nhận!';
     }
     if (!evidenceFiles || evidenceFiles.length === 0) {
-      triggerNotification('Vui lòng chọn tệp chứng nhận để tải lên!', 'warning');
+      newErrors.evidenceFiles = 'Vui lòng chọn tệp chứng nhận để tải lên!';
+    }
+    if (feedbackText && !validateNoSpecialChars(feedbackText)) {
+      newErrors.feedbackText = 'Ghi chú không được chứa ký tự lạ!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setEvidenceErrors(newErrors);
+      triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu bên dưới!', 'warning');
       return;
     }
 
+    setEvidenceErrors({});
     setIsSubmittingEvidence(true);
     try {
       const formData = new FormData();
@@ -86,9 +149,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
       formData.append('Feedback', feedbackText || 'Nộp chứng nhận tham gia sự kiện');
 
       await submitEvidence(selectedEventId, formData);
-      triggerNotification('Nộp chứng nhận sự kiện thành công! Chờ PDP phê duyệt.', 'success');
-      
-      // Reset form
+      triggerNotification('Nộp chứng nhận sự kiện thành công! Chờ Leader phê duyệt.', 'success');
       setFeedbackText('');
       setEvidenceFiles(null);
       const fileInput = document.getElementById('evidence-file-input');
@@ -110,88 +171,119 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     );
   }
 
-  const userId = user?.id || user?.studentId || currentUserId;
+  const TABS = [
+    { key: 'profile', label: 'Hồ sơ Cá nhân', icon: <User size={15} /> },
+    { key: 'evidence', label: 'Nộp Chứng nhận', icon: <ImageIcon size={15} /> },
+    { key: 'activity', label: 'Lịch sử Hoạt động', icon: <Activity size={15} /> },
+  ];
 
   return (
     <div className="member-workspace-container">
 
-      <div className="dashboard-grid-2col">
-        {/* Left Side: Profile */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Tab Nav */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+              background: activeTab === tab.key ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
+              color: activeTab === tab.key ? '#fff' : 'var(--text-muted)',
+              fontWeight: activeTab === tab.key ? 700 : 400,
+              fontSize: '13px', transition: 'all 0.2s',
+            }}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: Hồ sơ Cá nhân ─────────────────────────────────── */}
+      {activeTab === 'profile' && (
+        <div className="dashboard-grid-2col">
           <div className="glass-card">
             <div className="glass-card-header">
               <h3 className="glass-card-title"><User size={18} /> Hồ sơ Cá nhân</h3>
-              <span className="badge badge-member">Sinh viên</span>
             </div>
 
-            <form onSubmit={handleUpdateProfile}>
+            <form onSubmit={handleUpdateProfile} noValidate>
+              {/* Read-only info */}
               <div className="form-row">
                 <div className="form-group">
-                  <label>Mã số sinh viên (MSSV)</label>
-                  <input type="text" className="input-field" value={userId || ''} disabled style={{ cursor: 'not-allowed', opacity: 0.7 }} />
+                  <label>Mã số sinh viên / Username</label>
+                  <input type="text" className="input-field" value={user?.studentId || user?.username || userId || ''} disabled style={{ opacity: 0.6 }} />
                 </div>
                 <div className="form-group">
-                  <label>Khóa học</label>
+                  <label>Họ và Tên</label>
+                  <input type="text" className="input-field" value={user?.fullName || user?.name || ''} disabled style={{ opacity: 0.6 }} />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label><Phone size={12} style={{ verticalAlign: 'middle' }} /> Số điện thoại</label>
                   <input
-                    type="text"
+                    type="tel"
                     className="input-field"
-                    value={cohort}
-                    onChange={e => setCohort(e.target.value)}
-                    placeholder="K18, K19..."
+                    value={phone}
+                    onChange={e => {
+                      setPhone(e.target.value);
+                      if (profileErrors.phone) setProfileErrors(prev => ({ ...prev, phone: null }));
+                    }}
+                    placeholder="0901234567"
                   />
+                  {profileErrors.phone && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{profileErrors.phone}</span>}
+                </div>
+                <div className="form-group">
+                  <label><Users size={12} style={{ verticalAlign: 'middle' }} /> Giới tính</label>
+                  <select className="select-field" value={gender} onChange={e => setGender(e.target.value)}>
+                    <option value="Male">Nam</option>
+                    <option value="Female">Nữ</option>
+                    <option value="Other">Khác</option>
+                  </select>
                 </div>
               </div>
 
               <div className="form-group">
-                <label>Họ và Tên</label>
+                <label><Calendar size={12} style={{ verticalAlign: 'middle' }} /> Ngày sinh</label>
                 <input
-                  type="text"
+                  type="date"
                   className="input-field"
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                  required
+                  value={dateOfBirth}
+                  onChange={e => {
+                    setDateOfBirth(e.target.value);
+                    if (profileErrors.dateOfBirth) setProfileErrors(prev => ({ ...prev, dateOfBirth: null }));
+                  }}
+                />
+                {profileErrors.dateOfBirth && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{profileErrors.dateOfBirth}</span>}
+              </div>
+
+              <div className="form-group">
+                <label><Upload size={12} style={{ verticalAlign: 'middle' }} /> Ảnh đại diện mới</label>
+                <input
+                  type="file"
+                  className="input-field"
+                  accept="image/*"
+                  onChange={e => setAvatarFile(e.target.files?.[0] || null)}
+                  style={{ padding: '8px' }}
                 />
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Số điện thoại</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Facebook cá nhân</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={facebook}
-                    onChange={e => setFacebook(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '12px', padding: '10px', borderRadius: '8px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
-                <span>✓ Đã liên kết API cập nhật số điện thoại (<code>PUT /api/users/profile</code>).</span>
-              </div>
-
               <button type="submit" className="btn btn-primary" disabled={isUpdatingProfile}>
-                {isUpdatingProfile ? 'Đang lưu...' : 'Cập nhật số điện thoại'}
+                {isUpdatingProfile ? 'Đang lưu...' : 'Cập nhật hồ sơ'}
               </button>
             </form>
           </div>
 
           {/* Events list */}
-          <div className="glass-card">
+          <div className="glass-card" style={{ height: 'fit-content' }}>
             <div className="glass-card-header">
               <h3 className="glass-card-title"><Clock size={18} /> Sự kiện CLB của tôi</h3>
             </div>
-
             {clubEvents.length === 0 ? (
-              <div className="empty-state-view">
+              <div className="empty-state-view" style={{ minHeight: '120px' }}>
                 <p>Chưa có sự kiện nào trong CLB này.</p>
               </div>
             ) : (
@@ -205,7 +297,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                       <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px' }}>{eName}</div>
                       {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{new Date(eTime).toLocaleString('vi-VN')}</div>}
                       {eStatus && (
-                        <span className={`badge ${eStatus === 'Approved' ? 'badge-active' : eStatus === 'Rejected' ? 'badge-blocked' : 'badge-pending'}`} style={{ fontSize: '10px', marginTop: '6px', display: 'inline-block' }}>
+                        <span className={`badge ${eStatus === 'Approved' ? 'badge-active' : eStatus === 'Rejected' ? 'badge-blocked' : 'badge-member'}`} style={{ fontSize: '10px', marginTop: '6px', display: 'inline-block' }}>
                           {eStatus === 'Approved' ? 'Đã duyệt' : eStatus === 'Rejected' ? 'Bị từ chối' : eStatus === 'Pending' ? 'Chờ duyệt' : eStatus}
                         </span>
                       )}
@@ -216,66 +308,123 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
             )}
           </div>
         </div>
+      )}
 
-        {/* Right Side: Evidence submission */}
-        <div className="glass-card" style={{ height: 'fit-content' }}>
-          <div className="glass-card-header">
-            <h3 className="glass-card-title"><ImageIcon size={18} /> Nộp chứng nhận (Certification)</h3>
+      {/* ── Tab: Nộp Chứng nhận ────────────────────────────────── */}
+      {activeTab === 'evidence' && (
+        <div style={{ maxWidth: '640px' }}>
+          <div className="glass-card">
+            <div className="glass-card-header">
+              <h3 className="glass-card-title"><ImageIcon size={18} /> Nộp chứng nhận tham gia sự kiện</h3>
+            </div>
+
+            <form onSubmit={handleSubmitEvidence} noValidate>
+              <div className="form-group">
+                <label>Sự kiện đã tham gia *</label>
+                <select
+                  className="select-field"
+                  value={selectedEventId}
+                  onChange={e => {
+                    setSelectedEventId(e.target.value);
+                    if (evidenceErrors.selectedEventId) setEvidenceErrors(prev => ({ ...prev, selectedEventId: null }));
+                  }}
+                >
+                  <option value="">-- Chọn sự kiện --</option>
+                  {clubEvents.map(ev => (
+                    <option key={ev.id || ev.eventId} value={ev.id || ev.eventId}>
+                      {ev.eventName || ev.name}
+                    </option>
+                  ))}
+                </select>
+                {evidenceErrors.selectedEventId && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{evidenceErrors.selectedEventId}</span>}
+              </div>
+
+              <div className="form-group">
+                <label>Ghi chú / Nhận xét phản hồi</label>
+                <textarea
+                  className="textarea-field"
+                  rows={2}
+                  value={feedbackText}
+                  onChange={e => {
+                    setFeedbackText(e.target.value);
+                    if (evidenceErrors.feedbackText) setEvidenceErrors(prev => ({ ...prev, feedbackText: null }));
+                  }}
+                  placeholder="Nhập ghi chú phản hồi (tuỳ chọn)..."
+                />
+                {evidenceErrors.feedbackText && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{evidenceErrors.feedbackText}</span>}
+              </div>
+
+              <div className="form-group">
+                <label>Chọn tệp chứng nhận (Ảnh/Tài liệu) *</label>
+                <input
+                  id="evidence-file-input"
+                  type="file"
+                  className="input-field"
+                  multiple
+                  onChange={e => {
+                    setEvidenceFiles(e.target.files);
+                    if (evidenceErrors.evidenceFiles) setEvidenceErrors(prev => ({ ...prev, evidenceFiles: null }));
+                  }}
+                  style={{ padding: '8px' }}
+                />
+                {evidenceErrors.evidenceFiles && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{evidenceErrors.evidenceFiles}</span>}
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isSubmittingEvidence}>
+                <Send size={16} /> {isSubmittingEvidence ? 'Đang tải lên...' : 'Gửi chứng nhận lên hệ thống'}
+              </button>
+            </form>
           </div>
-
-          <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)', fontSize: '12px', color: 'var(--text-muted)' }}>
-            <span>✓ Đã liên kết API nộp chứng nhận sự kiện thật (<code>POST /api/events/{"{eventId}"}/evidence</code>).</span>
-          </div>
-
-          <form onSubmit={handleSubmitEvidence}>
-            <div className="form-group">
-              <label>Sự kiện đã tham gia</label>
-              <select
-                className="select-field"
-                value={selectedEventId}
-                onChange={e => setSelectedEventId(e.target.value)}
-                required
-              >
-                <option value="">-- Chọn sự kiện bắt buộc --</option>
-                {clubEvents.map(ev => {
-                  const eName = ev.eventName || ev.name;
-                  return (
-                    <option key={ev.id || ev.eventId} value={ev.id || ev.eventId}>{eName}</option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Ghi chú / Nhận xét phản hồi</label>
-              <textarea
-                className="textarea-field"
-                rows={2}
-                value={feedbackText}
-                onChange={e => setFeedbackText(e.target.value)}
-                placeholder="Nhập ghi chú phản hồi..."
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Chọn tệp chứng nhận (Ảnh/Tài liệu) *</label>
-              <input
-                id="evidence-file-input"
-                type="file"
-                className="input-field"
-                multiple
-                onChange={e => setEvidenceFiles(e.target.files)}
-                style={{ padding: '8px' }}
-                required
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isSubmittingEvidence}>
-              <Send size={16} /> {isSubmittingEvidence ? 'Đang tải lên...' : 'Gửi chứng nhận lên hệ thống'}
-            </button>
-          </form>
         </div>
-      </div>
+      )}
+
+      {/* ── Tab: Lịch sử Hoạt động ─────────────────────────────── */}
+      {activeTab === 'activity' && (
+        <div className="glass-card">
+          <div className="glass-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 className="glass-card-title"><Activity size={18} /> Lịch sử Hoạt động</h3>
+            <button className="btn btn-secondary btn-sm" onClick={loadActivityHistory} disabled={loadingHistory} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              Làm mới
+            </button>
+          </div>
+
+          {loadingHistory ? (
+            <div className="empty-state-view">
+              <span className="login-spinner" style={{ width: '28px', height: '28px' }} />
+            </div>
+          ) : activityHistory.length === 0 ? (
+            <div className="empty-state-view">
+              <Activity className="empty-state-icon" />
+              <p>Chưa có lịch sử hoạt động nào được ghi nhận.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+              {activityHistory.map((item, idx) => {
+                const ts = item.createdAt || item.timestamp || item.date;
+                return (
+                  <div key={item.id || idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', flexShrink: 0, marginTop: '5px' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 500 }}>
+                        {item.action || item.activityType || item.description || 'Hoạt động'}
+                      </div>
+                      {item.detail && (
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{item.detail}</div>
+                      )}
+                      {ts && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', opacity: 0.7 }}>
+                          {new Date(ts).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

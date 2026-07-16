@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { uploadDocument, getDocumentsByClub, downloadDocument, deleteDocument, updateDocument, getDocumentDetail } from '../../services/documentService';
-import { Folder, Upload, FileText, Globe, Lock, Download, Trash2, RefreshCw, Edit, X, Save, Eye } from 'lucide-react';
+import { 
+  uploadDocument, 
+  getDocumentsByClub, 
+  downloadDocument, 
+  deleteDocument, 
+  updateDocument, 
+  getDocumentDetail,
+  getDocumentsByEvent,
+  getDocumentsByType
+} from '../../services/documentService';
+import { getEventsByClub } from '../../services/eventService';
+import { Folder, Upload, FileText, Globe, Lock, Download, Trash2, RefreshCw, Edit, X, Save, Eye, Calendar } from 'lucide-react';
 
 export default function DocumentArchive({ selectedClubId, triggerNotification, readOnly = false }) {
   const [documents, setDocuments] = useState([]);
@@ -8,9 +18,8 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
   const [isUploading, setIsUploading] = useState(false);
 
   // Upload form state
-  const [docName, setDocName] = useState('');
-  const [docTypeId, setDocTypeId] = useState('1'); // DocumentTypeId (số nguyên)
-  const [eventId, setEventId] = useState('');
+  const [docTypeId, setDocTypeId] = useState('1'); 
+  const [uploadEventId, setUploadEventId] = useState('');
   const [accessLevel, setAccessLevel] = useState('Public');
   const [files, setFiles] = useState(null);
 
@@ -24,25 +33,61 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
   const [docDetail, setDocDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const [activeFolder, setActiveFolder] = useState('ALL');
+  // Folder navigation and Event filters
+  const [activeFolder, setActiveFolder] = useState('ALL'); // ALL, 1, 2, 3, 4
+  const [filterEventId, setFilterEventId] = useState('');
+  const [clubEvents, setClubEvents] = useState([]);
 
   const backendClubId = selectedClubId;
 
-  // Load tài liệu từ API
+  // Load events list for filtering & upload attachment
+  const loadClubEvents = useCallback(async () => {
+    if (!selectedClubId) return;
+    try {
+      const data = await getEventsByClub(selectedClubId);
+      setClubEvents(Array.isArray(data) ? data : (data?.data ?? []));
+    } catch (err) {
+      console.error('[DocumentArchive] Lỗi tải sự kiện:', err);
+    }
+  }, [selectedClubId]);
+
+  // Main loader for documents (handles type filter, event filter, or club view)
   const loadDocuments = useCallback(async () => {
     if (!selectedClubId) return;
     setLoading(true);
     try {
-      const data = await getDocumentsByClub(backendClubId);
-      setDocuments(Array.isArray(data) ? data : (data?.data ?? []));
+      let data;
+      if (filterEventId) {
+        // Query by Event ID API
+        data = await getDocumentsByEvent(filterEventId);
+      } else if (activeFolder !== 'ALL') {
+        // Query by Document Type ID API
+        data = await getDocumentsByType(Number(activeFolder));
+      } else {
+        // Query general club documents API
+        data = await getDocumentsByClub(backendClubId);
+      }
+      
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      
+      // If we filtered by type or event, client-side restrict to this club if clubId exists in the items
+      const clubFilteredList = list.filter(doc => 
+        !doc.clubId || String(doc.clubId) === String(backendClubId)
+      );
+      
+      setDocuments(clubFilteredList);
     } catch (err) {
       console.error('[DocumentArchive] Lỗi tải tài liệu:', err);
-      triggerNotification('Không tải được danh sách tài liệu!', 'error');
+      triggerNotification('Không tải được danh sách tài liệu từ máy chủ!', 'error');
       setDocuments([]);
     } finally {
       setLoading(false);
     }
-  }, [backendClubId, triggerNotification]);
+  }, [backendClubId, activeFolder, filterEventId, triggerNotification]);
+
+  useEffect(() => {
+    loadClubEvents();
+  }, [loadClubEvents]);
 
   useEffect(() => {
     loadDocuments();
@@ -60,7 +105,7 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
       const formData = new FormData();
       formData.append('ClubId', backendClubId);
       formData.append('DocumentTypeId', docTypeId);
-      if (eventId) formData.append('EventId', eventId);
+      if (uploadEventId) formData.append('EventId', uploadEventId);
       formData.append('AccessLevel', accessLevel);
       Array.from(files).forEach(file => {
         formData.append('Files', file);
@@ -70,12 +115,10 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
       triggerNotification(`Đã tải lên tài liệu thành công!`, 'success');
 
       // Reset form
-      setDocName('');
       setDocTypeId('1');
-      setEventId('');
+      setUploadEventId('');
       setAccessLevel('Public');
       setFiles(null);
-      // Reset file input
       const fileInput = document.getElementById('doc-file-input');
       if (fileInput) fileInput.value = '';
 
@@ -95,7 +138,6 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
     const docId = doc.id || doc.documentId;
     try {
       const response = await downloadDocument(docId);
-      // Tạo blob URL và trigger download
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -168,33 +210,25 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
     }
   };
 
-  // Map DocumentTypeId → tên folder (tuỳ chỉnh theo BE)
   const docTypeMap = {
-    '1': 'Proposal',
-    '2': 'Script',
-    '3': 'Report Template',
-    '4': 'Other',
+    '1': 'Proposal (Kế hoạch)',
+    '2': 'Script (Kịch bản)',
+    '3': 'Report Template (Báo cáo)',
+    '4': 'Khác (Other)',
   };
 
-  const getDocType = (doc) => {
-    const typeId = String(doc.documentTypeId || doc.typeId || '');
-    return docTypeMap[typeId] || doc.type || doc.documentType || 'Other';
+  const getDocTypeLabel = (doc) => {
+    const typeId = String(doc.documentTypeId || doc.typeId || '4');
+    return docTypeMap[typeId] || 'Other';
   };
 
   const folders = [
     { key: 'ALL', name: 'Tất cả tài liệu' },
-    { key: 'Proposal', name: 'Thư mục Proposal (Kế hoạch)' },
-    { key: 'Script', name: 'Thư mục Kịch bản mẫu (Script)' },
-    { key: 'Report Template', name: 'Thư mục Báo cáo (Report)' },
-    { key: 'Other', name: 'Tài liệu khác' }
+    { key: '1', name: 'Thư mục Proposal (Kế hoạch)' },
+    { key: '2', name: 'Thư mục Kịch bản mẫu (Script)' },
+    { key: '3', name: 'Thư mục Báo cáo (Report)' },
+    { key: '4', name: 'Khác (Other)' }
   ];
-
-  const filteredDocs = documents.filter(d =>
-    activeFolder === 'ALL' || getDocType(d) === activeFolder
-  );
-
-  const getCount = (folderKey) =>
-    folderKey === 'ALL' ? documents.length : documents.filter(d => getDocType(d) === folderKey).length;
 
   return (
     <div className="document-archive-container">
@@ -205,7 +239,7 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
           {/* Folders navigation */}
           <div className="glass-card">
             <div className="glass-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="glass-card-title"><Folder size={18} /> Thư mục kế thừa</h3>
+              <h3 className="glass-card-title"><Folder size={18} /> Thư mục lưu trữ</h3>
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={loadDocuments}
@@ -220,17 +254,40 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
               {folders.map(f => (
                 <div
                   key={f.key}
-                  className={`nav-item ${activeFolder === f.key ? 'active' : ''}`}
-                  onClick={() => setActiveFolder(f.key)}
-                  style={{ justifyContent: 'space-between', padding: '10px 14px' }}
+                  className={`nav-item ${activeFolder === f.key && !filterEventId ? 'active' : ''}`}
+                  onClick={() => {
+                    setFilterEventId('');
+                    setActiveFolder(f.key);
+                  }}
+                  style={{ justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Folder size={16} style={{ color: activeFolder === f.key ? 'var(--primary)' : 'var(--text-muted)' }} />
+                    <Folder size={16} style={{ color: activeFolder === f.key && !filterEventId ? 'var(--primary)' : 'var(--text-muted)' }} />
                     <span>{f.name}</span>
                   </div>
-                  <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>{getCount(f.key)}</span>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Filter by Event Card */}
+          <div className="glass-card">
+            <div className="glass-card-header">
+              <h3 className="glass-card-title"><Calendar size={18} /> Lọc theo Sự kiện</h3>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <select 
+                className="select-field" 
+                value={filterEventId} 
+                onChange={(e) => setFilterEventId(e.target.value)}
+              >
+                <option value="">-- Tất cả sự kiện --</option>
+                {clubEvents.map(e => (
+                  <option key={e.id || e.eventId} value={e.id || e.eventId}>
+                    {e.eventName || e.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -245,7 +302,7 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                 <span className="login-spinner" style={{ width: '28px', height: '28px' }} />
                 <p style={{ marginTop: '10px' }}>Đang tải...</p>
               </div>
-            ) : filteredDocs.length === 0 ? (
+            ) : documents.length === 0 ? (
               <div className="empty-state-view">
                 <FileText className="empty-state-icon" />
                 <p>Thư mục trống. Không có tài liệu nào.</p>
@@ -262,12 +319,12 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDocs.map(d => {
+                    {documents.map(d => {
                       const dId = d.id || d.documentId;
                       const dName = d.name || d.documentName;
                       const dAccess = d.accessLevel || d.visibility;
                       const dDate = d.uploadedAt || d.createdAt || '';
-                      const dType = getDocType(d);
+                      const dType = getDocTypeLabel(d);
                       return (
                         <tr key={dId}>
                           <td>
@@ -380,6 +437,22 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
               </div>
 
               <div className="form-group">
+                <label>Đính kèm vào Sự kiện (Tùy chọn)</label>
+                <select
+                  className="select-field"
+                  value={uploadEventId}
+                  onChange={e => setUploadEventId(e.target.value)}
+                >
+                  <option value="">-- Không đính kèm --</option>
+                  {clubEvents.map(e => (
+                    <option key={e.id || e.eventId} value={e.id || e.eventId}>
+                      {e.eventName || e.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label>Quyền truy cập (Access Level)</label>
                 <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
@@ -419,9 +492,6 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                   style={{ padding: '8px' }}
                   required
                 />
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
-                  Có thể chọn nhiều tệp cùng lúc.
-                </span>
               </div>
 
               <button
@@ -529,7 +599,7 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                 {[
                   ['Tên tài liệu', docDetail.name || docDetail.documentName || 'N/A'],
                   ['Mã tài liệu', docDetail.id || docDetail.documentId || 'N/A'],
-                  ['Phân loại thư mục', getDocType(docDetail)],
+                  ['Phân loại thư mục', getDocTypeLabel(docDetail)],
                   ['Cấp độ truy cập', <span className={`badge ${docDetail.accessLevel === 'Public' ? 'badge-active' : 'badge-blocked'}`}>{docDetail.accessLevel === 'Public' ? 'Công khai' : 'Nội bộ'}</span>],
                   ['Ngày tải lên', docDetail.uploadedAt || docDetail.createdAt ? new Date(docDetail.uploadedAt || docDetail.createdAt).toLocaleString('vi-VN') : 'N/A'],
                   ['Đính kèm sự kiện ID', docDetail.eventId || 'Không có'],
@@ -550,4 +620,3 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
     </div>
   );
 }
-

@@ -148,19 +148,19 @@ export default function Header({
           {showNotifDropdown && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-              width: '340px', maxHeight: '420px',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              width: '290px', maxHeight: '420px',
+              background: '#121214', border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.65)',
               zIndex: 1000, overflow: 'hidden', display: 'flex', flexDirection: 'column',
             }}>
               {/* Header */}
               <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '12px 16px', borderBottom: '1px solid var(--border)',
-                background: 'var(--surface-elevated)',
+                padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                background: '#16161a',
               }}>
-                <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-heading)' }}>
-                  🔔 Thông báo của tôi {unreadCount > 0 && <span style={{ color: 'var(--warning)', fontSize: '11px' }}>({unreadCount} chưa đọc)</span>}
+                <span style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text-heading)' }}>
+                  🔔 Thông báo {unreadCount > 0 && <span style={{ color: 'var(--warning)', fontSize: '11px' }}>({unreadCount})</span>}
                 </span>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   {unreadCount > 0 && (
@@ -203,8 +203,8 @@ export default function Header({
                       <div
                         key={nId}
                         style={{
-                          padding: '12px 16px', borderBottom: '1px solid var(--border)',
-                          background: isRead ? 'transparent' : 'rgba(var(--primary-rgb, 99,102,241),0.06)',
+                          padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                          background: isRead ? 'transparent' : 'rgba(255, 255, 255, 0.04)',
                           display: 'flex', gap: '10px', alignItems: 'flex-start',
                           transition: 'background 0.2s',
                         }}

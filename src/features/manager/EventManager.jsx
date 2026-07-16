@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createEvent, getEventsByClub, cancelEvent, updateEvent } from '../../services/eventService';
-import { getClubMembers } from '../../services/membershipService';
-import { Calendar, Plus, UserCheck, MapPin, AlertTriangle, Edit, X, Save, XCircle, Check, Users } from 'lucide-react';
+import { Calendar, Plus, MapPin, AlertTriangle, Edit, X, Save, XCircle } from 'lucide-react';
 
 export default function EventManager({ selectedClubId, triggerNotification }) {
 
@@ -29,63 +28,20 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
     files: []
   });
   const [selectedEventId, setSelectedEventId] = useState(null);
-  const [eventParticipants, setEventParticipants] = useState([]);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
-
-  // Load participants from actual club members list
-  useEffect(() => {
-    const loadParticipants = async () => {
-      if (!selectedEventId || !selectedClubId) {
-        setEventParticipants([]);
-        return;
-      }
-      setLoadingParticipants(true);
-      try {
-        const membersData = await getClubMembers(selectedClubId);
-        const membersList = Array.isArray(membersData) ? membersData : (membersData?.data ?? []);
-        
-        // Load attendance from localStorage if saved
-        const storedKey = `fpt_event_attendance_${selectedEventId}`;
-        const stored = localStorage.getItem(storedKey);
-        let attendanceMap = {};
-        if (stored) {
-          try { attendanceMap = JSON.parse(stored); } catch(e) {}
-        }
-        
-        const mapped = membersList.map(m => ({
-          studentId: m.studentId || m.userId,
-          fullName: m.studentName || m.fullName || `Sinh viên ${m.studentId}`,
-          email: m.email || '',
-          attendanceStatus: attendanceMap[m.studentId || m.userId] || 'Registered'
-        }));
-        setEventParticipants(mapped);
-      } catch (err) {
-        console.error('[EventManager] Lỗi tải người tham gia:', err);
-        setEventParticipants([]);
-      } finally {
-        setLoadingParticipants(false);
-      }
-    };
-    loadParticipants();
-  }, [selectedEventId, selectedClubId]);
-
-  const handleToggleAttendance = (studentId, status) => {
-    const updated = eventParticipants.map(p => 
-      p.studentId === studentId ? { ...p, attendanceStatus: status } : p
-    );
-    setEventParticipants(updated);
-    
-    // Save to localStorage
-    const storedKey = `fpt_event_attendance_${selectedEventId}`;
-    const attendanceMap = {};
-    updated.forEach(p => {
-      attendanceMap[p.studentId] = p.attendanceStatus;
-    });
-    localStorage.setItem(storedKey, JSON.stringify(attendanceMap));
-    triggerNotification(`Đã điểm danh: ${status === 'Present' ? 'Có mặt' : 'Vắng mặt'}`, 'success');
-  };
+  
+  // Validation errors state
+  const [errors, setErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({});
 
   const backendClubId = selectedClubId;
+
+  // Regex helper for special characters
+  const validateNoSpecialChars = (text) => {
+    if (!text) return true;
+    // Allow unicode letters, digits, whitespace, and basic punctuation: - . , ( ) / + ? ! : # ' " @ _
+    const regex = /^[\p{L}\p{N}\s\-.,()\/+?!:#$'"@_]*$/u;
+    return regex.test(text);
+  };
 
   // Load events từ API khi selectedClubId thay đổi
   const loadEvents = useCallback(async () => {
@@ -111,40 +67,55 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
 
   const handleCreateEvent = async (e) => {
     e.preventDefault();
-
     const now = new Date();
+    const newErrors = {};
 
-    // --- Kiểm tra từng trường rõ ràng ---
+    // --- Validation logic ---
     if (!newEvent.eventName.trim()) {
-      triggerNotification('❌ Vui lòng nhập Tên chương trình / sự kiện!', 'warning');
-      return;
+      newErrors.eventName = 'Vui lòng nhập Tên chương trình / sự kiện!';
+    } else if (!validateNoSpecialChars(newEvent.eventName)) {
+      newErrors.eventName = 'Tên chương trình không được chứa ký tự lạ!';
     }
+
     if (!newEvent.startTime) {
-      triggerNotification('❌ Vui lòng chọn Thời gian bắt đầu!', 'warning');
-      return;
+      newErrors.startTime = 'Vui lòng chọn Thời gian bắt đầu!';
+    } else if (new Date(newEvent.startTime) <= now) {
+      newErrors.startTime = 'Thời gian bắt đầu phải là thời điểm trong tương lai!';
     }
-    if (new Date(newEvent.startTime) <= now) {
-      triggerNotification('❌ Thời gian bắt đầu phải là thời điểm trong tương lai!', 'warning');
-      return;
-    }
-    if (!newEvent.location.trim()) {
-      triggerNotification('❌ Vui lòng nhập Địa điểm tổ chức!', 'warning');
-      return;
-    }
-    const budgetNum = Number(String(newEvent.planBudget).replace(/,/g, ''));
-    if (!newEvent.planBudget || isNaN(budgetNum) || budgetNum < 0) {
-      triggerNotification('❌ Ngân sách dự trù không hợp lệ (phải là số không âm, ví dụ: 1500000)!', 'warning');
-      return;
-    }
+
     if (newEvent.endTime && new Date(newEvent.endTime) <= new Date(newEvent.startTime)) {
-      triggerNotification('❌ Thời gian kết thúc phải sau thời gian bắt đầu!', 'warning');
-      return;
+      newErrors.endTime = 'Thời gian kết thúc phải sau thời gian bắt đầu!';
     }
-    if (!selectedClubId) {
-      triggerNotification('❌ Không xác định được CLB. Vui lòng chọn lại CLB trước khi tạo sự kiện!', 'error');
+
+    if (!newEvent.location.trim()) {
+      newErrors.location = 'Vui lòng nhập Địa điểm tổ chức!';
+    } else if (!validateNoSpecialChars(newEvent.location)) {
+      newErrors.location = 'Địa điểm tổ chức không được chứa ký tự lạ!';
+    }
+
+    if (newEvent.description && !validateNoSpecialChars(newEvent.description)) {
+      newErrors.description = 'Mô tả chương trình không được chứa ký tự lạ!';
+    }
+
+    const budgetNum = Number(String(newEvent.planBudget).replace(/,/g, ''));
+    if (!newEvent.planBudget) {
+      newErrors.planBudget = 'Vui lòng nhập Ngân sách dự trù!';
+    } else if (isNaN(budgetNum) || budgetNum < 0) {
+      newErrors.planBudget = 'Ngân sách không hợp lệ (phải là số không âm)!';
+    }
+
+    const participantsNum = Number(newEvent.targetParticipants);
+    if (newEvent.targetParticipants && (isNaN(participantsNum) || participantsNum <= 0)) {
+      newErrors.targetParticipants = 'Số người dự kiến phải là số nguyên lớn hơn 0!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu dưới đây!', 'warning');
       return;
     }
 
+    setErrors({});
     setIsSubmitting(true);
     try {
       // Build multipart/form-data
@@ -196,8 +167,6 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
     }
   };
 
-
-
   const handleCancelEvent = async () => {
     if (!cancelTargetId) return;
     setIsCancelling(true);
@@ -216,13 +185,59 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
   const handleUpdateEvent = async (e) => {
     e.preventDefault();
     if (!editingEvent) return;
+    const now = new Date();
+    const newErrors = {};
+
+    if (!editingEvent.eventName?.trim()) {
+      newErrors.eventName = 'Vui lòng nhập Tên chương trình / sự kiện!';
+    } else if (!validateNoSpecialChars(editingEvent.eventName)) {
+      newErrors.eventName = 'Tên chương trình không được chứa ký tự lạ!';
+    }
+
+    if (!editingEvent.startTime) {
+      newErrors.startTime = 'Vui lòng chọn Thời gian bắt đầu!';
+    }
+
+    if (editingEvent.endTime && new Date(editingEvent.endTime) <= new Date(editingEvent.startTime)) {
+      newErrors.endTime = 'Thời gian kết thúc phải sau thời gian bắt đầu!';
+    }
+
+    if (!editingEvent.location?.trim()) {
+      newErrors.location = 'Vui lòng nhập Địa điểm!';
+    } else if (!validateNoSpecialChars(editingEvent.location)) {
+      newErrors.location = 'Địa điểm không được chứa ký tự lạ!';
+    }
+
+    if (editingEvent.description && !validateNoSpecialChars(editingEvent.description)) {
+      newErrors.description = 'Mô tả không được chứa ký tự lạ!';
+    }
+
+    const budgetNum = Number(String(editingEvent.planBudget).replace(/,/g, ''));
+    if (!editingEvent.planBudget) {
+      newErrors.planBudget = 'Vui lòng nhập Ngân sách!';
+    } else if (isNaN(budgetNum) || budgetNum < 0) {
+      newErrors.planBudget = 'Ngân sách không hợp lệ!';
+    }
+
+    const participantsNum = Number(editingEvent.targetParticipants);
+    if (editingEvent.targetParticipants && (isNaN(participantsNum) || participantsNum <= 0)) {
+      newErrors.targetParticipants = 'Số người dự kiến phải là số lớn hơn 0!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setEditErrors(newErrors);
+      triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu dưới đây!', 'warning');
+      return;
+    }
+
+    setEditErrors({});
     setIsUpdating(true);
     try {
       await updateEvent(editingEvent.id || editingEvent.eventId, {
-        eventName: editingEvent.eventName,
+        eventName: editingEvent.eventName.trim(),
         description: editingEvent.description || '',
-        location: editingEvent.location || '',
-        planBudget: editingEvent.planBudget || '0',
+        location: editingEvent.location.trim(),
+        planBudget: String(editingEvent.planBudget).replace(/,/g, ''),
         targetParticipants: Number(editingEvent.targetParticipants) || 0,
         startTime: new Date(editingEvent.startTime).toISOString(),
         endTime: editingEvent.endTime ? new Date(editingEvent.endTime).toISOString() : new Date(editingEvent.startTime).toISOString()
@@ -240,9 +255,7 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
 
   return (
     <div className="event-manager-container">
-      <div className="dashboard-grid-2col">
-        {/* Left Side: Schedule and Event List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Create Event Form */}
           <div className="glass-card">
@@ -250,16 +263,20 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
               <h3 className="glass-card-title"><Plus size={18} /> Lập kế hoạch sự kiện mới</h3>
             </div>
             
-            <form onSubmit={handleCreateEvent}>
+            <form onSubmit={handleCreateEvent} noValidate>
               <div className="form-group">
                 <label>Tên chương trình / sự kiện <span style={{ color: 'var(--error, #ef4444)' }}>*</span></label>
                 <input
                   type="text"
                   className="input-field"
                   value={newEvent.eventName}
-                  onChange={e => setNewEvent({ ...newEvent, eventName: e.target.value })}
+                  onChange={e => {
+                    setNewEvent({ ...newEvent, eventName: e.target.value });
+                    if (errors.eventName) setErrors(prev => ({ ...prev, eventName: null }));
+                  }}
                   placeholder="Workshop, Đại hội, Teambuilding..."
                 />
+                {errors.eventName && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.eventName}</span>}
               </div>
 
               <div className="form-row">
@@ -269,9 +286,12 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                     type="datetime-local"
                     className="input-field"
                     value={newEvent.startTime}
-                    onChange={e => setNewEvent({ ...newEvent, startTime: e.target.value })}
+                    onChange={e => {
+                      setNewEvent({ ...newEvent, startTime: e.target.value });
+                      if (errors.startTime) setErrors(prev => ({ ...prev, startTime: null }));
+                    }}
                   />
-                  {!newEvent.startTime && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>Bắt buộc — chọn ngày giờ bắt đầu sự kiện</span>}
+                  {errors.startTime && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.startTime}</span>}
                 </div>
                 <div className="form-group">
                   <label>Thời gian kết thúc</label>
@@ -280,25 +300,29 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                     className="input-field"
                     value={newEvent.endTime}
                     min={newEvent.startTime || undefined}
-                    onChange={e => setNewEvent({ ...newEvent, endTime: e.target.value })}
+                    onChange={e => {
+                      setNewEvent({ ...newEvent, endTime: e.target.value });
+                      if (errors.endTime) setErrors(prev => ({ ...prev, endTime: null }));
+                    }}
                   />
-                  {newEvent.endTime && newEvent.endTime <= newEvent.startTime && (
-                    <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>Thời gian kết thúc phải sau thời gian bắt đầu!</span>
-                  )}
+                  {errors.endTime && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.endTime}</span>}
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Ngân sách dự trù (VNĐ)</label>
+                  <label>Ngân sách dự trù (VNĐ) <span style={{ color: 'var(--error, #ef4444)' }}>*</span></label>
                   <input
                     type="text"
                     className="input-field"
                     value={newEvent.planBudget}
-                    onChange={e => setNewEvent({ ...newEvent, planBudget: e.target.value })}
+                    onChange={e => {
+                      setNewEvent({ ...newEvent, planBudget: e.target.value });
+                      if (errors.planBudget) setErrors(prev => ({ ...prev, planBudget: null }));
+                    }}
                     placeholder="1,500,000"
-                    required
                   />
+                  {errors.planBudget && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.planBudget}</span>}
                 </div>
                 <div className="form-group">
                   <label>Số lượng tham gia dự kiến</label>
@@ -306,10 +330,14 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                     type="number"
                     className="input-field"
                     value={newEvent.targetParticipants}
-                    onChange={e => setNewEvent({ ...newEvent, targetParticipants: e.target.value })}
+                    onChange={e => {
+                      setNewEvent({ ...newEvent, targetParticipants: e.target.value });
+                      if (errors.targetParticipants) setErrors(prev => ({ ...prev, targetParticipants: null }));
+                    }}
                     placeholder="50"
                     min="1"
                   />
+                  {errors.targetParticipants && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.targetParticipants}</span>}
                 </div>
               </div>
 
@@ -319,9 +347,13 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                   type="text"
                   className="input-field"
                   value={newEvent.location}
-                  onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+                  onChange={e => {
+                    setNewEvent({ ...newEvent, location: e.target.value });
+                    if (errors.location) setErrors(prev => ({ ...prev, location: null }));
+                  }}
                   placeholder="Phòng họp Alpha, Sân thượng Gamma..."
                 />
+                {errors.location && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.location}</span>}
               </div>
 
               <div className="form-group">
@@ -329,10 +361,14 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                 <textarea
                   className="textarea-field"
                   value={newEvent.description}
-                  onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
+                  onChange={e => {
+                    setNewEvent({ ...newEvent, description: e.target.value });
+                    if (errors.description) setErrors(prev => ({ ...prev, description: null }));
+                  }}
                   placeholder="Nội dung, kế hoạch chạy truyền thông..."
                   rows={2}
                 />
+                {errors.description && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.description}</span>}
               </div>
 
               <div className="form-group">
@@ -373,38 +409,62 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                 <p style={{ marginTop: '10px' }}>Đang tải...</p>
               </div>
             ) : events.length === 0 ? (
-              <div className="empty-state-view"><p>Chưa có sự kiện nào được tạo.</p></div>
+              <div className="empty-state-view">
+                <Calendar className="empty-state-icon" />
+                <p>Chưa có sự kiện nào được tạo.</p>
+              </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {events.map(e => {
                   const eId = e.id || e.eventId;
-                  const eName = e.name || e.eventName;
-                  const eLocation = e.venue || e.location;
-                  const eTime = e.dateTime || e.startTime;
-                  const eBudget = e.budget || e.planBudget;
-                  const eStatus = e.status || '';
+                  const eName = e.eventName || e.name;
+                  const eLocation = e.location || 'Chưa cập nhật';
+                  const eBudget = e.planBudget;
+                  const eStatus = e.status || e.approvalStatus || 'Pending';
+                  
+                  const isPending = eStatus === 'Pending' || eStatus === 'Chờ duyệt';
+                  const isApproved = eStatus === 'Approved' || eStatus === 'Đã duyệt';
+                  const isRejected = eStatus === 'Rejected' || eStatus === 'Từ chối';
                   const isCancelled = eStatus === 'Cancelled' || eStatus === 'Đã hủy';
+
                   return (
-                    <div
-                      key={eId}
-                      className={`nav-item ${selectedEventId === eId ? 'active' : ''}`}
-                      onClick={() => setSelectedEventId(eId)}
-                      style={{ border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', padding: '12px 16px', alignItems: 'center' }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, color: isCancelled ? 'var(--text-muted)' : 'var(--text-heading)', textDecoration: isCancelled ? 'line-through' : 'none' }}>{eName}</div>
-                        <div style={{ fontSize: '11px', display: 'flex', gap: '12px', marginTop: '4px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><MapPin size={10} /> {eLocation}</span>
-                          {eTime && <span>{new Date(eTime).toLocaleString('vi-VN')}</span>}
-                          {eStatus && <span className={`badge ${isCancelled ? 'badge-blocked' : eStatus === 'Approved' || eStatus === 'Đã duyệt' ? 'badge-active' : 'badge-pending'}`} style={{ fontSize: '10px', padding: '1px 6px' }}>{eStatus}</span>}
+                    <div key={eId} className="glass-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border)', marginBottom: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontWeight: 700, fontSize: '14px', color: 'var(--text-heading)' }}>{eName}</h4>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <MapPin size={12} /> {eLocation}
+                            </span>
+                            {eBudget && (
+                              <span>💰 Ngân sách: {Number(eBudget).toLocaleString('vi-VN')} VNĐ</span>
+                            )}
+                          </div>
+                          {e.startTime && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                              ⏱ {new Date(e.startTime).toLocaleString('vi-VN')}
+                              {e.endTime && ` - ${new Date(e.endTime).toLocaleString('vi-VN')}`}
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          {isPending && <span className="badge badge-pending">CHỜ DUYỆT</span>}
+                          {isApproved && <span className="badge badge-success">ĐÃ DUYỆT</span>}
+                          {isRejected && <span className="badge badge-blocked">BỊ TỪ CHỐI</span>}
+                          {isCancelled && <span className="badge badge-blocked" style={{ filter: 'grayscale(0.6)' }}>ĐÃ HỦỶ</span>}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px' }} onClick={ev => ev.stopPropagation()}>
-                        {eBudget && (
-                          <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', fontSize: '11px' }}>
-                            {typeof eBudget === 'number' ? eBudget.toLocaleString('vi-VN') : eBudget}đ
-                          </span>
-                        )}
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.03)', marginTop: '12px', paddingTop: '8px' }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '4px 8px' }}
+                          onClick={() => setSelectedEventId(eId)}
+                          disabled={selectedEventId === eId}
+                        >
+                          Xem chi tiết
+                        </button>
                         {!isCancelled && (
                           <>
                             <button
@@ -415,6 +475,7 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                                 const st = e.startTime ? e.startTime.slice(0,16) : '';
                                 const et = e.endTime ? e.endTime.slice(0,16) : '';
                                 setEditingEvent({ ...e, eventName: eName, location: eLocation, startTime: st, endTime: et, planBudget: eBudget || '' });
+                                setEditErrors({});
                                 setShowEditModal(true);
                               }}
                             >
@@ -439,95 +500,6 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
           </div>
         </div>
 
-        {/* Right Side: Attendance Sheets */}
-        <div className="glass-card" style={{ height: 'fit-content' }}>
-          <div className="glass-card-header">
-            <h3 className="glass-card-title"><UserCheck size={18} /> Điểm danh Tham gia Sự kiện</h3>
-          </div>
-
-          {!selectedEvent ? (
-            <div className="empty-state-view">
-              <UserCheck className="empty-state-icon" />
-              <p>Chọn một sự kiện từ danh sách bên trái để mở trang điểm danh.</p>
-            </div>
-          ) : (
-            <div>
-              <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(0,0,0,0.15)', marginBottom: '20px', border: '1px solid var(--border)' }}>
-                <h4 style={{ fontSize: '16px', color: 'var(--primary)' }}>{selectedEvent.name || selectedEvent.eventName}</h4>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Địa điểm: {selectedEvent.venue || selectedEvent.location} | Khởi động: {new Date(selectedEvent.dateTime || selectedEvent.startTime).toLocaleString('vi-VN')}
-                </p>
-                <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-main)' }}>
-                  Tổng số đăng ký: <strong>{eventParticipants.length}</strong> |{' '}
-                  Có mặt: <strong style={{ color: 'var(--success)' }}>{eventParticipants.filter(p => p.attendanceStatus === 'Present').length}</strong> |{' '}
-                  Vắng mặt: <strong style={{ color: 'var(--error)' }}>{eventParticipants.filter(p => p.attendanceStatus === 'Absent' || p.attendanceStatus === 'Registered').length}</strong>
-                </div>
-              </div>
-
-              {loadingParticipants ? (
-                <div className="empty-state-view">
-                  <span className="login-spinner" style={{ width: '28px', height: '28px' }} />
-                  <p style={{ marginTop: '10px' }}>Đang tải danh sách thành viên...</p>
-                </div>
-              ) : eventParticipants.length === 0 ? (
-                <div className="empty-state-view">
-                  <Users className="empty-state-icon" style={{ color: 'var(--text-muted)' }} />
-                  <p>Câu lạc bộ chưa có thành viên nào để điểm danh.</p>
-                </div>
-              ) : (
-                <div className="table-container" style={{ marginTop: '12px' }}>
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th>Mã SV</th>
-                        <th>Họ và Tên</th>
-                        <th style={{ textAlign: 'center' }}>Trạng thái</th>
-                        <th style={{ textAlign: 'center' }}>Hành động</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {eventParticipants.map(p => (
-                        <tr key={p.studentId}>
-                          <td style={{ fontWeight: 600 }}>{p.studentId}</td>
-                          <td>{p.fullName}</td>
-                          <td style={{ textAlign: 'center' }}>
-                            {p.attendanceStatus === 'Present' ? (
-                              <span className="badge badge-active" style={{ fontSize: '10px' }}>Có mặt</span>
-                            ) : p.attendanceStatus === 'Absent' ? (
-                              <span className="badge badge-blocked" style={{ fontSize: '10px' }}>Vắng mặt</span>
-                            ) : (
-                              <span className="badge badge-member" style={{ fontSize: '10px' }}>Chưa điểm danh</span>
-                            )}
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <div style={{ display: 'inline-flex', gap: '6px' }}>
-                              <button
-                                className="btn btn-success btn-xs"
-                                style={{ padding: '2px 6px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
-                                onClick={() => handleToggleAttendance(p.studentId, 'Present')}
-                              >
-                                <Check size={10} /> Có mặt
-                              </button>
-                              <button
-                                className="btn btn-danger btn-xs"
-                                style={{ padding: '2px 6px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
-                                onClick={() => handleToggleAttendance(p.studentId, 'Absent')}
-                              >
-                                <X size={10} /> Vắng
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* MODAL: SỬA SỰ KIỆN */}
       {showEditModal && editingEvent && (
         <div className="modal-backdrop">
@@ -536,45 +508,73 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
               <h3 className="modal-title"><Edit size={16} style={{ marginRight: '6px' }} /> Sửa Sự kiện</h3>
               <button className="modal-close" onClick={() => { setShowEditModal(false); setEditingEvent(null); }}><X size={18} /></button>
             </div>
-            <form onSubmit={handleUpdateEvent} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
+            <form onSubmit={handleUpdateEvent} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
               <div className="form-group">
                 <label>Tên sự kiện *</label>
                 <input type="text" className="input-field" value={editingEvent.eventName || ''}
-                  onChange={e => setEditingEvent({ ...editingEvent, eventName: e.target.value })} required />
+                  onChange={e => {
+                    setEditingEvent({ ...editingEvent, eventName: e.target.value });
+                    if (editErrors.eventName) setEditErrors(prev => ({ ...prev, eventName: null }));
+                  }} />
+                {editErrors.eventName && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.eventName}</span>}
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Thời gian bắt đầu</label>
+                  <label>Thời gian bắt đầu *</label>
                   <input type="datetime-local" className="input-field" value={editingEvent.startTime || ''}
-                    onChange={e => setEditingEvent({ ...editingEvent, startTime: e.target.value })} />
+                    onChange={e => {
+                      setEditingEvent({ ...editingEvent, startTime: e.target.value });
+                      if (editErrors.startTime) setEditErrors(prev => ({ ...prev, startTime: null }));
+                    }} />
+                  {editErrors.startTime && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.startTime}</span>}
                 </div>
                 <div className="form-group">
                   <label>Thời gian kết thúc</label>
                   <input type="datetime-local" className="input-field" value={editingEvent.endTime || ''}
-                    onChange={e => setEditingEvent({ ...editingEvent, endTime: e.target.value })} />
+                    onChange={e => {
+                      setEditingEvent({ ...editingEvent, endTime: e.target.value });
+                      if (editErrors.endTime) setEditErrors(prev => ({ ...prev, endTime: null }));
+                    }} />
+                  {editErrors.endTime && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.endTime}</span>}
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Ngân sách (VNĐ)</label>
+                  <label>Ngân sách (VNĐ) *</label>
                   <input type="text" className="input-field" value={editingEvent.planBudget || ''}
-                    onChange={e => setEditingEvent({ ...editingEvent, planBudget: e.target.value })} />
+                    onChange={e => {
+                      setEditingEvent({ ...editingEvent, planBudget: e.target.value });
+                      if (editErrors.planBudget) setEditErrors(prev => ({ ...prev, planBudget: null }));
+                    }} />
+                  {editErrors.planBudget && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.planBudget}</span>}
                 </div>
                 <div className="form-group">
                   <label>Số người tham gia dự kiến</label>
                   <input type="number" className="input-field" value={editingEvent.targetParticipants || ''}
-                    onChange={e => setEditingEvent({ ...editingEvent, targetParticipants: e.target.value })} min="1" />
+                    onChange={e => {
+                      setEditingEvent({ ...editingEvent, targetParticipants: e.target.value });
+                      if (editErrors.targetParticipants) setEditErrors(prev => ({ ...prev, targetParticipants: null }));
+                    }} min="1" />
+                  {editErrors.targetParticipants && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.targetParticipants}</span>}
                 </div>
               </div>
               <div className="form-group">
-                <label>Địa điểm</label>
+                <label>Địa điểm *</label>
                 <input type="text" className="input-field" value={editingEvent.location || ''}
-                  onChange={e => setEditingEvent({ ...editingEvent, location: e.target.value })} />
+                  onChange={e => {
+                    setEditingEvent({ ...editingEvent, location: e.target.value });
+                    if (editErrors.location) setEditErrors(prev => ({ ...prev, location: null }));
+                  }} />
+                {editErrors.location && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.location}</span>}
               </div>
               <div className="form-group">
                 <label>Mô tả</label>
                 <textarea className="textarea-field" rows={2} value={editingEvent.description || ''}
-                  onChange={e => setEditingEvent({ ...editingEvent, description: e.target.value })} />
+                  onChange={e => {
+                    setEditingEvent({ ...editingEvent, description: e.target.value });
+                    if (editErrors.description) setEditErrors(prev => ({ ...prev, description: null }));
+                  }} />
+                {editErrors.description && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.description}</span>}
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={isUpdating}>

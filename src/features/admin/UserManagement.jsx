@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, ShieldAlert, GraduationCap, RefreshCw, UserPlus, Lock, Unlock, X, Eye } from 'lucide-react';
 import * as userService from '../../services/userService';
+import { validateNoSpecialChars } from '../../utils/validator';
 
 export default function UserManagement({ triggerNotification }) {
   const [users, setUsers] = useState([]);
@@ -15,6 +16,9 @@ export default function UserManagement({ triggerNotification }) {
     password: '',
     role: 'MANAGER'
   });
+  
+  // Validation errors
+  const [formErrors, setFormErrors] = useState({});
 
   // User detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -44,18 +48,27 @@ export default function UserManagement({ triggerNotification }) {
   // 1. Tạo tài khoản cán bộ (ADMIN / MANAGER)
   const handleCreateUser = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+
     if (!createForm.username.trim()) {
-      triggerNotification('❌ Vui lòng nhập Tên đăng nhập!', 'warning');
-      return;
+      newErrors.username = 'Vui lòng nhập Tên đăng nhập!';
+    } else if (!validateNoSpecialChars(createForm.username)) {
+      newErrors.username = 'Username không được chứa ký tự lạ!';
     }
+
     if (!createForm.password) {
-      triggerNotification('❌ Vui lòng nhập Mật khẩu khởi tạo!', 'warning');
+      newErrors.password = 'Vui lòng nhập Mật khẩu khởi tạo!';
+    } else if (createForm.password.length < 6) {
+      newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setFormErrors(newErrors);
+      triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu bên dưới!', 'warning');
       return;
     }
-    if (createForm.password.length < 6) {
-      triggerNotification('❌ Mật khẩu phải có ít nhất 6 ký tự!', 'warning');
-      return;
-    }
+
+    setFormErrors({});
     try {
       await userService.createStaff({
         username: createForm.username.trim(),
@@ -275,17 +288,20 @@ export default function UserManagement({ triggerNotification }) {
               <h3 className="modal-title"><UserPlus size={18} style={{ marginRight: '6px' }} /> Thêm Tài khoản Cán bộ</h3>
               <button className="modal-close" onClick={() => setShowCreateModal(false)}><X size={18} /></button>
             </div>
-            <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+            <form onSubmit={handleCreateUser} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
               <div className="form-group">
                 <label>Username *</label>
                 <input
                   type="text"
                   className="input-field"
                   value={createForm.username}
-                  onChange={e => setCreateForm({ ...createForm, username: e.target.value })}
+                  onChange={e => {
+                    setCreateForm({ ...createForm, username: e.target.value });
+                    if (formErrors.username) setFormErrors(prev => ({ ...prev, username: null }));
+                  }}
                   placeholder="Ví dụ: manager02"
-                  required
                 />
+                {formErrors.username && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{formErrors.username}</span>}
               </div>
               <div className="form-group">
                 <label>Mật khẩu khởi tạo *</label>
@@ -293,10 +309,13 @@ export default function UserManagement({ triggerNotification }) {
                   type="password"
                   className="input-field"
                   value={createForm.password}
-                  onChange={e => setCreateForm({ ...createForm, password: e.target.value })}
+                  onChange={e => {
+                    setCreateForm({ ...createForm, password: e.target.value });
+                    if (formErrors.password) setFormErrors(prev => ({ ...prev, password: null }));
+                  }}
                   placeholder="Nhập mật khẩu..."
-                  required
                 />
+                {formErrors.password && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{formErrors.password}</span>}
               </div>
               <div className="form-group">
                 <label>Vai trò hệ thống</label>

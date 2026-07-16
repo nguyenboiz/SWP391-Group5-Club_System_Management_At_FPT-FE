@@ -1,94 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Check, X, Eye, FileText, CheckCircle, Image as ImageIcon, AlertCircle, AlertTriangle, Clock, Search, RefreshCw } from 'lucide-react';
-import { reviewEvidence } from '../../services/eventService';
-
-const MOCK_EVIDENCES = [
-  {
-    id: 'ev-001', userId: 'SE180001', userFullName: 'Nguyễn Đình Khoa',
-    clubId: 1, clubName: 'FCode Club',
-    eventName: 'Workshop React 2026',
-    evidenceType: 'Check-In Photo',
-    fileUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&q=80',
-    description: 'Ảnh check-in tại sự kiện Workshop React, ngày 10/06/2026',
-    submittedAt: '2026-06-10T09:30:00',
-    status: 'Pending',
-  },
-  {
-    id: 'ev-002', userId: 'SE180002', userFullName: 'Đường Đình Khôi',
-    clubId: 1, clubName: 'FCode Club',
-    eventName: 'Hackathon FPT 2026',
-    evidenceType: 'Certificate',
-    fileUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&q=80',
-    description: 'Chứng nhận tham gia Hackathon FPT 2026, hạng 3 toàn trường.',
-    submittedAt: '2026-06-12T14:00:00',
-    status: 'Pending',
-  },
-  {
-    id: 'ev-003', userId: 'SE190003', userFullName: 'Bùi Minh Ngọc',
-    clubId: 2, clubName: 'Melody Club',
-    eventName: 'Biểu diễn văn nghệ cuối kỳ',
-    evidenceType: 'Check-In Photo',
-    fileUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&q=80',
-    description: 'Ảnh biểu diễn tại sân khấu chính hội trường A.',
-    submittedAt: '2026-06-08T18:00:00',
-    status: 'Approved',
-    approvedBy: 'Trần Thị Lan (Leader)',
-    approvedAt: '2026-06-09T10:00:00',
-  },
-  {
-    id: 'ev-004', userId: 'SE190123', userFullName: 'Hoàng Anh Tú',
-    clubId: 1, clubName: 'FCode Club',
-    eventName: 'Workshop React 2026',
-    evidenceType: 'Other',
-    fileUrl: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=400&q=80',
-    description: 'Video quay màn hình thực hành bài lab React Hooks.',
-    submittedAt: '2026-06-11T11:00:00',
-    status: 'Rejected',
-    rejectReason: 'Video không rõ mặt người tham gia, vui lòng nộp lại ảnh check-in.',
-  },
-  {
-    id: 'ev-005', userId: 'SE200010', userFullName: 'Lê Văn An',
-    clubId: 1, clubName: 'FCode Club',
-    eventName: 'Giao lưu CLB kỹ thuật',
-    evidenceType: 'Check-In Photo',
-    fileUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&q=80',
-    description: 'Ảnh tham gia buổi giao lưu với đoàn CLB trường ĐH Bách Khoa.',
-    submittedAt: '2026-06-15T16:00:00',
-    status: 'Pending',
-  },
-];
+import { reviewEvidence, getAllEvents, getEventDetail, getEventsByClub } from '../../services/eventService';
 
 export default function EvidenceApproval({ triggerNotification, selectedClubId }) {
-  const [evidences, setEvidences] = useState(MOCK_EVIDENCES);
+  const [evidences, setEvidences] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [remarkMap, setRemarkMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
+  const loadEvidences = useCallback(async () => {
+    setLoading(true);
+    try {
+      let eventsList = [];
+      if (selectedClubId) {
+        // For Leader: fetch only events of their club to avoid 403
+        const res = await getEventsByClub(selectedClubId);
+        eventsList = Array.isArray(res) ? res : (res?.data ?? []);
+      } else {
+        // For Manager: fetch all events
+        const res = await getAllEvents();
+        eventsList = Array.isArray(res) ? res : (res?.data ?? []);
+      }
+      
+      const allEvs = [];
+      await Promise.all(eventsList.map(async (e) => {
+        try {
+          const detail = await getEventDetail(e.id || e.eventId);
+          const detailData = detail?.data ?? detail ?? {};
+          if (selectedClubId && String(detailData.clubId) !== String(selectedClubId)) {
+            return;
+          }
+          const evList = detailData.evidences || detailData.evidenceFiles || [];
+          if (Array.isArray(evList)) {
+            evList.forEach(ev => {
+              allEvs.push({
+                id: ev.id || ev.evidenceId,
+                userId: ev.studentId || ev.userId || 'N/A',
+                userFullName: ev.studentName || ev.userFullName || 'Sinh viên',
+                clubId: detailData.clubId,
+                clubName: detailData.clubName || 'CLB',
+                eventName: detailData.eventName || detailData.name,
+                evidenceType: ev.evidenceType || 'Check-in Photo',
+                fileUrl: ev.fileUrl || ev.url || '',
+                description: ev.feedback || ev.description || '',
+                submittedAt: ev.submittedAt || detailData.submittedAt || new Date().toISOString(),
+                status: ev.status || 'Pending'
+              });
+            });
+          }
+        } catch (detailErr) {
+          console.error(`Error loading detail for event ${e.id}:`, detailErr);
+        }
+      }));
+      setEvidences(allEvs);
+    } catch (err) {
+      console.error('[EvidenceApproval] Lỗi tải minh chứng:', err);
+      triggerNotification('Không tải được danh sách minh chứng!', 'error');
+      setEvidences([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedClubId, triggerNotification]);
+
+  useEffect(() => {
+    loadEvidences();
+  }, [loadEvidences]);
+
   const handleApprove = async (ev) => {
     try {
-      // Gọi API review evidence (đã truyền status là Hợp lệ theo mapping DB)
       await reviewEvidence(ev.id, { status: 'Hợp lệ' });
-      setEvidences(prev => prev.map(e =>
-        e.id === ev.id
-          ? { ...e, status: 'Approved', approvedBy: 'Bạn (Manager)', approvedAt: new Date().toISOString() }
-          : e
-      ));
       triggerNotification(`✅ Đã duyệt chứng nhận của ${ev.userFullName}!`, 'success');
+      await loadEvidences();
     } catch (err) {
-      if (err?.response?.status === 404) {
-        // Fallback mock nếu API chưa được deploy trên backend
-        setEvidences(prev => prev.map(e =>
-          e.id === ev.id
-            ? { ...e, status: 'Approved', approvedBy: 'Bạn (Manager)', approvedAt: new Date().toISOString() }
-            : e
-        ));
-        triggerNotification(`✅ Đã duyệt chứng nhận của ${ev.userFullName}!`, 'success');
-      } else {
-        console.error('[EvidenceApproval] Lỗi duyệt chứng nhận:', err);
-        triggerNotification(err?.response?.data?.message || 'Xét duyệt chứng nhận thất bại!', 'error');
-      }
+      console.error('[EvidenceApproval] Lỗi duyệt chứng nhận:', err);
+      triggerNotification(err?.response?.data?.message || 'Xét duyệt chứng nhận thất bại!', 'error');
     }
     setExpandedId(null);
   };
@@ -100,23 +88,12 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
       return;
     }
     try {
-      // Gọi API review evidence với trạng thái Không hợp lệ
-      await reviewEvidence(ev.id, { status: 'Không hợp lệ' });
-      setEvidences(prev => prev.map(e =>
-        e.id === ev.id ? { ...e, status: 'Rejected', rejectReason: remark } : e
-      ));
+      await reviewEvidence(ev.id, { status: 'Không hợp lệ', rejectReason: remark });
       triggerNotification(`❌ Đã từ chối chứng nhận của ${ev.userFullName}!`, 'success');
+      await loadEvidences();
     } catch (err) {
-      if (err?.response?.status === 404) {
-        // Fallback mock nếu API chưa được deploy
-        setEvidences(prev => prev.map(e =>
-          e.id === ev.id ? { ...e, status: 'Rejected', rejectReason: remark } : e
-        ));
-        triggerNotification(`❌ Đã từ chối chứng nhận của ${ev.userFullName}!`, 'success');
-      } else {
-        console.error('[EvidenceApproval] Lỗi từ chối chứng nhận:', err);
-        triggerNotification(err?.response?.data?.message || 'Xét duyệt chứng nhận thất bại!', 'error');
-      }
+      console.error('[EvidenceApproval] Lỗi từ chối chứng nhận:', err);
+      triggerNotification(err?.response?.data?.message || 'Xét duyệt chứng nhận thất bại!', 'error');
     }
     setExpandedId(null);
   };
@@ -135,30 +112,6 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
 
   return (
     <div className="evidence-approval-container">
-      {/* ⚠ BE MISSING API BANNER */}
-      <div style={{
-        marginBottom: '16px', padding: '16px 20px', borderRadius: '10px',
-        background: 'rgba(234,179,8,0.08)',
-        border: '1.5px solid rgba(234,179,8,0.4)',
-        display: 'flex', gap: '12px', alignItems: 'flex-start'
-      }}>
-        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
-        <div>
-          <div style={{ fontWeight: 700, color: '#eab308', fontSize: '13px', marginBottom: '6px' }}>
-            ⚠ [BE CẦN BỔ SUNG API] — Trang này đang dùng Mock Data
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
-            Chức năng Duyệt Chứng nhận chưa thể kết nối thật. Backend cần bổ sung:
-            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
-              <li><code>GET /api/evidences?clubId={'{clubId}'}&amp;status={'{status}'}</code> — Lấy danh sách chứng nhận</li>
-              <li><code>PUT /api/evidences/{'{id}'}/approve</code> — Duyệt chứng nhận</li>
-              <li><code>PUT /api/evidences/{'{id}'}/reject</code> — Từ chối chứng nhận <code>{'{ rejectReason }'}</code></li>
-              <li><code>POST /api/evidences</code> — Nộp chứng nhận (Sinh viên)</li>
-              <li><code>GET /api/evidences?userId={'{userId}'}</code> — Lịch sử chứng nhận của sinh viên</li>
-            </ul>
-          </div>
-        </div>
-      </div>
 
       {/* Stats */}
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
@@ -206,7 +159,12 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
           </select>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="empty-state-view">
+            <span className="login-spinner" style={{ width: '28px', height: '28px' }} />
+            <p style={{ marginTop: '10px' }}>Đang tải danh sách minh chứng...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="empty-state-view">
             <FileText className="empty-state-icon" />
             <p>Không có chứng nhận nào phù hợp.</p>

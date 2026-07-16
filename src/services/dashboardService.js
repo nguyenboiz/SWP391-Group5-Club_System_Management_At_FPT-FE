@@ -10,7 +10,7 @@ import apiClient from '../utils/apiClient';
  * GET /api/admin/dashboard
  */
 export async function getAdminDashboard() {
-  const response = await apiClient.get('/api/admin/dashboard');
+  const response = await apiClient.get('/api/dashboard/admin');
   return response.data;
 }
 

@@ -21,7 +21,6 @@ import ClubManagementPage from './pages/admin/ClubManagementPage';
 import ManagerDashboardPage from './pages/manager/ManagerDashboardPage';
 import EventApprovalPage from './pages/admin/EventApprovalPage';
 import ReviewMemberReportsPage from './pages/manager/ReviewMemberReportsPage';
-import SubmitReportPage from './pages/manager/SubmitReportPage';
 import AnalyticsPage from './pages/manager/AnalyticsPage';
 
 // ── Member / Leader Pages ──────────────────────────────────────────────────────
@@ -33,7 +32,6 @@ import MemberWorkspacePage from './pages/member/MemberWorkspacePage';
 import MemberSearchPage from './pages/member/MemberSearchPage';
 import MemberManagementPage from './pages/manager/MemberManagementPage';
 import EventManagerPage from './pages/manager/EventManagerPage';
-import LeaderManagementPage from './pages/member/LeaderManagementPage';
 import ClubAnnouncementsPage from './pages/member/ClubAnnouncementsPage';
 
 // Shared: Evidence Approval (for both Manager and Leader)
@@ -57,9 +55,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
       if (activeTab === 'club-management') return 'Quản lý CLB';
       if (activeTab === 'semester-config') return 'Quản lý Học kỳ';
       if (activeTab === 'report-appraisal') return 'Report Review';
-      if (activeTab === 'department-management') return 'Quản lý Phòng ban';
       if (activeTab === 'notification-management') return 'Gửi Thông báo';
-      if (activeTab === 'system-settings') return 'Cấu hình Hệ thống';
       return 'Dashboard';
     }
     // MANAGER
@@ -69,7 +65,6 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
       if (activeTab === 'event-monitoring') return 'Theo dõi Sự kiện';
       if (activeTab === 'evidence-review') return 'Kiểm tra Chứng nhận';
       if (activeTab === 'club-report-review') return 'Kiểm tra Báo cáo CLB';
-      if (activeTab === 'submit-report') return 'Tổng hợp Báo cáo';
       if (activeTab === 'notification-management') return 'Thông báo CLB';
       if (activeTab === 'analytics') return 'Thống kê & Phân tích';
       return 'Dashboard';
@@ -86,8 +81,6 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
     if (activeTab === 'member-management') return 'Quản lý Thành viên';
     if (activeTab === 'event-manager') return 'Quản lý Sự kiện';
     if (activeTab === 'evidence-review') return 'Kiểm tra Chứng nhận';
-    if (activeTab === 'club-report') return 'Nộp Báo cáo CLB';
-    if (activeTab === 'leader-management') return 'Chuyển giao Leader';
     return 'Dashboard';
   };
 
@@ -134,6 +127,7 @@ function AdminDashboard({ triggerNotification }) {
       {activeTab === 'semester-config' && <SemesterConfigPage triggerNotification={triggerNotification} />}
       {activeTab === 'report-appraisal' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
       {activeTab === 'notification-management' && <NotificationManagementPage triggerNotification={triggerNotification} />}
+      {activeTab === 'evidence-review' && <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
     </DashboardLayout>
   );
 }
@@ -157,7 +151,6 @@ function ManagerDashboard({ triggerNotification }) {
       {activeTab === 'event-monitoring' && <EventApprovalPage triggerNotification={triggerNotification} selectedClubId={null} mode="monitoring" />}
       {activeTab === 'evidence-review' && <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
       {activeTab === 'club-report-review' && <ReviewMemberReportsPage triggerNotification={triggerNotification} />}
-      {activeTab === 'submit-report' && <SubmitReportPage triggerNotification={triggerNotification} />}
       {activeTab === 'notification-management' && <NotificationManagementPage triggerNotification={triggerNotification} />}
       {activeTab === 'analytics' && <AnalyticsPage triggerNotification={triggerNotification} />}
     </DashboardLayout>
@@ -236,17 +229,11 @@ function MemberDashboard({ triggerNotification }) {
       {isLeader && activeTab === 'event-manager' && (
         <EventManagerPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />
       )}
-      {isLeader && activeTab === 'document-upload' && (
-        <DocumentArchivePage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={false} />
-      )}
       {isLeader && activeTab === 'evidence-review' && (
         <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={selectedClubId} />
       )}
-      {isLeader && activeTab === 'club-report' && (
-        <SubmitReportPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />
-      )}
-      {isLeader && activeTab === 'leader-management' && (
-        <LeaderManagementPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} />
+      {isLeader && activeTab === 'document-upload' && (
+        <DocumentArchivePage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={false} />
       )}
     </DashboardLayout>
   );

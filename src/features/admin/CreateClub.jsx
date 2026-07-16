@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createClub } from '../../services/clubService';
 import { PlusCircle, Landmark, Image, Link, Tag, UserCheck } from 'lucide-react';
+import { validateNoSpecialChars } from '../../utils/validator';
 
 export default function CreateClub({ triggerNotification }) {
   const [form, setForm] = useState({
@@ -14,33 +15,60 @@ export default function CreateClub({ triggerNotification }) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastCreated, setLastCreated] = useState(null);
+  
+  // Validation errors
+  const [errors, setErrors] = useState({});
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: null }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+
     if (!form.clubName.trim()) {
-      triggerNotification('❌ Vui lòng nhập Tên câu lạc bộ!', 'warning');
-      return;
+      newErrors.clubName = 'Vui lòng nhập Tên câu lạc bộ!';
+    } else if (form.clubName.trim().length < 3) {
+      newErrors.clubName = 'Tên câu lạc bộ phải có ít nhất 3 ký tự!';
+    } else if (!validateNoSpecialChars(form.clubName)) {
+      newErrors.clubName = 'Tên câu lạc bộ không được chứa ký tự lạ!';
     }
-    if (form.clubName.trim().length < 3) {
-      triggerNotification('❌ Tên câu lạc bộ phải có ít nhất 3 ký tự!', 'warning');
-      return;
-    }
+
     if (form.clubCode && !/^[A-Z0-9_-]{2,10}$/i.test(form.clubCode.trim())) {
-      triggerNotification('❌ Mã CLB chỉ gồm chữ, số, gạch dưới, dài 2–10 ký tự (ví dụ: MCC, FPT_CHESS)!', 'warning');
-      return;
+      newErrors.clubCode = 'Mã CLB chỉ gồm chữ, số, gạch dưới, dài 2–10 ký tự!';
     }
+
     if (form.foundedDate && new Date(form.foundedDate) > new Date()) {
-      triggerNotification('❌ Ngày thành lập không thể là ngày trong tương lai!', 'warning');
-      return;
+      newErrors.foundedDate = 'Ngày thành lập không thể là ngày trong tương lai!';
     }
+
     if (form.fanpageUrl && !/^https?:\/\//.test(form.fanpageUrl.trim())) {
-      triggerNotification('❌ Đường dẫn Fanpage không hợp lệ, phải bắt đầu bằng http:// hoặc https://!', 'warning');
+      newErrors.fanpageUrl = 'Đường dẫn Fanpage không hợp lệ (phải bắt đầu bằng http:// hoặc https://)!';
+    }
+
+    if (form.logoImage && !/^https?:\/\//.test(form.logoImage.trim())) {
+      newErrors.logoImage = 'Đường dẫn logo không hợp lệ!';
+    }
+
+    if (form.managerStudentId && !/^[a-zA-Z0-9_-]+$/.test(form.managerStudentId.trim())) {
+      newErrors.managerStudentId = 'MSSV không được chứa ký tự lạ!';
+    }
+
+    if (form.description && !validateNoSpecialChars(form.description)) {
+      newErrors.description = 'Mô tả không được chứa ký tự lạ!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu dưới đây!', 'warning');
       return;
     }
+
+    setErrors({});
     setIsSubmitting(true);
     try {
       const result = await createClub({
@@ -86,7 +114,7 @@ export default function CreateClub({ triggerNotification }) {
             <h3 className="glass-card-title"><PlusCircle size={18} /> Tạo Câu lạc bộ mới</h3>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Logo preview */}
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
               {form.logoImage ? (
@@ -112,6 +140,7 @@ export default function CreateClub({ triggerNotification }) {
                   value={form.logoImage}
                   onChange={e => handleChange('logoImage', e.target.value)}
                 />
+                {errors.logoImage && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.logoImage}</span>}
               </div>
             </div>
 
@@ -123,8 +152,8 @@ export default function CreateClub({ triggerNotification }) {
                 placeholder="Ví dụ: FPT Guitar Club"
                 value={form.clubName}
                 onChange={e => handleChange('clubName', e.target.value)}
-                required
               />
+              {errors.clubName && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.clubName}</span>}
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -136,6 +165,7 @@ export default function CreateClub({ triggerNotification }) {
                 value={form.clubCode}
                 onChange={e => handleChange('clubCode', e.target.value)}
               />
+              {errors.clubCode && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.clubCode}</span>}
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -147,6 +177,7 @@ export default function CreateClub({ triggerNotification }) {
                 value={form.fanpageUrl}
                 onChange={e => handleChange('fanpageUrl', e.target.value)}
               />
+              {errors.fanpageUrl && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.fanpageUrl}</span>}
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -157,6 +188,7 @@ export default function CreateClub({ triggerNotification }) {
                 value={form.foundedDate}
                 onChange={e => handleChange('foundedDate', e.target.value)}
               />
+              {errors.foundedDate && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.foundedDate}</span>}
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -168,6 +200,7 @@ export default function CreateClub({ triggerNotification }) {
                 value={form.managerStudentId}
                 onChange={e => handleChange('managerStudentId', e.target.value)}
               />
+              {errors.managerStudentId && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.managerStudentId}</span>}
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
                 Nhập MSSV của người sẽ được bổ nhiệm làm quản lý CLB.
               </span>
@@ -182,6 +215,7 @@ export default function CreateClub({ triggerNotification }) {
                 value={form.description}
                 onChange={e => handleChange('description', e.target.value)}
               />
+              {errors.description && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.description}</span>}
             </div>
 
             <button

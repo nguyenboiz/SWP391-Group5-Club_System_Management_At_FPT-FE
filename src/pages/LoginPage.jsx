@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { validateNoSpecialChars } from '../utils/validator';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -12,9 +13,30 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Validation errors
+  const [validationErrors, setValidationErrors] = useState({});
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+
+    if (!userId.trim()) {
+      newErrors.userId = 'Vui lòng nhập MSSV / Mã cán bộ!';
+    } else if (!validateNoSpecialChars(userId)) {
+      newErrors.userId = 'Tài khoản không được chứa ký tự lạ!';
+    }
+
+    if (!password) {
+      newErrors.password = 'Vui lòng nhập mật khẩu!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setValidationErrors(newErrors);
+      return;
+    }
+
+    setValidationErrors({});
     setError('');
     setIsLoading(true);
 
@@ -65,7 +87,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+             <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   MSSV / Mã cán bộ
@@ -75,10 +97,14 @@ export default function LoginPage() {
                   className="input-field"
                   placeholder="VD: SE180001, PDP01..."
                   value={userId}
-                  onChange={e => { setUserId(e.target.value); setError(''); }}
-                  required
+                  onChange={e => {
+                    setUserId(e.target.value);
+                    setError('');
+                    if (validationErrors.userId) setValidationErrors(prev => ({ ...prev, userId: null }));
+                  }}
                   autoFocus
                 />
+                {validationErrors.userId && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{validationErrors.userId}</span>}
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -91,8 +117,11 @@ export default function LoginPage() {
                     className="input-field"
                     placeholder="Nhập mật khẩu..."
                     value={password}
-                    onChange={e => { setPassword(e.target.value); setError(''); }}
-                    required
+                    onChange={e => {
+                      setPassword(e.target.value);
+                      setError('');
+                      if (validationErrors.password) setValidationErrors(prev => ({ ...prev, password: null }));
+                    }}
                     style={{ paddingRight: '44px' }}
                   />
                   <button
@@ -106,6 +135,7 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {validationErrors.password && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{validationErrors.password}</span>}
               </div>
 
               {error && (

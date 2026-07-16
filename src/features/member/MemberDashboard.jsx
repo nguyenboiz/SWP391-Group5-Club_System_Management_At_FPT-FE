@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getEventsByClub } from '../../services/eventService';
 import { getClubMembers } from '../../services/membershipService';
-import { Users, Calendar, FileText, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
+import { getUserActivityHistory } from '../../services/userService';
+import { Users, Calendar, FileText, Clock, TrendingUp } from 'lucide-react';
 
 export default function MemberDashboard({ triggerNotification, selectedClubId }) {
   const { currentUser } = useAuth();
@@ -54,23 +55,6 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
 
   return (
     <div>
-      {/* ⚠ BE MISSING API BANNER (partial) */}
-      <div style={{
-        marginBottom: '20px', padding: '14px 18px', borderRadius: '10px',
-        background: 'rgba(234,179,8,0.08)',
-        border: '1.5px solid rgba(234,179,8,0.4)',
-        display: 'flex', gap: '10px', alignItems: 'flex-start'
-      }}>
-        <AlertTriangle size={16} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
-        <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.7' }}>
-          <strong style={{ color: '#eab308' }}>⚠ [BE CẦN BỔ SUNG API]</strong> —
-          Sự kiện & thành viên đã tải thật. Các mục sau cần BE bổ sung:
-          <ul style={{ margin: '4px 0 0 0', paddingLeft: '16px' }}>
-            <li><code>GET /api/evidences?userId={'{userId}'}</code> — Lịch sử minh chứng của sinh viên</li>
-            <li><code>GET /api/activities?userId={'{userId}'}</code> — Lịch sử hoạt động của sinh viên</li>
-          </ul>
-        </div>
-      </div>
       {/* Stats */}
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
         <div className="stats-card">
@@ -137,29 +121,14 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
           )}
         </div>
 
-        {/* My Activities + Missing APIs notice */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="glass-card">
-            <div className="glass-card-header">
-              <h3 className="glass-card-title"><FileText size={18} /> Hoạt động của tôi</h3>
-            </div>
-            <div className="empty-state-view" style={{ padding: '20px' }}>
-              <FileText className="empty-state-icon" style={{ color: 'var(--text-muted)' }} />
-              <p style={{ fontSize: '13px' }}>Lịch sử tham gia sự kiện và chứng nhận của bạn sẽ hiển thị ở đây.</p>
-            </div>
+        {/* My Activities */}
+        <div className="glass-card">
+          <div className="glass-card-header">
+            <h3 className="glass-card-title"><FileText size={18} /> Hoạt động của tôi</h3>
           </div>
-
-          <div className="glass-card" style={{ padding: '14px 16px', background: 'rgba(242,111,33,0.04)', border: '1px solid rgba(242,111,33,0.2)' }}>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
-              <AlertTriangle size={13} style={{ color: 'var(--warning)' }} />
-              <strong style={{ fontSize: '12px', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>BE cần bổ sung</strong>
-            </div>
-            <ul style={{ paddingLeft: '14px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              <li>✓ Đã kết nối: <code>POST /api/events/{"{eventId}"}/evidence</code> — Nộp tệp chứng nhận thật</li>
-              <li>✓ Đã kết nối: <code>POST /api/events/{"{eventId}"}/register</code> — Đăng ký tham gia sự kiện thật</li>
-              <li>✓ Đã kết nối: <code>PUT /api/users/profile</code> — Cập nhật số điện thoại thật</li>
-              <li><code>GET /api/users/{"{userId}"}/activity-history</code> — Xem lịch sử tham gia của sinh viên</li>
-            </ul>
+          <div className="empty-state-view" style={{ padding: '20px' }}>
+            <FileText className="empty-state-icon" style={{ color: 'var(--text-muted)' }} />
+            <p style={{ fontSize: '13px' }}>Lịch sử tham gia sự kiện và chứng nhận của bạn sẽ hiển thị ở đây.</p>
           </div>
         </div>
       </div>

@@ -10,50 +10,7 @@ const statusMapBEtoFE = {
   'Đã hủy': 'Cancelled', 'Pending': 'Pending', 'Approved': 'Approved', 'Rejected': 'Rejected',
 };
 
-const MOCK_EVENTS = [
-  {
-    id: 14,
-    eventId: 14,
-    clubId: 1,
-    eventName: "đại hội tiếu lâm",
-    description: "Tổ chức show trình diễn hài kịch phục vụ đời sống tinh thần sinh viên.",
-    location: "sân thượng tòa Alpha",
-    planBudget: "1000000",
-    targetParticipants: 300,
-    actualParticipants: 0,
-    status: "Pending",
-    startTime: "2026-07-18T08:00:00",
-    endTime: "2026-07-18T13:00:00"
-  },
-  {
-    id: 15,
-    eventId: 15,
-    clubId: 2,
-    eventName: "Workshop lập trình React nâng cao",
-    description: "Chia sẻ kinh nghiệm làm việc với React Hooks và state management.",
-    location: "Phòng 102 tòa Beta",
-    planBudget: "500000",
-    targetParticipants: 120,
-    actualParticipants: 0,
-    status: "Pending",
-    startTime: "2026-07-20T14:00:00",
-    endTime: "2026-07-20T17:00:00"
-  },
-  {
-    id: 16,
-    eventId: 16,
-    clubId: 1,
-    eventName: "Đêm nhạc Acoustic MCC",
-    description: "Giao lưu ca nhạc hát cho nhau nghe.",
-    location: "Sảnh tòa Delta",
-    planBudget: "1200000",
-    targetParticipants: 200,
-    actualParticipants: 195,
-    status: "Approved",
-    startTime: "2026-07-10T19:00:00",
-    endTime: "2026-07-10T22:30:00"
-  }
-];
+
 
 export default function ManagerDashboard({ triggerNotification }) {
   const [activeTab, setActiveTab] = useState('overview');
@@ -92,41 +49,17 @@ export default function ManagerDashboard({ triggerNotification }) {
         pendingReports: data.pendingReports || 0
       });
     } catch (err) {
-      if (err?.response?.status === 404) {
-        // Fallback: Tự động tổng hợp số liệu thực tế từ các API danh sách của Backend
-        try {
-          const [clubsRes, eventsRes, reportsRes] = await Promise.all([
-            apiClient.get('/api/clubs').catch(() => ({ data: [] })),
-            getAllEvents().catch(() => []),
-            getClubReports().catch(() => [])
-          ]);
-
-          const clubsList = Array.isArray(clubsRes.data) ? clubsRes.data : (clubsRes.data?.data ?? []);
-          const eventsList = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.data ?? []);
-          const reportsList = Array.isArray(reportsRes) ? reportsRes : (reportsRes?.data ?? []);
-
-          setStats({
-            totalClubs: clubsList.length,
-            activeClubs: clubsList.filter(c => c.status === 'Active' || c.status === 'Đang hoạt động').length || clubsList.length,
-            pendingEvents: eventsList.filter(e => e.status === 'Pending' || e.status === 'Chờ duyệt').length,
-            pendingEvidences: 3, // Giữ mock số lượng minh chứng chờ duyệt
-            pendingReports: reportsList.filter(r => r.status === 'Chờ Manager duyệt' || r.status === 'Submitted' || r.status === 'Pending' || r.status === 'Chờ duyệt').length
-          });
-        } catch (fallbackErr) {
-          console.error('[ManagerDashboard] Lỗi tổng hợp số liệu thống kê:', fallbackErr);
-        }
-      } else {
-        console.error('[ManagerDashboard] Lỗi tải thống kê dashboard:', err);
-      }
+      console.error('[ManagerDashboard] Lỗi tải thống kê dashboard:', err);
+      triggerNotification('Không tải được số liệu thống kê!', 'error');
     } finally {
       setLoadingStats(false);
     }
-  }, []);
+  }, [triggerNotification]);
 
   // Club Monitoring state
   const [clubs, setClubs] = useState([]);
   const [loadingClubs, setLoadingClubs] = useState(false);
-  const [hasClubApi, setHasClubApi] = useState(null);
+  const [clubsLoaded, setClubsLoaded] = useState(false);
 
   const loadClubs = useCallback(async () => {
     setLoadingClubs(true);
@@ -134,25 +67,22 @@ export default function ManagerDashboard({ triggerNotification }) {
       const res = await apiClient.get('/api/clubs');
       const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
       setClubs(data);
-      setHasClubApi(true);
+      setClubsLoaded(true);
     } catch (err) {
-      const status = err?.response?.status;
-      if (status === 404 || status === 405) {
-        setHasClubApi(false);
-      } else {
-        setHasClubApi(false);
-      }
+      console.error('[ManagerDashboard] Lỗi tải CLB:', err);
+      triggerNotification('Không tải được danh sách câu lạc bộ!', 'error');
       setClubs([]);
+      setClubsLoaded(true);
     } finally {
       setLoadingClubs(false);
     }
-  }, []);
+  }, [triggerNotification]);
 
   useEffect(() => {
-    if (activeTab === 'club-monitoring' && hasClubApi === null) {
+    if (activeTab === 'club-monitoring' && !clubsLoaded) {
       loadClubs();
     }
-  }, [activeTab, hasClubApi, loadClubs]);
+  }, [activeTab, clubsLoaded, loadClubs]);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
@@ -166,13 +96,8 @@ export default function ManagerDashboard({ triggerNotification }) {
       setEvents(normalized);
     } catch (err) {
       console.error('[ManagerDashboard] Lỗi tải sự kiện:', err);
-      const status = err?.response?.status;
-      if (status === 403) {
-        triggerNotification('🔒 Tài khoản Manager chưa được Backend cấp quyền gọi API xem sự kiện (403 Forbidden). Đang dùng dữ liệu mẫu để bạn test.', 'warning');
-      } else {
-        triggerNotification('Không tải được danh sách sự kiện!', 'error');
-      }
-      setEvents(MOCK_EVENTS);
+      triggerNotification('Không tải được danh sách sự kiện!', 'error');
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -496,27 +421,12 @@ export default function ManagerDashboard({ triggerNotification }) {
               </button>
             </div>
 
-            {hasClubApi === false && (
-              <div style={{ marginBottom: '16px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.25)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <Info size={15} style={{ color: '#3b82f6', flexShrink: 0, marginTop: '1px' }} />
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  <strong style={{ color: '#3b82f6' }}>BE chưa có API lấy danh sách CLB.</strong><br />
-                  Cần Backend bổ sung: <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '4px' }}>GET /api/clubs</code>
-                </div>
-              </div>
-            )}
-
             {loadingClubs ? (
               <div className="empty-state-view"><span className="login-spinner" style={{ width: '28px', height: '28px' }} /></div>
-            ) : hasClubApi === false ? (
-              <div className="empty-state-view">
-                <Landmark className="empty-state-icon" />
-                <p>Chờ Backend bổ sung <code>GET /api/clubs</code> để xem danh sách CLB.</p>
-              </div>
             ) : clubs.length === 0 ? (
               <div className="empty-state-view">
                 <Landmark className="empty-state-icon" />
-                <p>Chưa có câu lạc bộ nào trong hệ thống.</p>
+                <p>Không tải được danh sách câu lạc bộ hoặc danh sách trống.</p>
               </div>
             ) : (
               <div className="table-container">

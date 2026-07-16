@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as membershipService from '../../services/membershipService';
 import { UserPlus, UserCheck, ToggleLeft, ToggleRight, Search, Eye, X } from 'lucide-react';
+import { validateNoSpecialChars } from '../../utils/validator';
 
 export default function MemberManagement({ selectedClubId, triggerNotification }) {
   const [members, setMembers] = useState([]);
@@ -8,6 +9,9 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newUserId, setNewUserId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Validation errors
+  const [errors, setErrors] = useState({});
 
   // Member detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -38,11 +42,21 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
 
   const handleAddMember = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+
     if (!newUserId.trim()) {
-      triggerNotification('❌ Vui lòng nhập Mã số sinh viên cần thêm!', 'warning');
+      newErrors.newUserId = 'Vui lòng nhập Mã số sinh viên!';
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(newUserId.trim())) {
+      newErrors.newUserId = 'MSSV không được chứa ký tự lạ hoặc khoảng trắng!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu!', 'warning');
       return;
     }
 
+    setErrors({});
     const formattedId = newUserId.trim().toUpperCase();
     setIsSubmitting(true);
     try {
@@ -249,17 +263,20 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
             <h3 className="glass-card-title"><UserPlus size={18} /> Thêm thành viên mới</h3>
           </div>
 
-          <form onSubmit={handleAddMember}>
+          <form onSubmit={handleAddMember} noValidate>
             <div className="form-group">
               <label>Mã số sinh viên (MSSV) *</label>
               <input 
                 type="text" 
                 className="input-field" 
                 value={newUserId}
-                onChange={e => setNewUserId(e.target.value)}
+                onChange={e => {
+                  setNewUserId(e.target.value);
+                  if (errors.newUserId) setErrors(prev => ({ ...prev, newUserId: null }));
+                }}
                 placeholder="VD: SE180001"
-                required
               />
+              {errors.newUserId && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.newUserId}</span>}
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
                 Hệ thống sẽ thêm tài khoản này trực tiếp vào danh sách CLB.
               </span>
