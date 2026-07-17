@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Calendar, FileCheck, ClipboardList, UserCheck, 
   Landmark, BookOpen, Users, FolderOpen, User,
   CheckSquare, PlusSquare, Search, Send, FileText, Bell,
-  Crown, BarChart2, Eye, TrendingUp
+  Crown, BarChart2, Eye, TrendingUp, GraduationCap
 } from 'lucide-react';
 
 export default function Sidebar({ currentRole, activeTab, setActiveTab, currentUserProfile, isLeader = false }) {
@@ -90,6 +90,10 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
       <div className={`nav-item ${activeTab === 'member-search' ? 'active' : ''}`} onClick={() => setActiveTab('member-search')}>
         <Search size={18} />
         <span>Thành viên CLB</span>
+      </div>
+      <div className={`nav-item ${activeTab === 'alumni-search' ? 'active' : ''}`} onClick={() => setActiveTab('alumni-search')}>
+        <GraduationCap size={18} />
+        <span>Cựu thành viên</span>
       </div>
       <div className={`nav-item ${activeTab === 'event-calendar' ? 'active' : ''}`} onClick={() => setActiveTab('event-calendar')}>
         <Calendar size={18} />

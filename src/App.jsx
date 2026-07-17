@@ -33,6 +33,7 @@ import MemberSearchPage from './pages/member/MemberSearchPage';
 import MemberManagementPage from './pages/manager/MemberManagementPage';
 import EventManagerPage from './pages/manager/EventManagerPage';
 import ClubAnnouncementsPage from './pages/member/ClubAnnouncementsPage';
+import AlumniSearch from './features/member/AlumniSearch';
 
 // Shared: Evidence Approval (for both Manager and Leader)
 import EvidenceApprovalPage from './pages/admin/EvidenceApprovalPage';
@@ -75,6 +76,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
     if (activeTab === 'document-archive') return 'Tài liệu CLB';
     if (activeTab === 'document-upload') return 'Tài liệu CLB (Upload)';
     if (activeTab === 'member-search') return 'Thành viên CLB';
+    if (activeTab === 'alumni-search') return 'Cựu thành viên';
     if (activeTab === 'event-calendar') return 'Sự kiện';
     if (activeTab === 'member-workspace') return 'Hoạt động của tôi';
     if (activeTab === 'club-announcements') return 'Thông báo CLB';
@@ -218,6 +220,7 @@ function MemberDashboard({ triggerNotification }) {
       {activeTab === 'club-info' && <ClubInfoPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={!isLeader} />}
       {activeTab === 'document-archive' && <DocumentArchivePage selectedClubId={selectedClubId} triggerNotification={triggerNotification} readOnly={!isLeader} />}
       {activeTab === 'member-search' && <MemberSearchPage currentUserId={currentUser.id} selectedClubId={selectedClubId} />}
+      {activeTab === 'alumni-search' && <AlumniSearch />}
       {activeTab === 'event-calendar' && <EventCalendarPage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
       {activeTab === 'member-workspace' && <MemberWorkspacePage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={selectedClubId} />}
       {activeTab === 'club-announcements' && <ClubAnnouncementsPage selectedClubId={selectedClubId} triggerNotification={triggerNotification} isLeader={isLeader} />}
