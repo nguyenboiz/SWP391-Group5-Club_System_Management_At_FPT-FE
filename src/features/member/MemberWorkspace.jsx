@@ -268,12 +268,14 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                       if (profileErrors.phone) setProfileErrors(prev => ({ ...prev, phone: null }));
                     }}
                     placeholder="0901234567"
+                    disabled
+                    style={{ opacity: 0.6 }}
                   />
                   {profileErrors.phone && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{profileErrors.phone}</span>}
                 </div>
                 <div className="form-group">
                   <label><Users size={12} style={{ verticalAlign: 'middle' }} /> Giới tính</label>
-                  <select className="select-field" value={gender} onChange={e => setGender(e.target.value)}>
+                  <select className="select-field" value={gender} onChange={e => setGender(e.target.value)} disabled style={{ opacity: 0.6 }}>
                     <option value="Male">Nam</option>
                     <option value="Female">Nữ</option>
                     <option value="Other">Khác</option>
@@ -291,6 +293,8 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                     setDateOfBirth(e.target.value);
                     if (profileErrors.dateOfBirth) setProfileErrors(prev => ({ ...prev, dateOfBirth: null }));
                   }}
+                  disabled
+                  style={{ opacity: 0.6 }}
                 />
                 {profileErrors.dateOfBirth && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{profileErrors.dateOfBirth}</span>}
               </div>

@@ -221,7 +221,7 @@ export default function ManagerDashboard({ triggerNotification }) {
               <div className="stats-info">
                 <span className="stats-label">CLB hoạt động</span>
                 <span className="stats-value">
-                  {loadingStats ? '...' : `${stats.activeClubs} / ${stats.totalClubs}`}
+                  {loadingStats ? '...' : stats.activeClubs}
                 </span>
               </div>
             </div>
@@ -282,7 +282,7 @@ export default function ManagerDashboard({ triggerNotification }) {
                   <div key={ev.id || ev.eventId} style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.05)' }}>
                     <div style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{ev.eventName || ev.name}</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      CLB #{ev.clubId} · {ev.startTime ? new Date(ev.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                      {ev.club?.clubName || ev.club?.name || `CLB #${ev.clubId}`} · {ev.startTime ? new Date(ev.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
                     </div>
                     <button
                       className="btn btn-secondary btn-sm"

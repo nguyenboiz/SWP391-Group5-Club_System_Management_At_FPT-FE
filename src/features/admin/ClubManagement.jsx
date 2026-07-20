@@ -164,11 +164,11 @@ export default function ClubManagement({ triggerNotification }) {
   const handleToggleStatus = async (club) => {
     const cId = club.id || club.clubId;
     const isCurrentlyActive = club.status === 'Active' || club.status === 'Hoạt động' || club.status === 'Đang hoạt động' || club.status === 'active';
-    const nextStatus = isCurrentlyActive ? 'Suspended' : 'Active';
+    const nextStatus = isCurrentlyActive ? 'Tạm dừng' : 'Đang hoạt động';
 
     try {
       await clubService.updateClubStatus(cId, nextStatus);
-      triggerNotification(`Cập nhật trạng thái CLB sang: ${nextStatus === 'Active' ? 'Hoạt động' : 'Tạm dừng'}`, 'success');
+      triggerNotification(`Cập nhật trạng thái CLB sang: ${nextStatus}`, 'success');
       await loadClubs();
     } catch (err) {
       console.error('[ClubManagement] Lỗi đổi trạng thái CLB:', err);
@@ -284,21 +284,23 @@ export default function ClubManagement({ triggerNotification }) {
                     const cId = club.id || club.clubId;
                     const cName = club.clubName || club.name;
                     const cCode = club.clubCode || club.code;
-                    const status = club.status || 'Active';
-                    const isActive = status === 'Active' || status === 'Hoạt động' || status === 'Đang hoạt động' || status === 'active';
+                    const status = club.status || 'Đang hoạt động';
+                    const isDissolvedClub = status === 'Đã giải thể' || status === 'Giải thể' || status === 'Dissolved' || status === 'dissolved';
+                    const isSuspendedClub = !isDissolvedClub && (status === 'Tạm dừng' || status === 'Suspended' || status === 'suspended');
+                    const isActiveClub = !isDissolvedClub && !isSuspendedClub;
                     return (
                       <tr key={cId}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {club.logoImage ? (
-                              <img src={club.logoImage} alt={cName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
+                              <img src={club.logoImage} alt={cName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', filter: isDissolvedClub ? 'grayscale(80%)' : 'none' }} onError={e => { e.target.style.display = 'none'; }} />
                             ) : (
-                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '13px', flexShrink: 0 }}>
+                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: isDissolvedClub ? 'rgba(100,100,100,0.3)' : 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '13px', flexShrink: 0 }}>
                                 {(cName || 'C').charAt(0)}
                               </div>
                             )}
                             <div>
-                              <div style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{cName}</div>
+                              <div style={{ fontWeight: 600, color: isDissolvedClub ? 'var(--text-muted)' : 'var(--text-heading)' }}>{cName}</div>
                               {club.description && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{club.description.substring(0, 60)}...</div>}
                             </div>
                           </div>
@@ -308,9 +310,15 @@ export default function ClubManagement({ triggerNotification }) {
                           {club.createdAt ? new Date(club.createdAt).toLocaleDateString('vi-VN') : '—'}
                         </td>
                         <td>
-                          <span className={`badge ${isActive ? 'badge-active' : 'badge-blocked'}`}>
-                            {isActive ? 'Đang hoạt động' : 'Tạm dừng'}
-                          </span>
+                          {isDissolvedClub ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.35)' }}>
+                              ✕ Đã giải thể
+                            </span>
+                          ) : isSuspendedClub ? (
+                            <span className="badge badge-blocked">⏸ Tạm dừng</span>
+                          ) : (
+                            <span className="badge badge-active">● Đang hoạt động</span>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
@@ -322,15 +330,17 @@ export default function ClubManagement({ triggerNotification }) {
                             >
                               <Eye size={12} /> Chi tiết
                             </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              title="Thay đổi Trạng thái"
-                              onClick={() => handleToggleStatus(club)}
-                              style={{ padding: '6px' }}
-                            >
-                              {isActive ? <Lock size={12} style={{ color: 'var(--error)' }} /> : <Unlock size={12} style={{ color: 'var(--success)' }} />}
-                            </button>
-                            {status !== 'Dissolved' && (
+                            {!isDissolvedClub && (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                title={isActiveClub ? 'Tạm dừng hoạt động' : 'Kích hoạt trở lại'}
+                                onClick={() => handleToggleStatus(club)}
+                                style={{ padding: '6px' }}
+                              >
+                                {isActiveClub ? <Lock size={12} style={{ color: 'var(--error)' }} /> : <Unlock size={12} style={{ color: 'var(--success)' }} />}
+                              </button>
+                            )}
+                            {!isDissolvedClub && (
                               <button
                                 className="btn btn-danger btn-sm"
                                 title="Giải thể CLB"

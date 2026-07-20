@@ -124,7 +124,7 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
         {/* My Activities */}
         <div className="glass-card">
           <div className="glass-card-header">
-            <h3 className="glass-card-title"><FileText size={18} /> Hoạt động của tôi</h3>
+            <h3 className="glass-card-title"><FileText size={18} /> Nộp minh chứng</h3>
           </div>
           <div className="empty-state-view" style={{ padding: '20px' }}>
             <FileText className="empty-state-icon" style={{ color: 'var(--text-muted)' }} />

@@ -1,13 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import * as authService from '../services/authService';
+import * as clubService from '../services/clubService';
 import { Landmark, LogOut, ChevronRight, Crown, Users } from 'lucide-react';
 
 export default function ClubSelectorPage() {
   const { currentUser, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Map: clubId (string) -> clubStatus (string)
+  const [clubStatusMap, setClubStatusMap] = useState({});
+  // Notification for suspended/dissolved clubs
+  const [blockedNotif, setBlockedNotif] = useState(null); // { type: 'suspended'|'dissolved', clubName: string }
+
+  // Fetch all clubs from API to get their current statuses
+  useEffect(() => {
+    const availableClubsStr = sessionStorage.getItem('fpt_available_clubs');
+    const availableClubs = availableClubsStr ? JSON.parse(availableClubsStr) : [];
+    const clubIds = availableClubs.map(c => String(c.clubId || c.id || '')).filter(Boolean);
+
+    clubService.getClubs().then((res) => {
+      const list = Array.isArray(res?.data) ? res.data
+        : Array.isArray(res?.data?.data) ? res.data.data
+        : Array.isArray(res) ? res : [];
+      const map = {};
+      list.forEach((c) => {
+        const id = String(c.clubId || c.id || '');
+        if (id) map[id] = c.status || c.clubStatus || 'Đang hoạt động';
+      });
+      console.log('[ClubSelector] clubStatusMap from getClubs():', map);
+      setClubStatusMap(map);
+
+      // Fallback: for any club ID not in the map, fetch detail individually
+      const missingIds = clubIds.filter(id => !map[id]);
+      if (missingIds.length > 0) {
+        console.log('[ClubSelector] Fetching individual status for:', missingIds);
+        Promise.all(missingIds.map(id =>
+          clubService.getClubDetail(id).then(detail => {
+            const s = detail?.data?.status || detail?.status || detail?.data?.clubStatus || 'Đang hoạt động';
+            return { id, status: s };
+          }).catch(() => ({ id, status: 'Đang hoạt động' }))
+        )).then(results => {
+          setClubStatusMap(prev => {
+            const updated = { ...prev };
+            results.forEach(({ id, status }) => { updated[id] = status; });
+            console.log('[ClubSelector] Updated clubStatusMap with details:', updated);
+            return updated;
+          });
+        });
+      }
+    }).catch((err) => {
+      console.warn('[ClubSelector] getClubs() failed:', err);
+      // Fallback: try to get status for each club individually
+      if (clubIds.length > 0) {
+        Promise.all(clubIds.map(id =>
+          clubService.getClubDetail(id).then(detail => {
+            const s = detail?.data?.status || detail?.status || detail?.data?.clubStatus || 'Đang hoạt động';
+            return { id, status: s };
+          }).catch(() => ({ id, status: 'Đang hoạt động' }))
+        )).then(results => {
+          const map = {};
+          results.forEach(({ id, status }) => { map[id] = status; });
+          console.log('[ClubSelector] clubStatusMap from individual details:', map);
+          setClubStatusMap(map);
+        });
+      }
+    });
+  }, []);
 
   console.log('[ClubSelectorPage] currentUser:', currentUser);
 
@@ -33,12 +93,14 @@ export default function ClubSelectorPage() {
       const clubId = String(club.clubId || club.id || '');
       const rawRole = (club.role || club.clubRole || '').toUpperCase();
       const isLeader = rawRole === 'MANAGER' || rawRole === 'LEADER';
+      // Priority: status from API call (clubStatusMap) > from login response > default
+      const clubStatus = clubStatusMap[clubId] || club.clubStatus || club.status || 'Đang hoạt động';
       return {
         id: `be-${clubId}-${idx}`,
         userId: currentUser.id,
         clubId,
         role: isLeader ? 'Leader' : 'Member',
-        status: 'Active',
+        clubStatus,
         joinedSemester: club.joinedSemester || '',
         // Preserve club info for display
         clubName: club.clubName || club.name || `CLB #${clubId}`,
@@ -53,7 +115,7 @@ export default function ClubSelectorPage() {
       userId: currentUser.id,
       clubId,
       role: currentUser.role === 'MANAGER' ? 'Leader' : 'Member',
-      status: 'Active',
+      clubStatus: clubStatusMap[clubId] || 'Đang hoạt động',
       joinedSemester: '',
       clubName: currentUser.clubName || `CLB #${clubId}`,
       clubLogo: currentUser.clubLogo || '',
@@ -70,7 +132,23 @@ export default function ClubSelectorPage() {
     logo: m.clubLogo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=120&q=80',
   });
 
-  const handleSelectClub = async (clubId, asRole) => {
+  // Helper: detect status
+  const isSuspended = (s) => s === 'Tạm dừng' || s === 'Suspended' || s === 'suspended';
+  const isDissolved = (s) => s === 'Đã giải thể' || s === 'Giải thể' || s === 'giải thể' || s === 'Dissolved' || s === 'dissolved';
+  const isActive = (s) => !isSuspended(s) && !isDissolved(s);
+
+  const handleSelectClub = async (clubId, asRole, membership) => {
+    // Block entry for non-active clubs
+    const status = membership?.clubStatus || 'Đang hoạt động';
+    if (isDissolved(status)) {
+      setBlockedNotif({ type: 'dissolved', clubName: membership?.clubName || 'CLB này' });
+      return;
+    }
+    if (isSuspended(status)) {
+      setBlockedNotif({ type: 'suspended', clubName: membership?.clubName || 'CLB này' });
+      return;
+    }
+
     const token = sessionStorage.getItem('fpt_token') || localStorage.getItem('fpt_token');
 
     if (!token) {
@@ -127,11 +205,154 @@ export default function ClubSelectorPage() {
 
   const totalClubs = myMemberships.length;
 
+  // Status badge component
+  const StatusBadge = ({ status }) => {
+    if (isDissolved(status)) {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
+          fontSize: '10px', fontWeight: 700, padding: '3px 8px',
+          borderRadius: '20px', letterSpacing: '0.04em',
+          background: 'rgba(239,68,68,0.15)', color: '#f87171',
+          border: '1px solid rgba(239,68,68,0.35)'
+        }}>
+          ✕ Đã giải thể
+        </span>
+      );
+    }
+    if (isSuspended(status)) {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
+          fontSize: '10px', fontWeight: 700, padding: '3px 8px',
+          borderRadius: '20px', letterSpacing: '0.04em',
+          background: 'rgba(245,158,11,0.15)', color: '#fbbf24',
+          border: '1px solid rgba(245,158,11,0.35)'
+        }}>
+          ⏸ Tạm dừng
+        </span>
+      );
+    }
+    return null;
+  };
+
+  // Card style helpers based on club status
+  const getCardStyle = (status, isLeader) => {
+    if (isDissolved(status)) {
+      return {
+        border: '1px solid rgba(239,68,68,0.25)',
+        background: 'rgba(239,68,68,0.04)',
+        opacity: 0.6,
+        cursor: 'not-allowed',
+      };
+    }
+    if (isSuspended(status)) {
+      return {
+        border: '1px solid rgba(245,158,11,0.25)',
+        background: 'rgba(245,158,11,0.04)',
+        opacity: 0.75,
+        cursor: 'not-allowed',
+      };
+    }
+    // Active
+    if (isLeader) {
+      return {
+        border: '1px solid rgba(245, 158, 11, 0.35)',
+        background: 'rgba(245, 158, 11, 0.06)',
+        cursor: 'pointer',
+      };
+    }
+    return {
+      border: '1px solid var(--border)',
+      background: '',
+      cursor: 'pointer',
+    };
+  };
+
   return (
     <div className="login-page" style={{ minHeight: '100vh' }}>
       {/* Background decorations */}
       <div className="login-bg-orb login-bg-orb-1" />
       <div className="login-bg-orb login-bg-orb-2" />
+
+      {/* Blocked Club Notification Modal */}
+      {blockedNotif && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '16px',
+          backdropFilter: 'blur(4px)',
+          animation: 'fadeIn 0.2s ease'
+        }}>
+          <div className="glass-card" style={{
+            maxWidth: '400px', width: '100%',
+            padding: '32px 28px',
+            textAlign: 'center',
+            border: blockedNotif.type === 'dissolved'
+              ? '1px solid rgba(239,68,68,0.4)'
+              : '1px solid rgba(245,158,11,0.4)',
+            animation: 'slideUp 0.25s ease'
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%',
+              margin: '0 auto 20px',
+              background: blockedNotif.type === 'dissolved'
+                ? 'rgba(239,68,68,0.15)'
+                : 'rgba(245,158,11,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '28px'
+            }}>
+              {blockedNotif.type === 'dissolved' ? '🏳️' : '⏸️'}
+            </div>
+
+            {/* Title */}
+            <h3 style={{
+              fontSize: '18px', fontWeight: 800,
+              color: blockedNotif.type === 'dissolved' ? '#f87171' : '#fbbf24',
+              marginBottom: '10px'
+            }}>
+              {blockedNotif.type === 'dissolved' ? 'CLB đã giải thể' : 'CLB đang tạm dừng'}
+            </h3>
+
+            {/* Club name */}
+            <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '8px' }}>
+              {blockedNotif.clubName}
+            </p>
+
+            {/* Message */}
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px', lineHeight: 1.6 }}>
+              {blockedNotif.type === 'dissolved'
+                ? 'Câu lạc bộ này đã chính thức giải thể. Bạn không thể truy cập hoặc thực hiện bất kỳ hoạt động nào.'
+                : 'Câu lạc bộ này đang tạm dừng hoạt động theo quyết định của quản trị viên. Vui lòng liên hệ Admin để biết thêm thông tin.'}
+            </p>
+
+            {/* OK button */}
+            <button
+              onClick={() => setBlockedNotif(null)}
+              style={{
+                padding: '10px 32px',
+                borderRadius: '10px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '14px',
+                background: blockedNotif.type === 'dissolved'
+                  ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                  : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#fff',
+                transition: 'opacity 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      )}
+
 
       <div style={{
         minHeight: '100vh',
@@ -171,10 +392,13 @@ export default function ClubSelectorPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {leaderMemberships.map(m => {
                   const club = getClubInfo(m);
+                  const status = m.clubStatus;
+                  const active = isActive(status);
+                  const cardStyle = getCardStyle(status, true);
                   return (
                     <button
                       key={m.id}
-                      onClick={() => handleSelectClub(club.id, 'MANAGER')}
+                      onClick={() => handleSelectClub(club.id, 'MANAGER', m)}
                       className="glass-card"
                       disabled={isSubmitting}
                       style={{
@@ -182,42 +406,59 @@ export default function ClubSelectorPage() {
                         alignItems: 'center',
                         gap: '16px',
                         padding: '18px 20px',
-                        cursor: isSubmitting ? 'wait' : 'pointer',
-                        border: '1px solid rgba(245, 158, 11, 0.35)',
-                        background: 'rgba(245, 158, 11, 0.06)',
                         borderRadius: '14px',
                         textAlign: 'left',
                         width: '100%',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        ...cardStyle,
                       }}
-                      onMouseEnter={e => { if (!isSubmitting) { e.currentTarget.style.transform = 'translateX(4px)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.6)'; } }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.35)'; }}
+                      onMouseEnter={e => {
+                        if (active && !isSubmitting) {
+                          e.currentTarget.style.transform = 'translateX(4px)';
+                          e.currentTarget.style.borderColor = 'rgba(245,158,11,0.6)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateX(0)';
+                        e.currentTarget.style.borderColor = cardStyle.border?.replace('1px solid ', '') || '';
+                      }}
                     >
                       {club.logo ? (
                         <img
                           src={club.logo}
                           alt={club.name}
-                          style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '2px solid rgba(245,158,11,0.4)', flexShrink: 0 }}
+                          style={{
+                            width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover',
+                            border: '2px solid rgba(245,158,11,0.4)', flexShrink: 0,
+                            filter: !active ? 'grayscale(60%)' : 'none'
+                          }}
                           onError={e => { e.target.style.display = 'none'; }}
                         />
                       ) : (
-                        <div style={{ width: '56px', height: '56px', borderRadius: '12px', background: 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{
+                          width: '56px', height: '56px', borderRadius: '12px',
+                          background: active
+                            ? 'linear-gradient(135deg,var(--primary),var(--secondary))'
+                            : 'rgba(100,100,100,0.3)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
                           <Landmark size={24} style={{ color: '#fff' }} />
                         </div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-heading)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 700, fontSize: '16px', color: active ? 'var(--text-heading)' : 'var(--text-muted)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {club.name}
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                           <span className="badge badge-manager" style={{ fontSize: '10px' }}>Trưởng CLB</span>
+                          <StatusBadge status={status} />
                         </div>
                       </div>
                       {isSubmitting ? (
                         <span className="login-spinner" style={{ width: '18px', height: '18px', flexShrink: 0 }} />
-                      ) : (
+                      ) : active ? (
                         <ChevronRight size={20} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}
@@ -237,10 +478,13 @@ export default function ClubSelectorPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {memberMemberships.map(m => {
                   const club = getClubInfo(m);
+                  const status = m.clubStatus;
+                  const active = isActive(status);
+                  const cardStyle = getCardStyle(status, false);
                   return (
                     <button
                       key={m.id}
-                      onClick={() => handleSelectClub(club.id, 'MEMBER')}
+                      onClick={() => handleSelectClub(club.id, 'MEMBER', m)}
                       className="glass-card"
                       disabled={isSubmitting}
                       style={{
@@ -248,42 +492,60 @@ export default function ClubSelectorPage() {
                         alignItems: 'center',
                         gap: '16px',
                         padding: '18px 20px',
-                        cursor: isSubmitting ? 'wait' : 'pointer',
-                        border: '1px solid var(--border)',
                         borderRadius: '14px',
                         textAlign: 'left',
                         width: '100%',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        ...cardStyle,
                       }}
-                      onMouseEnter={e => { if (!isSubmitting) { e.currentTarget.style.transform = 'translateX(4px)'; e.currentTarget.style.borderColor = 'var(--primary)'; } }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                      onMouseEnter={e => {
+                        if (active && !isSubmitting) {
+                          e.currentTarget.style.transform = 'translateX(4px)';
+                          e.currentTarget.style.borderColor = 'var(--primary)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateX(0)';
+                        e.currentTarget.style.borderColor = 'var(--border)';
+                      }}
                     >
                       {club.logo ? (
                         <img
                           src={club.logo}
                           alt={club.name}
-                          style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }}
+                          style={{
+                            width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover',
+                            border: '1px solid var(--border)', flexShrink: 0,
+                            filter: !active ? 'grayscale(60%)' : 'none'
+                          }}
                           onError={e => { e.target.style.display = 'none'; }}
                         />
                       ) : (
-                        <div style={{ width: '56px', height: '56px', borderRadius: '12px', background: 'linear-gradient(135deg,var(--primary),var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{
+                          width: '56px', height: '56px', borderRadius: '12px',
+                          background: active
+                            ? 'linear-gradient(135deg,var(--primary),var(--secondary))'
+                            : 'rgba(100,100,100,0.3)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
                           <Landmark size={24} style={{ color: '#fff' }} />
                         </div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-heading)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 700, fontSize: '16px', color: active ? 'var(--text-heading)' : 'var(--text-muted)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {club.name}
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                           <span className="badge badge-member" style={{ fontSize: '10px' }}>{m.role}</span>
                           {m.joinedSemester && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>· Tham gia: {m.joinedSemester}</span>}
+                          <StatusBadge status={status} />
                         </div>
                       </div>
                       {isSubmitting ? (
                         <span className="login-spinner" style={{ width: '18px', height: '18px', flexShrink: 0 }} />
-                      ) : (
+                      ) : active ? (
                         <ChevronRight size={20} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}

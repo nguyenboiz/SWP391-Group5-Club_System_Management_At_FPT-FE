@@ -120,8 +120,8 @@ export default function ReportAppraisal({ triggerNotification }) {
       await notificationService.createNotification({
         title: newAnn.title.trim(),
         content: newAnn.content.trim(),
-        targetType: 'All',
-        notificationType: 'System'
+        targetType: 'Toàn hệ thống',
+        notificationType: 'Hệ thống'
       });
       triggerNotification('✅ Đã phát hành thông báo toàn hệ thống thành công!', 'success');
       setNewAnn({ title: '', content: '' });

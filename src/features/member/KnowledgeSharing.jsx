@@ -24,7 +24,10 @@ export default function KnowledgeSharing({ selectedClubId, triggerNotification }
       const data = await getDocumentsByClub(selectedClubId);
       const list = Array.isArray(data) ? data : (data?.data ?? []);
       // Filter only Public documents
-      setDocuments(list.filter(d => (d.accessLevel || d.visibility) === 'Public'));
+      setDocuments(list.filter(d => {
+        const s = d.accessLevel || d.visibility;
+        return s === 'Public' || s === 'Công khai' || s === 'public' || s === 'công khai';
+      }));
     } catch (err) {
       console.error('[KnowledgeSharing] Lỗi tải tài liệu:', err);
       setDocuments([]);

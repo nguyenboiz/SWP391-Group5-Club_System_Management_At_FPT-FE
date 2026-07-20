@@ -20,6 +20,15 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
   const [importance, setImportance] = useState('Normal');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const parseDateSafely = useCallback((dateStr) => {
+    if (!dateStr) return new Date(0);
+    let str = String(dateStr);
+    if (str.includes('T') && !str.includes('Z') && !/\+\d{2}(:\d{2})?$/.test(str) && !/-\d{2}(:\d{2})?$/.test(str)) {
+      str += 'Z';
+    }
+    return new Date(str);
+  }, []);
+
   const loadAnnouncements = useCallback(async () => {
     setLoading(true);
     try {
@@ -29,7 +38,7 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
       const filtered = list.filter(n =>
         !n.clubId || String(n.clubId) === String(selectedClubId)
       );
-      filtered.sort((a, b) => new Date(b.createdAt || b.sentAt || 0) - new Date(a.createdAt || a.sentAt || 0));
+      filtered.sort((a, b) => parseDateSafely(b.createdAt || b.sentAt) - parseDateSafely(a.createdAt || a.sentAt));
       setAnnouncements(filtered);
     } catch (err) {
       console.error('[ClubAnnouncements] Lỗi tải thông báo:', err);
@@ -37,7 +46,7 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
     } finally {
       setLoading(false);
     }
-  }, [selectedClubId]);
+  }, [selectedClubId, parseDateSafely]);
 
   useEffect(() => {
     loadAnnouncements();
@@ -55,11 +64,11 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
       await createNotification({
         title: title.trim(),
         content: content.trim(),
-        notificationType: 'System',
+        notificationType: 'Thông báo chung',
         targetType: 'Theo CLB',
         targetRole: null,
         clubId: selectedClubId ? Number(selectedClubId) : null,
-        targetUserIds: [],
+        targetUserIds: null,
         eventId: null,
         clubReportId: null,
         reportPeriodId: null,
@@ -235,7 +244,7 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
                         </span>
                         {ts && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <Clock size={12} /> {new Date(ts).toLocaleString('vi-VN')}
+                            <Clock size={12} /> {parseDateSafely(ts).toLocaleString('vi-VN')}
                           </span>
                         )}
                       </div>

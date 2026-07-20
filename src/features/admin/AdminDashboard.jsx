@@ -192,7 +192,9 @@ export default function AdminDashboard({ triggerNotification }) {
                   return (
                     <tr key={eId}>
                       <td><strong>{eName}</strong></td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>CLB #{ev.clubId}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                        {ev.club?.clubName || ev.club?.name || `CLB #${ev.clubId}`}
+                      </td>
                       <td style={{ fontSize: '12px' }}>
                         {eTime ? new Date(eTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                       </td>

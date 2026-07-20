@@ -106,7 +106,7 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
       formData.append('ClubId', backendClubId);
       formData.append('DocumentTypeId', docTypeId);
       if (uploadEventId) formData.append('EventId', uploadEventId);
-      formData.append('AccessLevel', accessLevel);
+      formData.append('AccessLevel', accessLevel === 'Public' ? 'Công khai' : 'Nội bộ');
       Array.from(files).forEach(file => {
         formData.append('Files', file);
       });
@@ -136,6 +136,12 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
 
   const handleDownload = async (doc) => {
     const docId = doc.id || doc.documentId;
+    const fileUrl = doc.fileUrl || doc.url;
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+      triggerNotification('Đang mở/tải tệp tin...', 'success');
+      return;
+    }
     try {
       const response = await downloadDocument(docId);
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -179,7 +185,7 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
         documentName: editingDoc.documentName,
         documentTypeId: Number(editingDoc.documentTypeId),
         eventId: editingDoc.eventId ? Number(editingDoc.eventId) : null,
-        accessLevel: editingDoc.accessLevel
+        accessLevel: editingDoc.accessLevel === 'Public' ? 'Công khai' : 'Nội bộ'
       });
       triggerNotification(`Đã cập nhật tài liệu thành công!`, 'success');
       setShowEditModal(false);
@@ -323,6 +329,7 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                       const dId = d.id || d.documentId;
                       const dName = d.name || d.documentName;
                       const dAccess = d.accessLevel || d.visibility;
+                      const isPub = dAccess === 'Public' || dAccess === 'Công khai' || dAccess === 'public' || dAccess === 'công khai';
                       const dDate = d.uploadedAt || d.createdAt || '';
                       const dType = getDocTypeLabel(d);
                       return (
@@ -335,8 +342,8 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                           </td>
                           <td>{dDate ? new Date(dDate).toLocaleDateString('vi-VN') : '—'}</td>
                           <td>
-                            <span className={`badge ${dAccess === 'Public' ? 'badge-public' : 'badge-internal'}`}>
-                              {dAccess === 'Public' ? (
+                            <span className={`badge ${isPub ? 'badge-public' : 'badge-internal'}`}>
+                              {isPub ? (
                                 <><Globe size={10} style={{ marginRight: '4px' }} /> Công khai</>
                               ) : (
                                 <><Lock size={10} style={{ marginRight: '4px' }} /> Nội bộ</>
@@ -372,7 +379,7 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                                         documentName: dName,
                                         documentTypeId: d.documentTypeId || d.typeId || 1,
                                         eventId: d.eventId || '',
-                                        accessLevel: dAccess
+                                        accessLevel: isPub ? 'Public' : 'Internal'
                                       });
                                       setShowEditModal(true);
                                     }}
@@ -600,10 +607,12 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
                   ['Tên tài liệu', docDetail.name || docDetail.documentName || 'N/A'],
                   ['Mã tài liệu', docDetail.id || docDetail.documentId || 'N/A'],
                   ['Phân loại thư mục', getDocTypeLabel(docDetail)],
-                  ['Cấp độ truy cập', <span className={`badge ${docDetail.accessLevel === 'Public' ? 'badge-active' : 'badge-blocked'}`}>{docDetail.accessLevel === 'Public' ? 'Công khai' : 'Nội bộ'}</span>],
+                  ['Cấp độ truy cập', (() => {
+                    const isPub = docDetail.accessLevel === 'Public' || docDetail.accessLevel === 'Công khai' || docDetail.visibility === 'Public' || docDetail.visibility === 'Công khai';
+                    return <span className={`badge ${isPub ? 'badge-active' : 'badge-blocked'}`}>{isPub ? 'Công khai' : 'Nội bộ'}</span>;
+                  })()],
                   ['Ngày tải lên', docDetail.uploadedAt || docDetail.createdAt ? new Date(docDetail.uploadedAt || docDetail.createdAt).toLocaleString('vi-VN') : 'N/A'],
-                  ['Đính kèm sự kiện ID', docDetail.eventId || 'Không có'],
-                  ['Đường dẫn file (URL)', docDetail.fileUrl ? <a href={docDetail.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Xem tệp</a> : 'N/A']
+                  ['Đính kèm sự kiện ID', docDetail.eventId || 'Không có']
                 ].map(([label, value]) => (
                   <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
                     <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>

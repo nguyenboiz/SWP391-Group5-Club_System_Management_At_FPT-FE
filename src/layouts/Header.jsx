@@ -22,6 +22,15 @@ export default function Header({
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const notifRef = useRef(null);
 
+  const parseDateSafely = (dateStr) => {
+    if (!dateStr) return new Date(0);
+    let str = String(dateStr);
+    if (str.includes('T') && !str.includes('Z') && !/\+\d{2}(:\d{2})?$/.test(str) && !/-\d{2}(:\d{2})?$/.test(str)) {
+      str += 'Z';
+    }
+    return new Date(str);
+  };
+
   const unreadCount = notifications.filter(n => !n.isRead && !n.readAt).length;
 
   // Load notifications from API
@@ -30,6 +39,7 @@ export default function Header({
     try {
       const res = await getMyNotifications();
       const list = Array.isArray(res) ? res : (res?.data ?? []);
+      list.sort((a, b) => parseDateSafely(b.createdAt || b.sentAt) - parseDateSafely(a.createdAt || a.sentAt));
       setNotifications(list);
     } catch (err) {
       console.error('[Header] Lỗi tải thông báo:', err);
@@ -210,15 +220,27 @@ export default function Header({
                         }}
                       >
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: isRead ? 400 : 700, fontSize: '13px', color: 'var(--text-heading)', marginBottom: '3px' }}>
-                            {n.title}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: isRead ? 400 : 700, fontSize: '13px', color: 'var(--text-heading)' }}>
+                              {n.title}
+                            </div>
+                            {(n.notificationType || n.type) && (
+                              <span className={`badge ${
+                                (n.notificationType || n.type) === 'Hệ thống' || (n.notificationType || n.type) === 'System' ? 'badge-admin' : 
+                                (n.notificationType || n.type) === 'Sự kiện' || (n.notificationType || n.type) === 'Event' ? 'badge-active' : 
+                                (n.notificationType || n.type) === 'Báo cáo' || (n.notificationType || n.type) === 'Report' ? 'badge-blocked' : 
+                                'badge-member'
+                              }`} style={{ fontSize: '8px', padding: '1px 4px', scale: '0.9', transformOrigin: 'left', fontWeight: 600 }}>
+                                {n.notificationType || n.type}
+                              </span>
+                            )}
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'pre-line', wordBreak: 'break-word' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'pre-line', wordBreak: 'break-word', marginBottom: '4px' }}>
                             {n.content}
                           </div>
                           {sentAt && (
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', opacity: 0.7 }}>
-                              {new Date(sentAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.7 }}>
+                              {parseDateSafely(sentAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
                             </div>
                           )}
                         </div>

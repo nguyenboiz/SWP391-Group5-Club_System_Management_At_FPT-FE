@@ -79,7 +79,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
     if (activeTab === 'member-search') return 'Thành viên CLB';
     if (activeTab === 'alumni-search') return 'Cựu thành viên';
     if (activeTab === 'event-calendar') return 'Sự kiện';
-    if (activeTab === 'member-workspace') return 'Hoạt động của tôi';
+    if (activeTab === 'member-workspace') return 'Nộp minh chứng';
     if (activeTab === 'my-profile') return 'Hồ sơ cá nhân';
     if (activeTab === 'club-announcements') return 'Thông báo CLB';
     if (activeTab === 'member-management') return 'Quản lý Thành viên';

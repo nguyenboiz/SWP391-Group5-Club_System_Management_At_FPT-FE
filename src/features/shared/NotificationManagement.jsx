@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, Send, RefreshCw, Search, Clock, CheckCircle, Users, Megaphone, AlertCircle, Trash2 } from 'lucide-react';
 import { createNotification, getNotifications } from '../../services/notificationService';
+import { getClubs } from '../../services/clubService';
+import { getUsers } from '../../services/userService';
 import { validateNoSpecialChars } from '../../utils/validator';
 
 export default function NotificationManagement({ triggerNotification }) {
@@ -8,23 +10,39 @@ export default function NotificationManagement({ triggerNotification }) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Auxiliary data
+  const [clubs, setClubs] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+
   // Form state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [notificationType, setNotificationType] = useState('General');
-  const [targetType, setTargetType] = useState('All');
+  const [notificationType, setNotificationType] = useState('Thông báo chung');
+  const [targetType, setTargetType] = useState('Toàn hệ thống');
   const [targetRole, setTargetRole] = useState('');
+  const [selectedClubId, setSelectedClubId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Validation errors
   const [errors, setErrors] = useState({});
+
+  const parseDateSafely = useCallback((dateStr) => {
+    if (!dateStr) return new Date(0);
+    let str = String(dateStr);
+    if (str.includes('T') && !str.includes('Z') && !/\+\d{2}(:\d{2})?$/.test(str) && !/-\d{2}(:\d{2})?$/.test(str)) {
+      str += 'Z';
+    }
+    return new Date(str);
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getNotifications();
       const list = Array.isArray(res) ? res : (res?.data ?? []);
-      list.sort((a, b) => new Date(b.createdAt || b.sentAt || 0) - new Date(a.createdAt || a.sentAt || 0));
+      list.sort((a, b) => parseDateSafely(b.createdAt || b.sentAt) - parseDateSafely(a.createdAt || a.sentAt));
       setNotifications(list);
     } catch (err) {
       console.error('[NotificationManagement] Lỗi tải thông báo:', err);
@@ -33,11 +51,29 @@ export default function NotificationManagement({ triggerNotification }) {
     } finally {
       setLoading(false);
     }
-  }, [triggerNotification]);
+  }, [triggerNotification, parseDateSafely]);
+
+  // Load auxiliary lists (clubs and users)
+  const loadAuxData = useCallback(async () => {
+    setLoadingData(true);
+    try {
+      const [clubsRes, usersRes] = await Promise.all([
+        getClubs().catch(() => ({ data: [] })),
+        getUsers().catch(() => ({ data: [] }))
+      ]);
+      setClubs(Array.isArray(clubsRes) ? clubsRes : (clubsRes?.data ?? []));
+      setUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.data ?? []));
+    } catch (err) {
+      console.error('[NotificationManagement] Lỗi tải danh sách CLB/User:', err);
+    } finally {
+      setLoadingData(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadNotifications();
-  }, [loadNotifications]);
+    loadAuxData();
+  }, [loadNotifications, loadAuxData]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -55,6 +91,17 @@ export default function NotificationManagement({ triggerNotification }) {
       newErrors.content = 'Nội dung không được chứa ký tự lạ!';
     }
 
+    // Role, Club, User validations based on Backend requirements
+    if (targetType === 'Theo role' && !targetRole) {
+      newErrors.targetRole = 'Vui lòng chọn vai trò cụ thể!';
+    }
+    if (targetType === 'Theo CLB' && !selectedClubId) {
+      newErrors.selectedClubId = 'Vui lòng chọn câu lạc bộ!';
+    }
+    if (targetType === 'Cá nhân' && !selectedUserId) {
+      newErrors.selectedUserId = 'Vui lòng chọn người nhận cụ thể!';
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       triggerNotification('❌ Vui lòng sửa các lỗi nhập liệu bên dưới!', 'warning');
@@ -64,48 +111,45 @@ export default function NotificationManagement({ triggerNotification }) {
     setErrors({});
     setIsSubmitting(true);
     try {
-      // Map frontend selection to valid Backend Swagger enums
-      let mappedType = 'System';
-      if (notificationType === 'Event') mappedType = 'Event';
-      else if (notificationType === 'General') mappedType = 'System';
-      
-      let mappedTarget = 'All';
-      let mappedRole = targetRole || null;
-      
-      if (targetType === 'Role') {
-        if (targetRole === 'MANAGER') {
-          mappedTarget = 'AllManagers';
-          mappedRole = null;
-        } else if (targetRole === 'MEMBER') {
-          mappedTarget = 'ClubMembers';
-          mappedRole = null;
-        } else if (targetRole === 'ADMIN') {
-          mappedTarget = 'SpecificUsers';
-          mappedRole = 'ADMIN';
-        }
-      } else if (targetType === 'Club') {
-        mappedTarget = 'ClubMembers';
+      let mappedRole = null;
+      if (targetType === 'Theo role') {
+        mappedRole = targetRole || null;
       }
+
+      let mappedType = notificationType;
+      if (notificationType === 'General') mappedType = 'Thông báo chung';
+      if (notificationType === 'System') mappedType = 'Hệ thống';
+      if (notificationType === 'Event') mappedType = 'Sự kiện';
+      if (notificationType === 'Report') mappedType = 'Báo cáo';
 
       const dto = {
         title: title.trim(),
         content: content.trim(),
         notificationType: mappedType,
-        targetType: mappedTarget,
-        targetRole: mappedRole
+        targetType: targetType,
+        targetRole: mappedRole,
+        clubId: targetType === 'Theo CLB' ? Number(selectedClubId) : null,
+        targetUserIds: targetType === 'Cá nhân' ? [Number(selectedUserId)] : null
       };
 
+      console.log('[NotificationManagement] Gửi DTO:', dto);
       await createNotification(dto);
-      triggerNotification('Đã gửi thông báo thành công!', 'success');
+      triggerNotification('✅ Đã gửi thông báo thành công!', 'success');
       setTitle('');
       setContent('');
-      setNotificationType('General');
-      setTargetType('All');
+      setNotificationType('Thông báo chung');
+      setTargetType('Toàn hệ thống');
       setTargetRole('');
+      setSelectedClubId('');
+      setSelectedUserId('');
       await loadNotifications();
     } catch (err) {
-      console.error('[NotificationManagement] Lỗi gửi thông báo:', err);
-      triggerNotification(err?.response?.data?.message || 'Gửi thông báo thất bại!', 'error');
+      console.error('[NotificationManagement] Lỗi gửi thông báo:', err?.response || err);
+      const beMsg = err?.response?.data?.message 
+        || err?.response?.data?.title 
+        || (typeof err?.response?.data === 'string' ? err.response.data : null)
+        || `Lỗi ${err?.response?.status || ''}: Gửi thông báo thất bại!`;
+      triggerNotification(beMsg, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -162,31 +206,73 @@ export default function NotificationManagement({ triggerNotification }) {
               <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                 <label>Loại thông báo</label>
                 <select className="select-field" value={notificationType} onChange={e => setNotificationType(e.target.value)}>
-                  <option value="General">Chung (General)</option>
-                  <option value="Event">Sự kiện (Event)</option>
-                  <option value="Report">Báo cáo (Report)</option>
-                  <option value="System">Hệ thống (System)</option>
+                  <option value="Thông báo chung">Thông báo chung</option>
+                  <option value="Hệ thống">Hệ thống</option>
+                  <option value="Sự kiện">Sự kiện</option>
+                  <option value="Báo cáo">Báo cáo</option>
                 </select>
               </div>
               <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                 <label>Đối tượng nhận</label>
-                <select className="select-field" value={targetType} onChange={e => setTargetType(e.target.value)}>
-                  <option value="All">Tất cả</option>
-                  <option value="Role">Theo vai trò</option>
-                  <option value="Club">Theo CLB</option>
+                <select className="select-field" value={targetType} onChange={e => { setTargetType(e.target.value); setTargetRole(''); }}>
+                  <option value="Toàn hệ thống">Toàn hệ thống</option>
+                  <option value="Theo role">Theo vai trò</option>
+                  <option value="Theo CLB">Theo CLB</option>
+                  <option value="Cá nhân">Cá nhân</option>
                 </select>
               </div>
             </div>
 
-            {targetType === 'Role' && (
+             {targetType === 'Theo role' && (
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Vai trò cụ thể</label>
-                <select className="select-field" value={targetRole} onChange={e => setTargetRole(e.target.value)}>
+                <label>Vai trò cụ thể *</label>
+                <select className="select-field" value={targetRole} onChange={e => {
+                  setTargetRole(e.target.value);
+                  if (errors.targetRole) setErrors(prev => ({ ...prev, targetRole: null }));
+                }}>
                   <option value="">-- Chọn vai trò --</option>
-                  <option value="ADMIN">Admin</option>
-                  <option value="MANAGER">Manager</option>
-                  <option value="MEMBER">Member</option>
+                  <option value="ADMIN">Quản trị viên (ADMIN)</option>
+                  <option value="MANAGER">Quản lý hệ thống (MANAGER)</option>
+                  <option value="LEADER">Trưởng Câu lạc bộ (LEADER)</option>
+                  <option value="MEMBER">Thành viên (MEMBER)</option>
                 </select>
+                {errors.targetRole && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.targetRole}</span>}
+              </div>
+            )}
+
+            {targetType === 'Theo CLB' && (
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Chọn Câu lạc bộ nhận thông báo *</label>
+                <select className="select-field" value={selectedClubId} onChange={e => {
+                  setSelectedClubId(e.target.value);
+                  if (errors.selectedClubId) setErrors(prev => ({ ...prev, selectedClubId: null }));
+                }}>
+                  <option value="">-- Chọn câu lạc bộ --</option>
+                  {clubs.map(c => (
+                    <option key={c.id || c.clubId} value={c.id || c.clubId}>
+                      {c.name || c.clubName} ({c.code || c.clubCode})
+                    </option>
+                  ))}
+                </select>
+                {errors.selectedClubId && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.selectedClubId}</span>}
+              </div>
+            )}
+
+            {targetType === 'Cá nhân' && (
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Chọn Người nhận cụ thể *</label>
+                <select className="select-field" value={selectedUserId} onChange={e => {
+                  setSelectedUserId(e.target.value);
+                  if (errors.selectedUserId) setErrors(prev => ({ ...prev, selectedUserId: null }));
+                }}>
+                  <option value="">-- Chọn người dùng --</option>
+                  {users.map(u => (
+                    <option key={u.id || u.userId} value={u.id || u.userId}>
+                      {u.fullName || u.username} - {u.email || u.studentId}
+                    </option>
+                  ))}
+                </select>
+                {errors.selectedUserId && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.selectedUserId}</span>}
               </div>
             )}
 
@@ -259,7 +345,12 @@ export default function NotificationManagement({ triggerNotification }) {
                         <strong style={{ fontSize: '13px', color: 'var(--text-heading)' }}>
                           {n.title}
                         </strong>
-                        <span className={`badge ${nType === 'System' ? 'badge-admin' : nType === 'Event' ? 'badge-active' : 'badge-member'}`}
+                        <span className={`badge ${
+                           nType === 'Hệ thống' || nType === 'System' ? 'badge-admin' : 
+                           nType === 'Sự kiện' || nType === 'Event' ? 'badge-active' : 
+                           nType === 'Báo cáo' || nType === 'Report' ? 'badge-blocked' : 
+                           'badge-member'
+                         }`}
                           style={{ fontSize: '10px', flexShrink: 0, marginLeft: '8px' }}>
                           {nType}
                         </span>
@@ -271,7 +362,7 @@ export default function NotificationManagement({ triggerNotification }) {
                         <span>
                           {n.targetType === 'Role' ? `→ ${n.targetRole}` : n.targetType === 'Club' ? `→ CLB #${n.clubId}` : '→ Tất cả'}
                         </span>
-                        <span>{sentAt ? new Date(sentAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
+                        <span>{sentAt ? parseDateSafely(sentAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
                       </div>
                     </div>
                   );

@@ -97,7 +97,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
       </div>
       <div className={`nav-item ${activeTab === 'member-workspace' ? 'active' : ''}`} onClick={() => setActiveTab('member-workspace')}>
         <User size={18} />
-        <span>Hoạt động của tôi</span>
+        <span>Nộp minh chứng</span>
       </div>
       <div className={`nav-item ${activeTab === 'club-announcements' ? 'active' : ''}`} onClick={() => setActiveTab('club-announcements')}>
         <Bell size={18} />
