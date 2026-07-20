@@ -56,3 +56,24 @@ export async function createClubReport(dto) {
   const response = await apiClient.post('/api/club-reports', dto);
   return response.data;
 }
+
+/**
+ * Lấy danh sách báo cáo hoạt động của CLB hiện tại (dành cho Member/Leader)
+ * GET /api/club-reports/my-club
+ * @param {Object} params - { reportPeriodId }
+ */
+export async function getMyClubReports(params = {}) {
+  const response = await apiClient.get('/api/club-reports/my-club', { params });
+  return response.data;
+}
+
+/**
+ * Cập nhật báo cáo hoạt động CLB
+ * PUT /api/club-reports/{clubReportId}
+ * @param {number|string} clubReportId
+ * @param {Object} dto - { reportTitle, summaryContent, totalEventsHeld, financialBalance }
+ */
+export async function updateClubReport(clubReportId, dto) {
+  const response = await apiClient.put(`/api/club-reports/${clubReportId}`, dto);
+  return response.data;
+}

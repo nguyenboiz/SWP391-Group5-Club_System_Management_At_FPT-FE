@@ -131,8 +131,8 @@ export default function ReviewClubReports({ triggerNotification }) {
           <div>
             <select className="select-field" value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ width: '180px' }}>
               <option value="ALL">Tất cả trạng thái</option>
-              <option value="Submitted">Chờ chấm điểm</option>
-              <option value="Appraised">Đã chấm điểm</option>
+              <option value="Submitted">Chờ duyệt</option>
+              <option value="Appraised">Đã xem xét</option>
             </select>
           </div>
         </div>
@@ -209,6 +209,7 @@ export default function ReviewClubReports({ triggerNotification }) {
                   {[
                     ['Học kỳ', rep.reportPeriodName || 'SU26'],
                     ['Số sự kiện tổ chức', rep.totalEventsHeld || 0],
+                    ['Số dư tài chính (VND)', rep.financialBalance !== undefined ? rep.financialBalance.toLocaleString('vi-VN') : '0'],
                     ['Tiêu đề báo cáo', rep.reportTitle],
                     ['Trạng thái', <span className={`badge ${cfg.className}`}>{cfg.label}</span>],
                     ['Nộp lúc', rep.submittedAt ? new Date(rep.submittedAt).toLocaleString('vi-VN') : '—']

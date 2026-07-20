@@ -1,0 +1,572 @@
+Created At: 2026-07-20T19:12:09Z
+Completed At: 2026-07-20T19:12:09Z
+File Path: `file:///g:/swp391/SWP391-Group5-Club_System_Management_At_FPT-FE/src/features/admin/ReportAppraisal.jsx`
+Total Lines: 564
+Total Bytes: 31017
+Showing lines 1 to 564
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import React, { useState, useEffect } from 'react';
+2: import { Award, FileText, CheckCircle, Clock, AlertTriangle, Send, Bell, Plus, XCircle, Star, RefreshCw, Calendar } from 'lucide-react';
+3: import * as clubReportService from '../../services/clubReportService';
+4: import * as notificationService from '../../services/notificationService';
+5: import * as reportPeriodService from '../../services/reportPeriodService';
+6: import * as semesterService from '../../services/semesterService';
+7: 
+8: export default function ReportAppraisal({ triggerNotification }) {
+9:   const [activeTab, setActiveTab] = useState('appraisal'); // appraisal, periods, announcements
+10:   const [reports, setReports] = useState([]);
+11:   const [loadingReports, setLoadingReports] = useState(false);
+12:   const [scoreMap, setScoreMap] = useState({});
+13:   const [rejectionNotes, setRejectionNotes] = useState({});
+14:   const [expandedId, setExpandedId] = useState(null);
+15: 
+16:   // Report detailed data cache
+17:   const [reportDetails, setReportDetails] = useState({});
+18:   const [loadingDetails, setLoadingDetails] = useState({});
+19: 
+20:   // Announcements
+21:   const [announcements, setAnnouncements] = useState([]);
+22:   const [newAnn, setNewAnn] = useState({ title: '', content: '' });
+23: 
+24:   // Report Periods and Semesters
+25:   const [periods, setPeriods] = useState([]);
+26:   const [loadingPeriods, setLoadingPeriods] = useState(false);
+27:   const [semesters, setSemesters] = useState([]);
+28:   const [loadingSemesters, setLoadingSemesters] = useState(false);
+29:   
+30:   const [newPeriod, setNewPeriod] = useState({
+31:     semesterId: '',
+32:     periodName: '',
+33:     description: '',
+34:     deadline: ''
+35:   });
+36:   const [submittingPeriod, setSubmittingPeriod] = useState(false);
+37: 
+38:   const loadReports = async () => {
+39:     setLoadingReports(true);
+40:     try {
+41:       const res = await clubReportService.getClubReports();
+42:       const list = Array.isArray(res) ? res : (res?.data ?? []);
+43:       setReports(list);
+44:     } catch (err) {
+45:       console.error('[ReportAppraisal] Lỗi tải báo cáo từ Backend:', err);
+46:       triggerNotification('Không tải được danh sách báo cáo hoạt động từ máy chủ!', 'error');
+47:     } finally {
+48:       setLoadingReports(false);
+49:     }
+50:   };
+51: 
+52:   const loadAnnouncements = async () => {
+53:     try {
+54:       const res = await notificationService.getNotifications();
+55:       const list = Array.isArray(res) ? res : (res?.data ?? []);
+56:       setAnnouncements(list);
+57:     } catch (err) {
+58:       console.error('[ReportAppraisal] Lỗi tải danh sách thông báo:', err);
+59:     }
+60:   };
+61: 
+62:   const loadPeriods = async () => {
+63:     setLoadingPeriods(true);
+64:     try {
+65:       const res = await reportPeriodService.getReportPeriods();
+66:       const list = Array.isArray(res) ? res : (res?.data ?? []);
+67:       setPeriods(list);
+68:     } catch (err) {
+69:       console.error('[ReportAppraisal] Lỗi tải đợt báo cáo:', err);
+70:     } finally {
+71:       setLoadingPeriods(false);
+72:     }
+73:   };
+74: 
+75:   const loadSemesters = async () => {
+76:     setLoadingSemesters(true);
+77:     try {
+78:       const res = await semesterService.getSemesters();
+79:       const list = Array.isArray(res) ? res : (res?.data ?? []);
+80:       setSemesters(list);
+81:     } catch (err) {
+82:       console.error('[ReportAppraisal] Lỗi tải học kỳ:', err);
+83:     } finally {
+84:       setLoadingSemesters(false);
+85:     }
+86:   };
+87: 
+88:   useEffect(() => {
+89:     loadReports();
+90:     loadAnnouncements();
+91:     loadPeriods();
+92:     loadSemesters();
+93:   }, []);
+94: 
+95:   const handleExpand = async (reportId) => {
+96:     if (expandedId === reportId) {
+97:       setExpandedId(null);
+98:       return;
+99:     }
+100:     setExpandedId(reportId);
+101: 
+102:     // If detail is not cached yet, fetch from API
+103:     if (!reportDetails[reportId]) {
+104:       setLoadingDetails(prev => ({ ...prev, [reportId]: true }));
+105:       try {
+106:         const data = await clubReportService.getClubReportDetail(reportId);
+107:         setReportDetails(prev => ({ ...prev, [reportId]: data?.data ?? data }));
+108:       } catch (err) {
+109:         console.error('[ReportAppraisal] Lỗi tải chi tiết báo cáo:', err);
+110:       } finally {
+111:         setLoadingDetails(prev => ({ ...prev, [reportId]: false }));
+112:       }
+113:     }
+114:   };
+115: 
+116:   const handleAppraise = async (report, statusToSubmit) => {
+117:     const reportId = report.clubReportId || report.id;
+118:     const rawScore = scoreMap[reportId];
+119:     const score = parseInt(rawScore, 10);
+120:     const rejectionNote = rejectionNotes[reportId] || '';
+121: 
+122:     if (statusToSubmit === 'Đã duyệt') {
+123:       if (rawScore === undefined || rawScore === '') {
+124:         triggerNotification('❌ Vui lòng nhập điểm đánh giá (0–100) trước khi duyệt!', 'warning');
+125:         return;
+126:       }
+127:       if (isNaN(score) || score < 0 || score > 100) {
+128:         triggerNotification('❌ Điểm đánh giá phải là số nguyên từ 0 đến 100!', 'warning');
+129:         return;
+130:       }
+131:     } else if (statusToSubmit === 'Từ chối') {
+132:       if (!rejectionNote.trim()) {
+133:         triggerNotification('❌ Vui lòng nhập lý do từ chối!', 'warning');
+134:         return;
+135:       }
+136:     }
+137: 
+138:     try {
+139:       await clubReportService.reviewClubReport(reportId, {
+140:         status: statusToSubmit,
+141:         icpdpFeedback: statusToSubmit === 'Đã duyệt' 
+142:           ? `Điểm: ${score}. Đã duyệt từ Admin.` 
+143:           : rejectionNote.trim()
+144:       });
+145:       triggerNotification(
+146:         statusToSubmit === 'Đã duyệt'
+147:           ? `✅ Đã duyệt và đánh giá báo cáo: ${score}/100 điểm!`
+148:           : `❌ Đã từ chối báo cáo thành công!`,
+149:         'success'
+150:       );
+151:       setExpandedId(null);
+152:       await loadReports();
+153:     } catch (err) {
+154:       console.error('[ReportAppraisal] Lỗi duyệt báo cáo:', err);
+155:       const status = err?.response?.status;
+156:       const serverMsg = err?.response?.data?.message || err?.response?.data?.title;
+157:       if (status === 403) triggerNotification('❌ Bạn không có quyền duyệt báo cáo này!', 'error');
+158:       else if (status === 404) triggerNotification('❌ Không tìm thấy báo cáo này!', 'error');
+159:       else triggerNotification(`❌ Thao tác thất bại: ${serverMsg || 'Lỗi máy chủ!'}`, 'error');
+160:     }
+161:   };
+162: 
+163:   const handleCreatePeriod = async (e) => {
+164:     e.preventDefault();
+165:     if (!newPeriod.semesterId) {
+166:       triggerNotification('❌ Vui lòng chọn học kỳ!', 'warning');
+167:       return;
+168:     }
+169:     if (!newPeriod.periodName.trim()) {
+170:       triggerNotification('❌ Vui lòng nhập tên đợt báo cáo!', 'warning');
+171:       return;
+172:     }
+173:     if (!newPeriod.deadline) {
+174:       triggerNotification('❌ Vui lòng chọn hạn nộp!', 'warning');
+175:       return;
+176:     }
+177: 
+178:     setSubmittingPeriod(true);
+179:     try {
+180:       await reportPeriodService.createReportPeriod({
+181:         semesterId: parseInt(newPeriod.semesterId, 10),
+182:         periodName: newPeriod.periodName.trim(),
+183:         description: newPeriod.description.trim(),
+184:         deadline: newPeriod.deadline
+185:       });
+186:       triggerNotification('✅ Tạo đợt báo cáo mới thành công!', 'success');
+187:       setNewPeriod({ semesterId: '', periodName: '', description: '', deadline: '' });
+188:       await loadPeriods();
+189:     } catch (err) {
+190:       console.error('[ReportAppraisal] Lỗi tạo đợt báo cáo:', err);
+191:       triggerNotification(err?.response?.data?.message || 'Tạo đợt báo cáo thất bại!', 'error');
+192:     } finally {
+193:       setSubmittingPeriod(false);
+194:     }
+195:   };
+196: 
+197:   const handleCreateAnnouncement = async (e) => {
+198:     e.preventDefault();
+199:     if (!newAnn.title.trim()) {
+200:       triggerNotification('❌ Vui lòng nhập Tiêu đề thông báo!', 'warning');
+201:       return;
+202:     }
+203:     if (newAnn.title.trim().length < 5) {
+204:       triggerNotification('❌ Tiêu đề thông báo phải có ít nhất 5 ký tự!', 'warning');
+205:       return;
+206:     }
+207:     if (!newAnn.content.trim()) {
+208:       triggerNotification('❌ Vui lòng nhập Nội dung thông báo!', 'warning');
+209:       return;
+210:     }
+211:     if (newAnn.content.trim().length < 10) {
+212:       triggerNotification('❌ Nội dung thông báo quá ngắn, phải có ít nhất 10 ký tự!', 'warning');
+213:       return;
+214:     }
+215:     try {
+216:       await notificationService.createNotification({
+217:         title: newAnn.title.trim(),
+218:         content: newAnn.content.trim(),
+219:         targetType: 'Toàn hệ thống',
+220:         notificationType: 'Hệ thống'
+221:       });
+222:       triggerNotification('✅ Đã phát hành thông báo toàn hệ thống thành công!', 'success');
+223:       setNewAnn({ title: '', content: '' });
+224:       await loadAnnouncements();
+225:     } catch (err) {
+226:       console.error('[ReportAppraisal] Lỗi tạo thông báo:', err);
+227:       const pendingCount = reports.filter(r => r.status === 'Chờ Admin duyệt' || r.status === 'Submitted' || r.status === 'Pending').length;
+228:       const approvedCount = reports.filter(r => r.status === 'Đã duyệt' || r.status === 'Approved').length;
+229: 
+230:       return (
+231:         <div className="report-appraisal-container">
+232:           {/* Tab Switcher */}
+233:           <div className="glass-card" style={{ marginBottom: '24px', padding: '6px' }}>
+234:             <div style={{ display: 'flex', gap: '4px' }}>
+235:               <button className={`role-switch-btn ${activeTab === 'appraisal' ? 'active' : ''}`} onClick={() => setActiveTab('appraisal')}
+236:                 style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+237:                 <FileText size={14} /> Báo cáo tổng hợp từ Manager ({pendingCount} chờ)
+238:               </button>
+239:               <button className={`role-switch-btn ${activeTab === 'periods' ? 'active' : ''}`} onClick={() => setActiveTab('periods')}
+240:                 style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+241:                 <Calendar size={14} /> Quản lý Đợt Báo cáo
+242:               </button>
+243:               <button className={`role-switch-btn ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => setActiveTab('announcements')}
+244:                 style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+245:                 <Bell size={14} /> Gửi Thông báo hệ thống
+246:               </button>
+247:             </div>
+248:           </div>
+249: 
+250:           {activeTab === 'appraisal' && (
+251:             <>
+252:               <div className="stats-grid" style={{ marginBottom: '24px' }}>
+253:                 <div className="stats-card">
+254:                   <div className="stats-icon-box" style={{ color: 'var(--warning)' }}><Clock size={20} /></div>
+255:                   <div className="stats-info">
+256:                     <span className="stats-label">Chờ phê duyệt</span>
+257:                     <span className="stats-value" style={{ color: pendingCount > 0 ? 'var(--warning)' : undefined }}>{pendingCount} báo cáo</span>
+258:                   </div>
+259:                 </div>
+260:                 <div className="stats-card">
+261:                   <div className="stats-icon-box" style={{ color: 'var(--success)' }}><CheckCircle size={20} /></div>
+262:                   <div className="stats-info">
+263:                     <span className="stats-label">Đã phê duyệt</span>
+264:                     <span className="stats-value">{approvedCount} báo cáo</span>
+265:                   </div>
+266:                 </div>
+267:               </div>
+268: 
+269:               <div className="glass-card">
+270:                 <div className="glass-card-header">
+271:                   <h3 className="glass-card-title"><FileText size={18} /> Danh sách Báo cáo hoạt động CLB ({reports.length})</h3>
+272:                 </div>
+273: 
+274:                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+275:                   {loadingReports ? (
+276:                     <div className="empty-state-view">
+277:                       <span className="login-spinner" style={{ width: '28px', height: '28px' }} />
+278:                     </div>
+279:                   ) : (
+280:                     reports.map(report => {
+281:                       const repId = report.clubReportId || report.id;
+282:                       const isExpanded = expandedId === repId;
+283:                       const status = report.status;
+284:                       const isPendingAdmin = status === 'Chờ Admin duyệt' || status === 'Submitted' || status === 'Pending' || status === 'Chờ duyệt';
+285:                       const isApproved = status === 'Đã duyệt' || status === 'Approved';
+286:                       const isRejected = status === 'Từ chối' || status === 'Rejected';
+287:                       const isPendingManager = status === 'Chờ Manager duyệt';
+288:                       
+289:                       return (
+290:                         <div key={repId} className="glass-card" style={{ padding: '16px', marginBottom: 0, border: `1px solid ${isPendingAdmin ? 'rgba(245,158,11,0.3)' : 'var(--border)'}` }}>
+291:                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+292:                             <div style={{ flex: 1 }}>
+293:                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+294:                                 <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '15px' }}>
+295:                                   {report.reportTitle || report.reportPeriodName || report.periodName}
+296:                                 </span>
+297:                                 {isPendingAdmin && <span className="badge badge-active" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}><Clock size={10} /> Chờ Admin duyệt</span>}
+298:                                 {isPendingManager && <span className="badge badge-member"><Clock size={10} /> Chờ Manager duyệt</span>}
+299:                                 {isApproved && <span className="badge badge-active"><CheckCircle size={10} /> Đã duyệt</span>}
+300:                                 {isRejected && <span className="badge badge-blocked"><XCircle size={10} /> Từ chối</span>}
+301:                               </div>
+302:                               <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+303:                                 <span>🏢 Câu lạc bộ: <strong>{report.clubName} ({report.clubCode})</strong></span>
+304:                                 <span>🕐 Nộp lúc: {report.submittedAt ? new Date(report.submittedAt).toLocaleDateString('vi-VN') : 'N/A'}</span>
+305:                               </div>
+306:                             </div>
+307:                             <button className="btn btn-secondary btn-sm" onClick={() => handleExpand(repId)}>
+308:                               {isExpanded ? 'Đóng' : 'Xem chi tiết'}
+309:                             </button>
+310:                           </div>
+311: 
+312:                           {isExpanded && (
+313:                             <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
+314:                               {loadingDetails[repId] ? (
+315:                                 <div style={{ textAlign: 'center', padding: '16px' }}>
+316:                                   <span className="login-spinner" style={{ width: '20px', height: '20px', margin: '0 auto' }} />
+317:                                 </div>
+318:                               ) : (
+319:                                 <>
+320:                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px' }}>
+321:                                     <div style={{ display: 'flex', gap: '8px' }}>
+322:                                       <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)' }}>Số sự kiện tổ chức:</span>
+323:                                       <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{reportDetails[repId]?.totalEventsHeld || report.totalEventsHeld || 0}</span>
+324:                                     </div>
+325:                                     <div style={{ display: 'flex', gap: '8px' }}>
+326:                                       <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)' }}>Số dư tài chính (VND):</span>
+327:                                       <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>
+328:                                         {reportDetails[repId]?.financialBalance !== undefined 
+329:                                           ? reportDetails[repId]?.financialBalance.toLocaleString('vi-VN') 
+330:                                           : (report.financialBalance !== undefined ? report.financialBalance.toLocaleString('vi-VN') : '0')}
+331:                                       </span>
+332:                                     </div>
+333:                                   </div>
+334: 
+335:                                   <div style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.7, marginBottom: '16px', whiteSpace: 'pre-line' }}>
+336:                                     <strong>Nội dung tóm tắt báo cáo:</strong>
+337:                                     <p style={{ marginTop: '6px' }}>
+338:                                       {(reportDetails[repId]?.summaryContent || reportDetails[repId]?.content || report.summaryContent || report.content)}
+339:                                     </p>
+340:                                   </div>
+341: 
+342:                                   {status === 'Chờ Admin duyệt' ? (
+343:                                     <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+344:                                       <div className="form-group" style={{ marginBottom: '12px' }}>
+345:                                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+346:                                           <Star size={14} style={{ color: 'var(--primary)' }} />
+347:                                           Nhập điểm đánh giá (0–100):
+348:                                         </label>
+349:                                         <input
+350:                                           type="number"
+351:                                           className="input-field"
+352:                                           min={0} max={100}
+353:                                           placeholder="Nhập điểm..."
+354:                                           value={scoreMap[repId] || ''}
+355:                                           onChange={e => setScoreMap(m => ({ ...m, [repId]: e.target.value }))}
+356:                                           style={{ maxWidth: '150px' }}
+357:                                         />
+358:                                       </div>
+359: 
+360:                                       <div className="form-group" style={{ marginBottom: '12px' }}>
+361:                                         <label>Phản hồi của Admin / Lý do từ chối (bắt buộc khi Từ chối):</label>
+362:                                         <textarea
+363:                                           className="textarea-field"
+364:                                           placeholder="Nhập phản hồi phê duyệt hoặc lý do từ chối..."
+365:                                           rows={2}
+366:                                           value={rejectionNotes[repId] || ''}
+367:                                           onChange={e => setRejectionNotes(m => ({ ...m, [repId]: e.target.value }))}
+368:                                         />
+369:                                       </div>
+370: 
+371:                                       <div style={{ display: 'flex', gap: '8px' }}>
+372:                                         <button
+373:                                           className="btn btn-success btn-sm"
+374:                                           style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+375:                                           onClick={() => handleAppraise(report, 'Đã duyệt')}
+376:                                         >
+377:                                           <Award size={16} /> Phê duyệt &amp; Chấm điểm
+378:                                         </button>
+379:                                         <button
+380:                                           className="btn btn-danger btn-sm"
+381:                                           style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+382:                                           onClick={() => handleAppraise(report, 'Từ chối')}
+383:                                         >
+384:                                           <XCircle size={16} /> Từ chối
+385:                                         </button>
+386:                                       </div>
+387:                                     </div>
+388:                                   ) : isPendingManager ? (
+389:                                     <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(245,158,11,0.05)', fontSize: '12.5px', borderLeft: '3px solid var(--warning)', color: 'var(--text-muted)' }}>
+390:                                       ⚠️ Báo cáo này đang chờ Manager duyệt sơ bộ. Bạn chỉ được phép chấm điểm &amp; duyệt sau khi Manager đã thông qua.
+391:                                     </div>
+392:                                   ) : isRejected ? (
+393:                                     <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(239,68,68,0.05)', fontSize: '12.5px', borderLeft: '3px solid var(--error)', color: 'var(--text-muted)' }}>
+394:                                       ❌ Báo cáo đã bị Admin từ chối. Lý do phản hồi: <strong>{report.icpdpFeedback || reportDetails[repId]?.icpdpFeedback || '—'}</strong>
+395:                                     </div>
+396:                                   ) : (
+397:                                     <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(34,197,94,0.05)', fontSize: '12px', borderLeft: '3px solid var(--success)', color: 'var(--text-muted)' }}>
+398:                                       ✅ Báo cáo đã duyệt thành công. Phản hồi/Điểm số: <strong>{report.icpdpFeedback || reportDetails[repId]?.icpdpFeedback || 'Không có phản hồi'}</strong> {report.reviewedAt && `vào ${new Date(report.reviewedAt).toLocaleDateString('vi-VN')}`}
+399:                                     </div>
+400:                                   )}
+401:                                 </>
+402:                               )}
+403:                             </div>
+404:                           )}
+405:                         </div>
+406:                       );
+407:                     })
+408:                   )}
+409:                 </div>
+410:               </div>
+411:             </>
+412:           )}
+413: 
+414:           {activeTab === 'periods' && (
+415:             <div className="dashboard-grid-2col">
+416:               <div className="glass-card">
+417:                 <div className="glass-card-header">
+418:                   <h3 className="glass-card-title"><Plus size={18} /> Tạo Đợt Báo Cáo Mới</h3>
+419:                 </div>
+420:                 <form onSubmit={handleCreatePeriod} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+421:                   <div className="form-group" style={{ marginBottom: 0 }}>
+422:                     <label>Học kỳ *</label>
+423:                     <select 
+424:                       className="select-field" 
+425:                       value={newPeriod.semesterId} 
+426:                       onChange={e => setNewPeriod({ ...newPeriod, semesterId: e.target.value })} 
+427:                       required
+428:                     >
+429:                       <option value="">-- Chọn Học kỳ --</option>
+430:                       {semesters.map(s => (
+431:                         <option key={s.semesterId} value={s.semesterId}>
+432:                           {s.semesterName} ({s.status})
+433:                         </option>
+434:                       ))}
+435:                     </select>
+436:                   </div>
+437: 
+438:                   <div className="form-group" style={{ marginBottom: 0 }}>
+439:                     <label>Tên đợt báo cáo *</label>
+440:                     <input 
+441:                       type="text" 
+442:                       className="input-field" 
+443:                       value={newPeriod.periodName} 
+444:                       onChange={e => setNewPeriod({ ...newPeriod, periodName: e.target.value })} 
+445:                       placeholder="Ví dụ: Báo cáo cuối học kỳ" 
+446:                       required 
+447:                     />
+448:                   </div>
+449: 
+450:                   <div className="form-group" style={{ marginBottom: 0 }}>
+451:                     <label>Hạn nộp báo cáo *</label>
+452:                     <input 
+453:                       type="datetime-local" 
+454:                       className="input-field" 
+455:                       value={newPeriod.deadline} 
+456:                       onChange={e => setNewPeriod({ ...newPeriod, deadline: e.target.value })} 
+457:                       required 
+458:                     />
+459:                   </div>
+460: 
+461:                   <div className="form-group" style={{ marginBottom: 0 }}>
+462:                     <label>Nội dung mô tả / Yêu cầu</label>
+463:                     <textarea 
+464:                       className="textarea-field" 
+465:                       value={newPeriod.description} 
+466:                       onChange={e => setNewPeriod({ ...newPeriod, description: e.target.value })} 
+467:                       placeholder="Yêu cầu các CLB báo cáo tài chính, tổng số hoạt động..." 
+468:                       rows={4} 
+469:                     />
+470:                   </div>
+471: 
+472:                   <button type="submit" className="btn btn-primary" disabled={submittingPeriod} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+473:                     <Send size={16} /> {submittingPeriod ? 'Đang tạo...' : 'Tạo & Phát hành đợt nộp'}
+474:                   </button>
+475:                 </form>
+476:               </div>
+477: 
+478:               <div className="glass-card" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+479:                 <div className="glass-card-header">
+480:                   <h3 className="glass-card-title"><Calendar size={18} /> Danh sách Đợt Báo cáo ({periods.length})</h3>
+481:                 </div>
+482:                 {periods.length === 0 ? (
+483:                   <div className="empty-state-view">
+484:                     <Calendar className="empty-state-icon" />
+485:                     <p>Chưa có đợt báo cáo nào được tạo.</p>
+486:                   </div>
+487:                 ) : (
+488:                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+489:                     {periods.map(p => (
+490:                       <div key={p.reportPeriodId || p.id} style={{ padding: '14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)' }}>
+491:                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+492:                           <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '14px' }}>
+493:                             {p.periodName}
+494:                           </span>
+495:                           <span className="badge badge-active" style={{ fontSize: '10px' }}>{p.status}</span>
+496:                         </div>
+497:                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+498:                           🏫 Học kỳ: <strong>{p.semester?.semesterName || `ID ${p.semesterId}`}</strong><br />
+499:                           ⏰ Hạn nộp: <strong style={{ color: 'var(--warning)' }}>{p.deadline ? new Date(p.deadline).toLocaleString('vi-VN') : '—'}</strong>
+500:                         </div>
+501:                         {p.description && (
+502:                           <p style={{ fontSize: '12.5px', color: 'var(--text-main)', fontStyle: 'italic', marginBottom: 0, whiteSpace: 'pre-line' }}>
+503:                             "{p.description}"
+504:                           </p>
+505:                         )}
+506:                       </div>
+507:                     ))}
+508:                   </div>
+509:                 )}
+510:               </div>
+511:             </div>
+512:           )}
+513: 
+514:           {activeTab === 'announcements' && (
+515:             <div className="dashboard-grid-2col">
+516:               <div className="glass-card">
+517:                 <div className="glass-card-header">
+518:                   <h3 className="glass-card-title"><Plus size={18} /> Phát hành Thông báo hệ thống</h3>
+519:                 </div>
+520:                 <form onSubmit={handleCreateAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+521:                   <div className="form-group" style={{ marginBottom: 0 }}>
+522:                     <label>Tiêu đề thông báo *</label>
+523:                     <input type="text" className="input-field" value={newAnn.title} onChange={e => setNewAnn({ ...newAnn, title: e.target.value })} placeholder="Nhập tiêu đề thông báo..." required />
+524:                   </div>
+525:                   <div className="form-group" style={{ marginBottom: 0 }}>
+526:                     <label>Nội dung thông báo toàn hệ thống *</label>
+527:                     <textarea className="textarea-field" value={newAnn.content} onChange={e => setNewAnn({ ...newAnn, content: e.target.value })} placeholder="Nhập nội dung thông báo..." rows={6} required />
+528:                   </div>
+529:                   <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+530:                     <Send size={16} /> Đăng &amp; Phát hành
+531:                   </button>
+532:                 </form>
+533:               </div>
+534: 
+535:               <div className="glass-card" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+536:                 <div className="glass-card-header">
+537:                   <h3 className="glass-card-title"><Bell size={18} /> Thông báo đã phát hành ({announcements.length})</h3>
+538:                 </div>
+539:                 {announcements.length === 0 ? (
+540:                   <div className="empty-state-view">
+541:                     <Bell className="empty-state-icon" />
+542:                     <p>Chưa có thông báo nào.</p>
+543:                   </div>
+544:                 ) : (
+545:                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+546:                     {announcements.map(ann => (
+547:                       <div key={ann.id} style={{ padding: '14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)' }}>
+548:                         <div style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '14px', marginBottom: '6px' }}>{ann.title}</div>
+549:                         <p style={{ fontSize: '13px', color: 'var(--text-main)', fontStyle: 'italic', marginBottom: '8px', whiteSpace: 'pre-line' }}>"{ann.content}"</p>
+550:                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right' }}>
+551:                           {new Date(ann.createdAt).toLocaleString('vi-VN')}
+552:                         </div>
+553:                       </div>
+554:                     ))}
+555:                   </div>
+556:                 )}
+557:               </div>
+558:             </div>
+559:           )}
+560:         </div>
+561:       );
+562:     }
+563:   };
+564: 
+The above content shows the entire, complete file contents of the requested file.

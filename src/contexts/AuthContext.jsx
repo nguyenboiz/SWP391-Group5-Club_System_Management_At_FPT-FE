@@ -167,23 +167,36 @@ export function AuthProvider({ children }) {
       try {
         const me = await authService.getMe();
         const normalizedRole = (me.systemRole || me.role || 'MEMBER').toUpperCase();
-        const userWithToken = {
-          ...me,
-          id: me.id || me.studentId || me.userId || currentUser?.id,
-          fullName: getFriendlyName(me.username || currentUser?.username, me.fullName || me.name || me.studentName || me.username || currentUser?.fullName),
-          role: normalizedRole,
-          token
-        };
-        setCurrentUser(userWithToken);
-        sessionStorage.setItem('fpt_current_user', JSON.stringify(userWithToken));
+        setCurrentUser(prev => {
+          const userWithToken = {
+            ...me,
+            avatar: me.avatar || prev?.avatar,
+            id: me.id || me.studentId || me.userId || prev?.id,
+            fullName: getFriendlyName(me.username || prev?.username, me.fullName || me.name || me.studentName || me.username || prev?.fullName),
+            role: normalizedRole,
+            token
+          };
+          sessionStorage.setItem('fpt_current_user', JSON.stringify(userWithToken));
+          return userWithToken;
+        });
       } catch (err) {
         console.warn('[Auth] Lỗi refresh thông tin user từ Backend:', err);
       }
     }
   };
 
+  // Cập nhật nhanh ảnh đại diện sau khi upload thành công
+  const updateUserAvatar = (avatarUrl) => {
+    setCurrentUser(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, avatar: avatarUrl };
+      sessionStorage.setItem('fpt_current_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, login, logout, isLoading, refreshUser }}>
+    <AuthContext.Provider value={{ currentUser, login, logout, isLoading, refreshUser, updateUserAvatar }}>
       {children}
     </AuthContext.Provider>
   );

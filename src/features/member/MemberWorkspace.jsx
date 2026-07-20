@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getEventsByClub, submitEvidence } from '../../services/eventService';
-import { updateProfile, getUserActivityHistory } from '../../services/userService';
+import { updateProfile, getUserActivityHistory, getUserDetail, getMyProfile } from '../../services/userService';
 import { User, Image as ImageIcon, Send, Clock, Activity, Upload, Phone, Calendar, Users } from 'lucide-react';
 import { validatePhone, validateNoSpecialChars } from '../../utils/validator';
 
 export default function MemberWorkspace({ currentUserId, triggerNotification, selectedClubId, mode = 'profile' }) {
-  const { currentUser } = useAuth();
+  const { currentUser, updateUserAvatar } = useAuth();
   const user = currentUser;
   const userId = user?.id || user?.userId || currentUserId;
 
@@ -14,9 +14,9 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
   const [activeTab, setActiveTab] = useState(mode === 'evidence' ? 'evidence' : 'profile');
 
   // Profile state
-  const [phone, setPhone] = useState(user?.phone || user?.phoneNumber || '');
-  const [gender, setGender] = useState(user?.gender || 'Other');
-  const [dateOfBirth, setDateOfBirth] = useState(user?.dateOfBirth ? user.dateOfBirth.substring(0, 10) : '');
+  const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState('Other');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [avatarFile, setAvatarFile] = useState(null);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
@@ -36,13 +36,32 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
   const [profileErrors, setProfileErrors] = useState({});
   const [evidenceErrors, setEvidenceErrors] = useState({});
 
+  // Fetch full user details on mount to get phone, gender, dob
   useEffect(() => {
-    if (user) {
-      setPhone(user.phone || user.phoneNumber || '');
-      setGender(user.gender || 'Other');
-      setDateOfBirth(user.dateOfBirth ? user.dateOfBirth.substring(0, 10) : '');
-    }
-  }, [user]);
+    getMyProfile().then(res => {
+      const u = res?.data ?? res;
+      if (u) {
+        setPhone(u.phone || u.phoneNumber || '');
+        
+        const g = String(u.gender || '').toLowerCase();
+        if (g === 'nam' || g === 'male') setGender('Male');
+        else if (g === 'nữ' || g === 'nu' || g === 'female') setGender('Female');
+        else setGender('Other');
+        
+        const dob = u.dateOfBirth || u.dob || u.birthday;
+        if (dob) {
+          setDateOfBirth(dob.substring(0, 10));
+        } else {
+          setDateOfBirth('');
+        }
+      }
+    }).catch(err => {
+      console.warn('[MemberWorkspace] Lỗi tải thông tin chi tiết user profile:', err);
+      setPhone('');
+      setGender('Other');
+      setDateOfBirth('');
+    });
+  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -126,8 +145,14 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
       if (dateOfBirth) formData.append('DateOfBirth', new Date(dateOfBirth).toISOString());
       if (avatarFile) formData.append('AvatarFile', avatarFile);
 
-      await updateProfile(formData);
+      const res = await updateProfile(formData);
       triggerNotification('✅ Cập nhật hồ sơ thành công!', 'success');
+      
+      const updatedUser = res?.data ?? res;
+      const newAvatarUrl = updatedUser?.avatar || updatedUser?.data?.avatar;
+      if (newAvatarUrl && updateUserAvatar) {
+        updateUserAvatar(newAvatarUrl);
+      }
     } catch (err) {
       console.error('[MemberWorkspace] Lỗi cập nhật hồ sơ:', err);
       triggerNotification(err?.response?.data?.message || 'Cập nhật hồ sơ thất bại!', 'error');

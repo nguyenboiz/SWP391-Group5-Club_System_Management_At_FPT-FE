@@ -138,9 +138,23 @@ export default function DocumentArchive({ selectedClubId, triggerNotification, r
     const docId = doc.id || doc.documentId;
     const fileUrl = doc.fileUrl || doc.url;
     if (fileUrl) {
-      window.open(fileUrl, '_blank');
-      triggerNotification('Đang mở/tải tệp tin...', 'success');
-      return;
+      try {
+        triggerNotification('Đang tải tệp tin...', 'success');
+        const res = await fetch(fileUrl);
+        if (!res.ok) throw new Error();
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', doc.name || doc.documentName || `document-${docId}`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      } catch (err) {
+        console.warn('[DocumentArchive] Direct fetch failed, falling back to API:', err);
+      }
     }
     try {
       const response = await downloadDocument(docId);

@@ -66,6 +66,15 @@ export async function updateProfile(formData) {
 }
 
 /**
+ * Lấy hồ sơ cá nhân của người dùng hiện tại
+ * GET /api/users/profile
+ */
+export async function getMyProfile() {
+  const response = await apiClient.get('/api/users/profile');
+  return response.data;
+}
+
+/**
  * Lấy lịch sử hoạt động của người dùng
  * GET /api/users/{userId}/activity-history
  * @param {number|string} userId

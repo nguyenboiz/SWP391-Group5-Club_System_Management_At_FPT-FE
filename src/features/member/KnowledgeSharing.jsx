@@ -141,10 +141,24 @@ export default function KnowledgeSharing({ selectedClubId, triggerNotification }
                     <Eye size={12} /> Đọc trực tuyến
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (dUrl !== '#') {
-                        window.open(dUrl, '_blank');
-                        if (triggerNotification) triggerNotification(`Bắt đầu tải xuống: ${dName}`, 'success');
+                        if (triggerNotification) triggerNotification(`Đang chuẩn bị tải xuống: ${dName}...`, 'success');
+                        try {
+                          const res = await fetch(dUrl);
+                          if (!res.ok) throw new Error();
+                          const blob = await res.blob();
+                          const blobUrl = window.URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = blobUrl;
+                          link.setAttribute('download', dName);
+                          document.body.appendChild(link);
+                          link.click();
+                          link.remove();
+                          window.URL.revokeObjectURL(blobUrl);
+                        } catch (err) {
+                          window.open(dUrl, '_blank');
+                        }
                       }
                     }}
                     className="btn btn-primary"

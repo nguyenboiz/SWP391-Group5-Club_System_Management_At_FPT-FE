@@ -160,8 +160,16 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
             onClick={() => setActiveTab('my-profile')}
             style={{ cursor: 'pointer' }}
           >
-            <div className="user-avatar-initial">
-              {currentUserProfile.fullName?.charAt(0) || '?'}
+            <div className="user-avatar-initial" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 0 }}>
+              {currentUserProfile.avatar ? (
+                <img 
+                  src={currentUserProfile.avatar} 
+                  alt={currentUserProfile.fullName} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
+              ) : (
+                currentUserProfile.fullName?.charAt(0) || '?'
+              )}
             </div>
             <div className="user-sidebar-info">
               <span className="user-sidebar-name">{currentUserProfile.fullName}</span>
