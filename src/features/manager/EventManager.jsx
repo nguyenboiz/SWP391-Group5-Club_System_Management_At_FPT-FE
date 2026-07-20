@@ -343,16 +343,23 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
 
               <div className="form-group">
                 <label>Địa điểm tổ chức <span style={{ color: 'var(--error, #ef4444)' }}>*</span></label>
-                <input
-                  type="text"
-                  className="input-field"
+                <select
+                  className="select-field"
                   value={newEvent.location}
                   onChange={e => {
                     setNewEvent({ ...newEvent, location: e.target.value });
                     if (errors.location) setErrors(prev => ({ ...prev, location: null }));
                   }}
-                  placeholder="Phòng họp Alpha, Sân thượng Gamma..."
-                />
+                >
+                  <option value="">-- Chọn địa điểm --</option>
+                  <option value="Sân thượng">Sân thượng</option>
+                  <option value="Hội trường A">Hội trường A</option>
+                  <option value="Hội trường B">Hội trường B</option>
+                  <option value="Sảnh trống đồng">Sảnh trống đồng</option>
+                  <option value="Sân trường 1">Sân trường 1</option>
+                  <option value="Sân trường 2">Sân trường 2</option>
+                  <option value="Sân bóng">Sân bóng</option>
+                </select>
                 {errors.location && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.location}</span>}
               </div>
 
@@ -461,26 +468,11 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                           className="btn btn-secondary btn-sm"
                           style={{ padding: '4px 8px' }}
                           onClick={() => setSelectedEventId(eId)}
-                          disabled={selectedEventId === eId}
                         >
                           Xem chi tiết
                         </button>
                         {!isCancelled && (
                           <>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              title="Sửa sự kiện"
-                              style={{ padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-                              onClick={() => {
-                                const st = e.startTime ? e.startTime.slice(0,16) : '';
-                                const et = e.endTime ? e.endTime.slice(0,16) : '';
-                                setEditingEvent({ ...e, eventName: eName, location: eLocation, startTime: st, endTime: et, planBudget: eBudget || '' });
-                                setEditErrors({});
-                                setShowEditModal(true);
-                              }}
-                            >
-                              <Edit size={11} /> Sửa
-                            </button>
                             <button
                               className="btn btn-sm"
                               title="Hủy sự kiện"
@@ -500,89 +492,46 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
           </div>
         </div>
 
-      {/* MODAL: SỬA SỰ KIỆN */}
-      {showEditModal && editingEvent && (
+      {/* DETAIL EVENT MODAL */}
+      {selectedEventId && selectedEvent && (
         <div className="modal-backdrop">
-          <div className="modal-content glass-card" style={{ maxWidth: '520px' }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '520px', width: '90%' }}>
             <div className="modal-header">
-              <h3 className="modal-title"><Edit size={16} style={{ marginRight: '6px' }} /> Sửa Sự kiện</h3>
-              <button className="modal-close" onClick={() => { setShowEditModal(false); setEditingEvent(null); }}><X size={18} /></button>
+              <h3 className="modal-title"><Calendar size={18} style={{ marginRight: '6px' }} /> Chi tiết Kế hoạch Sự kiện</h3>
+              <button className="modal-close" onClick={() => setSelectedEventId(null)}><X size={18} /></button>
             </div>
-            <form onSubmit={handleUpdateEvent} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
-              <div className="form-group">
-                <label>Tên sự kiện *</label>
-                <input type="text" className="input-field" value={editingEvent.eventName || ''}
-                  onChange={e => {
-                    setEditingEvent({ ...editingEvent, eventName: e.target.value });
-                    if (editErrors.eventName) setEditErrors(prev => ({ ...prev, eventName: null }));
-                  }} />
-                {editErrors.eventName && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.eventName}</span>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+              <h4 style={{ fontSize: '18px', color: 'var(--text-heading)', fontWeight: 700, borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                {selectedEvent.eventName || selectedEvent.name}
+              </h4>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {[
+                  ['Ngày bắt đầu', selectedEvent.startTime ? new Date(selectedEvent.startTime).toLocaleString('vi-VN') : 'N/A'],
+                  ['Ngày kết thúc', selectedEvent.endTime ? new Date(selectedEvent.endTime).toLocaleString('vi-VN') : 'N/A'],
+                  ['Địa điểm', selectedEvent.location || 'N/A'],
+                  ['Ngân sách dự toán', selectedEvent.planBudget || selectedEvent.budget ? `${Number(selectedEvent.planBudget || selectedEvent.budget).toLocaleString('vi-VN')} VNĐ` : 'N/A'],
+                  ['Số lượng dự kiến', selectedEvent.targetParticipants ? `${selectedEvent.targetParticipants} người` : 'N/A'],
+                  ['Trạng thái phê duyệt', (() => {
+                    const eStatus = selectedEvent.status || selectedEvent.approvalStatus || 'Pending';
+                    if (eStatus === 'Approved' || eStatus === 'Đã duyệt') return <span className="badge badge-success">ĐÃ DUYỆT</span>;
+                    if (eStatus === 'Rejected' || eStatus === 'Từ chối') return <span className="badge badge-blocked">BỊ TỪ CHỐI</span>;
+                    if (eStatus === 'Cancelled' || eStatus === 'Đã hủy') return <span className="badge badge-blocked" style={{ filter: 'grayscale(0.6)' }}>ĐÃ HỦỶ</span>;
+                    return <span className="badge badge-pending">CHỜ DUYỆT</span>;
+                  })()],
+                  ['Mô tả chi tiết', selectedEvent.description || 'Không có mô tả chi tiết']
+                ].map(([label, value]) => (
+                  <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }}>{value}</span>
+                  </div>
+                ))}
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Thời gian bắt đầu *</label>
-                  <input type="datetime-local" className="input-field" value={editingEvent.startTime || ''}
-                    onChange={e => {
-                      setEditingEvent({ ...editingEvent, startTime: e.target.value });
-                      if (editErrors.startTime) setEditErrors(prev => ({ ...prev, startTime: null }));
-                    }} />
-                  {editErrors.startTime && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.startTime}</span>}
-                </div>
-                <div className="form-group">
-                  <label>Thời gian kết thúc</label>
-                  <input type="datetime-local" className="input-field" value={editingEvent.endTime || ''}
-                    onChange={e => {
-                      setEditingEvent({ ...editingEvent, endTime: e.target.value });
-                      if (editErrors.endTime) setEditErrors(prev => ({ ...prev, endTime: null }));
-                    }} />
-                  {editErrors.endTime && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.endTime}</span>}
-                </div>
+
+              <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-secondary" onClick={() => setSelectedEventId(null)}>Đóng</button>
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Ngân sách (VNĐ) *</label>
-                  <input type="text" className="input-field" value={editingEvent.planBudget || ''}
-                    onChange={e => {
-                      setEditingEvent({ ...editingEvent, planBudget: e.target.value });
-                      if (editErrors.planBudget) setEditErrors(prev => ({ ...prev, planBudget: null }));
-                    }} />
-                  {editErrors.planBudget && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.planBudget}</span>}
-                </div>
-                <div className="form-group">
-                  <label>Số người tham gia dự kiến</label>
-                  <input type="number" className="input-field" value={editingEvent.targetParticipants || ''}
-                    onChange={e => {
-                      setEditingEvent({ ...editingEvent, targetParticipants: e.target.value });
-                      if (editErrors.targetParticipants) setEditErrors(prev => ({ ...prev, targetParticipants: null }));
-                    }} min="1" />
-                  {editErrors.targetParticipants && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.targetParticipants}</span>}
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Địa điểm *</label>
-                <input type="text" className="input-field" value={editingEvent.location || ''}
-                  onChange={e => {
-                    setEditingEvent({ ...editingEvent, location: e.target.value });
-                    if (editErrors.location) setEditErrors(prev => ({ ...prev, location: null }));
-                  }} />
-                {editErrors.location && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.location}</span>}
-              </div>
-              <div className="form-group">
-                <label>Mô tả</label>
-                <textarea className="textarea-field" rows={2} value={editingEvent.description || ''}
-                  onChange={e => {
-                    setEditingEvent({ ...editingEvent, description: e.target.value });
-                    if (editErrors.description) setEditErrors(prev => ({ ...prev, description: null }));
-                  }} />
-                {editErrors.description && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{editErrors.description}</span>}
-              </div>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={isUpdating}>
-                  <Save size={14} /> {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => { setShowEditModal(false); setEditingEvent(null); }}>Hủy</button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

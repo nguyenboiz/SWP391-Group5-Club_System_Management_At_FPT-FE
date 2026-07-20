@@ -126,12 +126,41 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
             const eTime = e.startTime || e.dateTime;
             const eEndTime = e.endTime;
             const eDesc = e.description || '';
-            const eBudget = e.planBudget || e.budget;
+
+            // Calculate temporal status based on current time
+            const now = new Date();
+            const start = new Date(eTime);
+            const end = eEndTime ? new Date(eEndTime) : new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2 hours duration fallback
+
+            let statusLabel = 'Sắp diễn ra';
+            let statusClass = 'badge-active'; // Green
+            let canRegister = true;
+            let isOngoing = false;
+
+            if (e.status === 'Cancelled' || e.status === 'Đã hủy' || e.status === 'Bị hủy') {
+              statusLabel = 'Đã hủy';
+              statusClass = 'badge-blocked'; // Red
+              canRegister = false;
+            } else if (now < start) {
+              statusLabel = 'Sắp diễn ra';
+              statusClass = 'badge-active'; // Green
+              canRegister = true;
+            } else if (now >= start && now <= end) {
+              statusLabel = 'Đang diễn ra';
+              statusClass = 'badge-pending'; // Yellow
+              canRegister = false;
+              isOngoing = true;
+            } else {
+              statusLabel = 'Đã kết thúc';
+              statusClass = 'badge-member'; // Grey/Blue
+              canRegister = false;
+            }
+
             return (
               <div key={eId} className="glass-card calendar-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
-                  <span className="badge badge-active" style={{ marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
-                    <CheckCircle size={10} /> Đã duyệt
+                  <span className={`badge ${statusClass}`} style={{ marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+                    {statusLabel}
                   </span>
 
                   <h4 style={{ fontSize: '16px', color: 'var(--text-heading)', minHeight: '48px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -178,6 +207,14 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                     >
                       <Check size={12} /> Đã đăng ký
                     </button>
+                  ) : !canRegister ? (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', opacity: 0.5, cursor: 'not-allowed' }}
+                      disabled
+                    >
+                      {isOngoing ? 'Đang diễn ra' : 'Hết hạn đăng ký'}
+                    </button>
                   ) : (
                     <button
                       className="btn btn-primary btn-sm"
@@ -213,46 +250,88 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                   {eventDetail.eventName || eventDetail.name}
                 </h4>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {[
-                    ['Ngày bắt đầu', eventDetail.startTime ? new Date(eventDetail.startTime).toLocaleString('vi-VN') : 'N/A'],
-                    ['Ngày kết thúc', eventDetail.endTime ? new Date(eventDetail.endTime).toLocaleString('vi-VN') : 'N/A'],
-                    ['Địa điểm', eventDetail.location || eventDetail.venue || 'N/A'],
-                    ['Ngân sách dự toán', eventDetail.planBudget || eventDetail.budget ? `${(eventDetail.planBudget || eventDetail.budget)}đ` : 'N/A'],
-                    ['Số lượng dự kiến', eventDetail.targetParticipants ? `${eventDetail.targetParticipants} người` : 'N/A'],
-                    ['Trạng thái duyệt', <span className="badge badge-active">Đã duyệt</span>],
-                    ['Mô tả chi tiết', eventDetail.description || 'Không có mô tả chi tiết']
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                      <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }}>{value}</span>
-                    </div>
-                  ))}
-                </div>
+                {(() => {
+                  const now = new Date();
+                  const start = new Date(eventDetail.startTime);
+                  const end = eventDetail.endTime ? new Date(eventDetail.endTime) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
 
-                <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
-                  {registeredIds.has(eventDetail.id || eventDetail.eventId) ? (
-                    <button
-                      className="btn btn-secondary"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'default', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.2)' }}
-                      disabled
-                    >
-                      <Check size={14} /> Đã đăng ký tham gia sự kiện
-                    </button>
-                  ) : (
-                    <button
-                      className="btn btn-primary"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                      onClick={() => {
-                        const evId = eventDetail.id || eventDetail.eventId;
-                        handleRegister(evId, eventDetail.eventName || eventDetail.name);
-                      }}
-                      disabled={registeringId === (eventDetail.id || eventDetail.eventId)}
-                    >
-                      <UserPlus size={14} /> {registeringId === (eventDetail.id || eventDetail.eventId) ? 'Đang xử lý...' : 'Đăng ký tham gia ngay'}
-                    </button>
-                  )}
-                </div>
+                  let statusLabel = 'Sắp diễn ra';
+                  let statusClass = 'badge-active';
+                  let canRegister = true;
+                  let isOngoing = false;
+
+                  if (eventDetail.status === 'Cancelled' || eventDetail.status === 'Đã hủy' || eventDetail.status === 'Bị hủy') {
+                    statusLabel = 'Đã hủy';
+                    statusClass = 'badge-blocked';
+                    canRegister = false;
+                  } else if (now < start) {
+                    statusLabel = 'Sắp diễn ra';
+                    statusClass = 'badge-active';
+                    canRegister = true;
+                  } else if (now >= start && now <= end) {
+                    statusLabel = 'Đang diễn ra';
+                    statusClass = 'badge-pending';
+                    canRegister = false;
+                    isOngoing = true;
+                  } else {
+                    statusLabel = 'Đã kết thúc';
+                    statusClass = 'badge-member';
+                    canRegister = false;
+                  }
+
+                  return (
+                    <>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {[
+                          ['Ngày bắt đầu', eventDetail.startTime ? new Date(eventDetail.startTime).toLocaleString('vi-VN') : 'N/A'],
+                          ['Ngày kết thúc', eventDetail.endTime ? new Date(eventDetail.endTime).toLocaleString('vi-VN') : 'N/A'],
+                          ['Địa điểm', eventDetail.location || eventDetail.venue || 'N/A'],
+                          ['Ngân sách dự toán', eventDetail.planBudget || eventDetail.budget ? `${(eventDetail.planBudget || eventDetail.budget)}đ` : 'N/A'],
+                          ['Số lượng dự kiến', eventDetail.targetParticipants ? `${eventDetail.targetParticipants} người` : 'N/A'],
+                          ['Trạng thái', <span className={`badge ${statusClass}`}>{statusLabel}</span>],
+                          ['Mô tả chi tiết', eventDetail.description || 'Không có mô tả chi tiết']
+                        ].map(([label, value]) => (
+                          <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                            <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+                            <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }}>{value}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
+                        {registeredIds.has(eventDetail.id || eventDetail.eventId) ? (
+                          <button
+                            className="btn btn-secondary"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'default', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.2)' }}
+                            disabled
+                          >
+                            <Check size={14} /> Đã đăng ký tham gia sự kiện
+                          </button>
+                        ) : !canRegister ? (
+                          <button
+                            className="btn btn-secondary"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: 0.5, cursor: 'not-allowed' }}
+                            disabled
+                          >
+                            {isOngoing ? 'Đang diễn ra (Không thể đăng ký)' : 'Hết hạn đăng ký'}
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-primary"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            onClick={() => {
+                              const evId = eventDetail.id || eventDetail.eventId;
+                              handleRegister(evId, eventDetail.eventName || eventDetail.name);
+                            }}
+                            disabled={registeringId === (eventDetail.id || eventDetail.eventId)}
+                          >
+                            <UserPlus size={14} /> {registeringId === (eventDetail.id || eventDetail.eventId) ? 'Đang xử lý...' : 'Đăng ký tham gia ngay'}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             ) : (
               <p style={{ color: 'var(--text-muted)', padding: '16px 0' }}>Không tải được thông tin sự kiện.</p>

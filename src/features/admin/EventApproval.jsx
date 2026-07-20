@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getAllEvents, approveEvent, rejectEvent, requestEditEvent } from '../../services/eventService';
-import { CheckCircle, XCircle, Clock, Calendar, MapPin, DollarSign, Building, Search, RefreshCw, Edit3 } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Calendar, MapPin, DollarSign, Building, Search, RefreshCw, Edit3, X } from 'lucide-react';
 
 const statusConfig = {
   Approved: { label: 'Đã duyệt', className: 'badge-active', icon: <CheckCircle size={12} /> },
@@ -272,10 +272,9 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
               const eventTime = ev.dateTime || ev.startTime;
 
               return (
-                <div key={eventId} className="glass-card" style={{ padding: '16px', marginBottom: 0 }}>
-                  {/* Event Header Row */}
+                <div key={eventId} className="glass-card" style={{ padding: '16px', marginBottom: 0, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1 }} onClick={() => setExpandedId(eventId)} style={{ cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
                         <h4 style={{ fontSize: '15px', color: 'var(--text-heading)', margin: 0 }}>{eventName}</h4>
                         <span className={`badge ${cfg.className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -301,89 +300,127 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
                             <MapPin size={12} /> {ev.venue || ev.location}
                           </span>
                         )}
-                        {(ev.budget || ev.planBudget) && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <DollarSign size={12} />
-                            {typeof (ev.budget || ev.planBudget) === 'number'
-                              ? (ev.budget || ev.planBudget).toLocaleString('vi-VN')
-                              : (ev.budget || ev.planBudget)} đ
-                          </span>
-                        )}
                       </div>
                     </div>
 
-                    {mode !== 'monitoring' && approvalStatus === 'Pending' && (
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setExpandedId(isExpanded ? null : eventId)}
-                        disabled={isProcessing}
-                      >
-                        {isExpanded ? 'Đóng' : 'Xem xét'}
-                      </button>
-                    )}
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setExpandedId(eventId)}
+                      disabled={isProcessing}
+                    >
+                      {approvalStatus === 'Pending' && mode !== 'monitoring' ? 'Xem xét' : 'Chi tiết'}
+                    </button>
                   </div>
-
-                  {/* Description */}
-                  <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '12px 0 0', lineHeight: 1.6 }}>
-                    {ev.description}
-                  </p>
-
-                  {/* Remark if already decided */}
-                  {(ev.approvalRemark || ev.rejectReason) && (
-                    <div style={{ marginTop: '10px', padding: '10px', background: approvalStatus === 'Approved' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', borderRadius: '8px', border: `1px solid ${approvalStatus === 'Approved' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`, fontSize: '12px', color: 'var(--text-muted)' }}>
-                      <strong>Ghi chú:</strong> {ev.approvalRemark || ev.rejectReason}
-                    </div>
-                  )}
-
-                  {/* Action Panel (expand) */}
-                  {isExpanded && approvalStatus === 'Pending' && (
-                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-                      <div className="form-group" style={{ marginBottom: '12px' }}>
-                        <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                          Lý do từ chối / Yêu cầu chỉnh sửa (bắt buộc nếu từ chối hoặc yêu cầu sửa):
-                        </label>
-                        <textarea
-                          className="textarea-field"
-                          rows={2}
-                          placeholder="Nhập lý do..."
-                          value={remarkMap[eventId] || ''}
-                          onChange={e => setRemarkMap(m => ({ ...m, [eventId]: e.target.value }))}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          className="btn btn-success btn-sm"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                          onClick={() => handleApprove(ev)}
-                          disabled={isProcessing}
-                        >
-                          {isProcessing ? <span className="login-spinner" /> : <><CheckCircle size={14} /> Phê duyệt</>}
-                        </button>
-                        <button
-                          className="btn btn-warning btn-sm"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fff' }}
-                          onClick={() => handleRequestEdit(ev)}
-                          disabled={isProcessing}
-                        >
-                          {isProcessing ? <span className="login-spinner" /> : <><Edit3 size={14} /> Yêu cầu chỉnh sửa</>}
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                          onClick={() => handleReject(ev)}
-                          disabled={isProcessing}
-                        >
-                          {isProcessing ? <span className="login-spinner" /> : <><XCircle size={14} /> Từ chối</>}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* MODAL: CHI TIẾT & DUYỆT SỰ KIỆN */}
+      {expandedId && (() => {
+        const ev = events.find(e => (e.id || e.eventId) === expandedId);
+        if (!ev) return null;
+        const eventId = ev.id || ev.eventId;
+        const eventName = ev.eventName || ev.name;
+        const approvalStatus = ev.status || 'Pending';
+        const cfg = statusConfig[approvalStatus] || { label: approvalStatus, className: 'badge-member', icon: <Clock size={12} /> };
+        const club = getClub(ev.clubId);
+        const eventTime = ev.dateTime || ev.startTime;
+        const isProcessing = actionLoading === eventId;
+
+        return (
+          <div className="modal-backdrop">
+            <div className="modal-content glass-card" style={{ maxWidth: '560px', width: '90%' }}>
+              <div className="modal-header">
+                <h3 className="modal-title"><Calendar size={18} style={{ marginRight: '6px' }} /> Chi tiết &amp; Phê duyệt Sự kiện</h3>
+                <button className="modal-close" onClick={() => setExpandedId(null)}><X size={18} /></button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+                <h4 style={{ fontSize: '18px', color: 'var(--text-heading)', fontWeight: 700, borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                  {eventName}
+                </h4>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {[
+                    ['Câu lạc bộ', club ? club.name : `CLB #${ev.clubId}`],
+                    ['Thời gian', eventTime ? new Date(eventTime).toLocaleString('vi-VN') : 'N/A'],
+                    ['Địa điểm', ev.venue || ev.location || 'N/A'],
+                    ['Ngân sách dự trù', ev.budget || ev.planBudget ? `${Number(ev.budget || ev.planBudget).toLocaleString('vi-VN')} VNĐ` : 'N/A'],
+                    ['Số lượng dự kiến', ev.targetParticipants ? `${ev.targetParticipants} người` : 'N/A'],
+                    ['Trạng thái', <span className={`badge ${cfg.className}`}>{cfg.label}</span>]
+                  ].map(([label, value]) => (
+                    <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                      <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)' }}>{label}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: '13px', color: 'var(--text-main)', whiteSpace: 'pre-line', lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', maxHeight: '160px', overflowY: 'auto' }}>
+                  <strong>Mô tả sự kiện:</strong><br />
+                  {ev.description || 'Không có mô tả'}
+                </div>
+
+                {(ev.approvalRemark || ev.rejectReason) && (
+                  <div style={{ padding: '10px', background: approvalStatus === 'Approved' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', borderRadius: '8px', border: `1px solid ${approvalStatus === 'Approved' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`, fontSize: '12px', color: 'var(--text-muted)' }}>
+                    <strong>Ghi chú trước đó:</strong> {ev.approvalRemark || ev.rejectReason}
+                  </div>
+                )}
+
+                {approvalStatus === 'Pending' && mode !== 'monitoring' ? (
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Lý do từ chối / Yêu cầu chỉnh sửa (bắt buộc nếu từ chối hoặc yêu cầu sửa):
+                      </label>
+                      <textarea
+                        className="textarea-field"
+                        rows={2}
+                        placeholder="Nhập lý do..."
+                        value={remarkMap[eventId] || ''}
+                        onChange={e => setRemarkMap(m => ({ ...m, [eventId]: e.target.value }))}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button
+                        className="btn btn-success btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        onClick={() => handleApprove(ev)}
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? <span className="login-spinner" /> : <><CheckCircle size={14} /> Phê duyệt</>}
+                      </button>
+                      <button
+                        className="btn btn-warning btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fff' }}
+                        onClick={() => handleRequestEdit(ev)}
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? <span className="login-spinner" /> : <><Edit3 size={14} /> Yêu cầu sửa</>}
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        onClick={() => handleReject(ev)}
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? <span className="login-spinner" /> : <><XCircle size={14} /> Từ chối</>}
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setExpandedId(null)}>Đóng</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setExpandedId(null)}>Đóng</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

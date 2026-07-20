@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Bell, Megaphone, Search, User, Clock, Send, RefreshCw } from 'lucide-react';
-import { createNotification, getNotifications } from '../../services/notificationService';
+import { createNotification, getMyNotifications } from '../../services/notificationService';
 
 /**
  * ClubAnnouncements
- * - Lấy danh sách thông báo: GET /api/notifications
+ * - Lấy danh sách thông báo: GET /api/notifications/my (thông báo của tôi)
  * - Tạo thông báo mới (Leader): POST /api/notifications
  */
 export default function ClubAnnouncements({ selectedClubId, triggerNotification, isLeader }) {
@@ -23,7 +23,7 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
   const loadAnnouncements = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getNotifications();
+      const data = await getMyNotifications();
       const list = Array.isArray(data) ? data : (data?.data ?? []);
       // Lọc thông báo theo CLB hiện tại hoặc thông báo hệ thống (không có clubId)
       const filtered = list.filter(n =>
@@ -55,8 +55,8 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
       await createNotification({
         title: title.trim(),
         content: content.trim(),
-        notificationType: importance === 'High' ? 'Important' : 'General',
-        targetType: 'Club',
+        notificationType: 'System',
+        targetType: 'Theo CLB',
         targetRole: null,
         clubId: selectedClubId ? Number(selectedClubId) : null,
         targetUserIds: [],
@@ -72,7 +72,9 @@ export default function ClubAnnouncements({ selectedClubId, triggerNotification,
       await loadAnnouncements();
     } catch (err) {
       console.error('[ClubAnnouncements] Lỗi đăng thông báo:', err);
-      triggerNotification(err?.response?.data?.message || 'Đăng thông báo thất bại!', 'error');
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.title || err?.response?.data || err?.message || 'Đăng thông báo thất bại!';
+      const displayMsg = typeof serverMsg === 'object' ? JSON.stringify(serverMsg) : String(serverMsg);
+      triggerNotification(`Đăng thông báo thất bại: ${displayMsg.substring(0, 120)}`, 'error');
     } finally {
       setIsSubmitting(false);
     }

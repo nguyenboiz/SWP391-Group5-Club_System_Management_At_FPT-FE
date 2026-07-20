@@ -66,7 +66,21 @@ export default function ManagerDashboard({ triggerNotification }) {
     try {
       const res = await apiClient.get('/api/clubs');
       const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-      setClubs(data);
+      
+      // Load stats for each club to display real metrics
+      const clubsWithStats = await Promise.all(data.map(async (club) => {
+        const cId = club.id || club.clubId;
+        try {
+          const statsRes = await apiClient.get(`/api/clubs/${cId}/stats`);
+          const statsData = statsRes.data?.data ?? statsRes.data ?? {};
+          return { ...club, stats: statsData };
+        } catch (err) {
+          console.error(`Error loading stats for club ${cId}:`, err);
+          return club;
+        }
+      }));
+
+      setClubs(clubsWithStats);
       setClubsLoaded(true);
     } catch (err) {
       console.error('[ManagerDashboard] Lỗi tải CLB:', err);
@@ -437,7 +451,6 @@ export default function ManagerDashboard({ triggerNotification }) {
                       <th>Mã CLB</th>
                       <th style={{ textAlign: 'center' }}>Thành viên</th>
                       <th style={{ textAlign: 'center' }}>Sự kiện đã chạy</th>
-                      <th style={{ textAlign: 'center' }}>Điểm KPI kỳ trước</th>
                       <th>Trạng thái</th>
                     </tr>
                   </thead>
@@ -447,11 +460,11 @@ export default function ManagerDashboard({ triggerNotification }) {
                       const cName = club.clubName || club.name;
                       const cCode = club.clubCode || club.code;
                       const status = club.status || 'Active';
+                      const isActive = status === 'Active' || status === 'Hoạt động' || status === 'Đang hoạt động' || status === 'active';
                       
-                      // Thống kê hoạt động mô phỏng cho từng CLB
-                      const mockMembers = [45, 32, 28, 52, 19, 36][idx % 6] || 25;
-                      const mockEvents = [3, 2, 1, 4, 0, 2][idx % 6] || 1;
-                      const mockKpi = [85, 92, 78, 90, 65, 83][idx % 6] || 80;
+                      // Thống kê hoạt động thực tế từ Backend cho từng CLB
+                      const membersCount = club.stats?.totalMembers ?? club.stats?.memberCount ?? 0;
+                      const eventsCount = club.stats?.approvedEvents ?? club.stats?.totalApprovedEvents ?? 0;
 
                       return (
                         <tr key={cId}>
@@ -460,17 +473,9 @@ export default function ManagerDashboard({ triggerNotification }) {
                             {club.description && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{club.description.substring(0, 70)}...</div>}
                           </td>
                           <td>{cCode && <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }}>{cCode}</span>}</td>
-                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{mockMembers} sinh viên</td>
-                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{mockEvents} sự kiện</td>
-                          <td style={{ textAlign: 'center' }}>
-                            <span className="badge" style={{ 
-                              backgroundColor: mockKpi >= 85 ? 'rgba(34,197,94,0.1)' : mockKpi >= 70 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
-                              color: mockKpi >= 85 ? 'var(--success)' : mockKpi >= 70 ? 'var(--warning)' : 'var(--error)'
-                            }}>
-                              {mockKpi}/100
-                            </span>
-                          </td>
-                          <td><span className={`badge ${status === 'Active' ? 'badge-active' : 'badge-blocked'}`}>{status === 'Active' ? 'Đang hoạt động' : 'Tạm dừng'}</span></td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{membersCount} sinh viên</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{eventsCount} sự kiện</td>
+                          <td><span className={`badge ${isActive ? 'badge-active' : 'badge-blocked'}`}>{isActive ? 'Đang hoạt động' : 'Tạm dừng'}</span></td>
                         </tr>
                       );
                     })}

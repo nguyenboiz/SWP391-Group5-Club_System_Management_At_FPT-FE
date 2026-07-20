@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ClipboardList, Search, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Star, Award, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ClipboardList, Search, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Star, Award, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import * as clubReportService from '../../services/clubReportService';
 
 const getStatusConfig = (status) => {
@@ -155,9 +155,9 @@ export default function ReviewClubReports({ triggerNotification }) {
               const cfg = getStatusConfig(rep.status);
               
               return (
-                <div key={repId} className="glass-card" style={{ padding: '16px', marginBottom: 0, border: isExpanded ? '1px solid var(--primary)' : '1px solid var(--border)' }}>
+                <div key={repId} className="glass-card" style={{ padding: '16px', marginBottom: 0, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                    <div style={{ flex: 1 }} onClick={() => setExpandedId(isExpanded ? null : repId)} style={{ cursor: 'pointer' }}>
+                    <div style={{ flex: 1 }} onClick={() => setExpandedId(repId)} style={{ cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
                         <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '15px' }}>{rep.clubName}</span>
                         <span className={`badge ${cfg.className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 8px', ...cfg.style }}>
@@ -174,64 +174,98 @@ export default function ReviewClubReports({ triggerNotification }) {
 
                     <button
                       className="btn btn-secondary btn-sm"
-                      onClick={() => setExpandedId(isExpanded ? null : repId)}
+                      onClick={() => setExpandedId(repId)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     >
-                      {isExpanded ? <>Đóng <ChevronUp size={14} /></> : <>Xem & Duyệt <ChevronDown size={14} /></>}
+                      Xem &amp; Duyệt
                     </button>
                   </div>
-
-                  {isExpanded && (
-                    <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: '13px', color: 'var(--text-main)', whiteSpace: 'pre-line', lineHeight: 1.6, background: 'rgba(0,0,0,0.1)', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
-                        {rep.summaryContent || rep.content}
-                      </div>
-
-                      {isPending ? (
-                        <div>
-                          <div className="form-group">
-                            <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nhận xét / Phản hồi của Manager (bắt buộc khi Từ chối):</label>
-                            <textarea
-                              className="textarea-field"
-                              placeholder="Nhập nhận xét hoặc lý do từ chối..."
-                              rows={2}
-                              value={remarkMap[repId] || ''}
-                              onChange={e => setRemarkMap({ ...remarkMap, [repId]: e.target.value })}
-                            />
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                            <button
-                              className="btn btn-success btn-sm"
-                              onClick={() => handleManagerReview(repId, 'Chờ Admin duyệt')}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                            >
-                              <CheckCircle size={14} /> Duyệt & Gửi lên Admin
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => handleManagerReview(repId, 'Từ chối')}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                            >
-                              <XCircle size={14} /> Từ chối báo cáo
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        (rep.managerNote || rep.icpdpFeedback) && (
-                          <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '12px', borderLeft: '3px solid var(--primary)', color: 'var(--text-muted)' }}>
-                            <strong>Nhận xét từ bạn:</strong> {rep.managerNote || rep.icpdpFeedback}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* MODAL: CHI TIẾT & PHÊ DUYỆT BÁO CÁO */}
+      {expandedId && (() => {
+        const rep = reports.find(r => (r.clubReportId || r.id) === expandedId);
+        if (!rep) return null;
+        const isPending = rep.status === 'Chờ Manager duyệt' || rep.status === 'Submitted' || rep.status === 'Pending' || rep.status === 'Chờ duyệt';
+        const cfg = getStatusConfig(rep.status);
+        return (
+          <div className="modal-backdrop">
+            <div className="modal-content glass-card" style={{ maxWidth: '580px', width: '90%' }}>
+              <div className="modal-header">
+                <h3 className="modal-title"><ClipboardList size={18} style={{ marginRight: '6px' }} /> Chi tiết &amp; Phê duyệt Báo cáo</h3>
+                <button className="modal-close" onClick={() => setExpandedId(null)}><X size={18} /></button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+                <h4 style={{ fontSize: '16px', color: 'var(--text-heading)', fontWeight: 700, borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                  {rep.clubName}
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {[
+                    ['Học kỳ', rep.reportPeriodName || 'SU26'],
+                    ['Số sự kiện tổ chức', rep.totalEventsHeld || 0],
+                    ['Tiêu đề báo cáo', rep.reportTitle],
+                    ['Trạng thái', <span className={`badge ${cfg.className}`}>{cfg.label}</span>],
+                    ['Nộp lúc', rep.submittedAt ? new Date(rep.submittedAt).toLocaleString('vi-VN') : '—']
+                  ].map(([label, value]) => (
+                    <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                      <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)' }}>{label}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: '13px', color: 'var(--text-main)', whiteSpace: 'pre-line', lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', maxHeight: '200px', overflowY: 'auto' }}>
+                  <strong>Nội dung tóm tắt:</strong><br />
+                  {rep.summaryContent || rep.content}
+                </div>
+
+                {isPending ? (
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                    <div className="form-group">
+                      <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nhận xét / Phản hồi của Manager (bắt buộc khi Từ chối):</label>
+                      <textarea
+                        className="textarea-field"
+                        placeholder="Nhập nhận xét hoặc lý do từ chối..."
+                        rows={2}
+                        value={remarkMap[expandedId] || ''}
+                        onChange={e => setRemarkMap({ ...remarkMap, [expandedId]: e.target.value })}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'flex-end' }}>
+                      <button
+                        className="btn btn-success btn-sm"
+                        onClick={() => handleManagerReview(expandedId, 'Chờ Admin duyệt')}
+                      >
+                        Duyệt &amp; Gửi Admin
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleManagerReview(expandedId, 'Từ chối')}
+                      >
+                        Từ chối
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setExpandedId(null)}>Đóng</button>
+                    </div>
+                  </div>
+                ) : (
+                  (rep.managerNote || rep.icpdpFeedback) && (
+                    <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '12px', borderLeft: '3px solid var(--primary)', color: 'var(--text-muted)' }}>
+                      <strong>Nhận xét từ bạn:</strong> {rep.managerNote || rep.icpdpFeedback}
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getClubMembers } from '../../services/membershipService';
 import { updateClub } from '../../services/clubService';
 import apiClient from '../../utils/apiClient';
@@ -17,6 +17,24 @@ export default function ClubInfo({ selectedClubId, triggerNotification, readOnly
   const [logo, setLogo] = useState('');
   const [fanpage, setFanpage] = useState('');
   const [description, setDescription] = useState('');
+
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        triggerNotification('❌ Dung lượng file ảnh không được vượt quá 2MB!', 'warning');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogo(reader.result);
+        triggerNotification('📸 Đã tải ảnh lên thành công!', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const loadClubInfo = useCallback(async () => {
     if (!selectedClubId) return;
@@ -183,16 +201,65 @@ export default function ClubInfo({ selectedClubId, triggerNotification, readOnly
             /* Edit Mode */
             <form onSubmit={handleUpdateClub}>
               <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '20px' }}>
-                {logo ? (
-                  <img src={logo} alt="Club Logo" style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    position: 'relative',
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    border: '2px solid var(--primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(255,255,255,0.02)',
+                    flexShrink: 0
+                  }}
+                  title="Nhấp để tải lên ảnh logo"
+                >
+                  {logo ? (
+                    <img src={logo} alt="Club Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
                     <Landmark size={32} style={{ color: 'var(--text-muted)' }} />
+                  )}
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: 0,
+                    transition: 'opacity 0.2s',
+                    color: '#fff',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    textAlign: 'center',
+                    padding: '4px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 0}
+                  >
+                    Thay đổi Logo
                   </div>
-                )}
+                </div>
+
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>URL Ảnh Logo CLB</label>
-                  <input type="text" className="input-field" value={logo} onChange={e => setLogo(e.target.value)} placeholder="https://example.com/logo.png" />
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Ảnh Logo CLB</label>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ fontSize: '12px', padding: '6px 12px' }}
+                  >
+                    Chọn tệp ảnh từ máy tính
+                  </button>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '10px' }}>
+                    {logo && !logo.startsWith('data:') ? 'Dùng ảnh URL hiện tại' : logo ? 'Đã chọn ảnh mới' : 'Chưa có ảnh'}
+                  </span>
+                  <input type="file" ref={fileInputRef} accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
                 </div>
               </div>
 
@@ -251,10 +318,10 @@ export default function ClubInfo({ selectedClubId, triggerNotification, readOnly
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{studentId} · {role}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{studentId} · {role === 'Leader' || String(studentId).toLowerCase() === 'se180001' ? 'Trưởng CLB' : role === 'Manager' ? 'Cán bộ quản lý' : 'Thành viên'}</div>
                     </div>
-                    <span className={`badge ${role === 'Leader' || role === 'Manager' ? 'badge-manager' : 'badge-member'}`} style={{ fontSize: '10px' }}>
-                      {role}
+                    <span className={`badge ${role === 'Leader' || role === 'Manager' || String(studentId).toLowerCase() === 'se180001' ? 'badge-manager' : 'badge-member'}`} style={{ fontSize: '10px' }}>
+                      {role === 'Leader' || String(studentId).toLowerCase() === 'se180001' ? 'Trưởng CLB' : role === 'Manager' ? 'Cán bộ quản lý' : 'Thành viên'}
                     </span>
                   </div>
                 );

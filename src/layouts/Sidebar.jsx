@@ -66,10 +66,6 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <Bell size={18} />
         <span>Thông báo CLB</span>
       </div>
-      <div className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
-        <BarChart2 size={18} />
-        <span>Thống kê & Phân tích</span>
-      </div>
     </>
   );
 
@@ -126,6 +122,10 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
             <FileCheck size={18} />
             <span>Kiểm tra Chứng nhận</span>
           </div>
+          <div className={`nav-item ${activeTab === 'club-report' ? 'active' : ''}`} onClick={() => setActiveTab('club-report')}>
+            <ClipboardList size={18} />
+            <span>Báo cáo Hoạt động</span>
+          </div>
         </>
       )}
     </>
@@ -155,7 +155,11 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
 
       <div className="sidebar-footer">
         {currentUserProfile && (
-          <div className="user-sidebar-card">
+          <div 
+            className={`user-sidebar-card ${activeTab === 'my-profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('my-profile')}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="user-avatar-initial">
               {currentUserProfile.fullName?.charAt(0) || '?'}
             </div>

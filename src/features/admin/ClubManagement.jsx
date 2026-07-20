@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as clubService from '../../services/clubService';
 import apiClient from '../../utils/apiClient';
-import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, List, Info, RefreshCw, Edit2, Lock, Unlock, X, Save, Eye } from 'lucide-react';
+import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, List, Info, RefreshCw, Edit2, Lock, Unlock, X, Save, Eye, Trash2, BarChart2 } from 'lucide-react';
 
 export default function ClubManagement({ triggerNotification }) {
   const [activeView, setActiveView] = useState('list');
@@ -37,6 +37,11 @@ export default function ClubManagement({ triggerNotification }) {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [clubDetail, setClubDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [clubStats, setClubStats] = useState(null);
+
+  // Dissolve confirm state
+  const [dissolveConfirm, setDissolveConfirm] = useState(null); // club object or null
+  const [dissolving, setDissolving] = useState(false);
 
   const loadClubs = useCallback(async () => {
     setLoadingClubs(true);
@@ -158,7 +163,8 @@ export default function ClubManagement({ triggerNotification }) {
   // 3. Đổi trạng thái Đang hoạt động / Tạm dừng
   const handleToggleStatus = async (club) => {
     const cId = club.id || club.clubId;
-    const nextStatus = club.status === 'Active' ? 'Suspended' : 'Active';
+    const isCurrentlyActive = club.status === 'Active' || club.status === 'Hoạt động' || club.status === 'Đang hoạt động' || club.status === 'active';
+    const nextStatus = isCurrentlyActive ? 'Suspended' : 'Active';
 
     try {
       await clubService.updateClubStatus(cId, nextStatus);
@@ -170,21 +176,45 @@ export default function ClubManagement({ triggerNotification }) {
     }
   };
 
-  // 4. Xem chi tiết CLB
+  // 4. Xem chi tiết CLB (bao gồm stats)
   const handleViewDetail = async (club) => {
     const cId = club.id || club.clubId;
     if (!cId) return;
     setShowDetailModal(true);
     setLoadingDetail(true);
     setClubDetail(null);
+    setClubStats(null);
     try {
-      const data = await clubService.getClubDetail(cId);
-      setClubDetail(data?.data ?? data);
+      const [detailRes, statsRes] = await Promise.allSettled([
+        clubService.getClubDetail(cId),
+        clubService.getClubStats(cId)
+      ]);
+      setClubDetail(detailRes.status === 'fulfilled' ? (detailRes.value?.data ?? detailRes.value) : club);
+      setClubStats(statsRes.status === 'fulfilled' ? (statsRes.value?.data ?? statsRes.value) : null);
     } catch (err) {
       console.error('[ClubManagement] Lỗi tải chi tiết CLB:', err);
       setClubDetail(club);
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  // 5. Giải thể CLB (Soft Delete)
+  const handleDissolve = async () => {
+    if (!dissolveConfirm) return;
+    const cId = dissolveConfirm.id || dissolveConfirm.clubId;
+    const cName = dissolveConfirm.clubName || dissolveConfirm.name;
+    setDissolving(true);
+    try {
+      await clubService.dissolveClub(cId);
+      triggerNotification(`🏳️ Đã giải thể CLB "${cName}" thành công!`, 'success');
+      setDissolveConfirm(null);
+      await loadClubs();
+    } catch (err) {
+      console.error('[ClubManagement] Lỗi giải thể CLB:', err);
+      triggerNotification(err?.response?.data?.message || 'Giải thể CLB thất bại!', 'error');
+    } finally {
+      setDissolving(false);
     }
   };
 
@@ -255,6 +285,7 @@ export default function ClubManagement({ triggerNotification }) {
                     const cName = club.clubName || club.name;
                     const cCode = club.clubCode || club.code;
                     const status = club.status || 'Active';
+                    const isActive = status === 'Active' || status === 'Hoạt động' || status === 'Đang hoạt động' || status === 'active';
                     return (
                       <tr key={cId}>
                         <td>
@@ -277,8 +308,8 @@ export default function ClubManagement({ triggerNotification }) {
                           {club.createdAt ? new Date(club.createdAt).toLocaleDateString('vi-VN') : '—'}
                         </td>
                         <td>
-                          <span className={`badge ${status === 'Active' ? 'badge-active' : 'badge-blocked'}`}>
-                            {status === 'Active' ? 'Đang hoạt động' : 'Tạm dừng'}
+                          <span className={`badge ${isActive ? 'badge-active' : 'badge-blocked'}`}>
+                            {isActive ? 'Đang hoạt động' : 'Tạm dừng'}
                           </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
@@ -297,16 +328,18 @@ export default function ClubManagement({ triggerNotification }) {
                               onClick={() => handleToggleStatus(club)}
                               style={{ padding: '6px' }}
                             >
-                              {status === 'Active' ? <Lock size={12} style={{ color: 'var(--error)' }} /> : <Unlock size={12} style={{ color: 'var(--success)' }} />}
+                              {isActive ? <Lock size={12} style={{ color: 'var(--error)' }} /> : <Unlock size={12} style={{ color: 'var(--success)' }} />}
                             </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              title="Chỉnh sửa thông tin"
-                              onClick={() => handleEditClick(club)}
-                              style={{ padding: '6px' }}
-                            >
-                              <Edit2 size={12} />
-                            </button>
+                            {status !== 'Dissolved' && (
+                              <button
+                                className="btn btn-danger btn-sm"
+                                title="Giải thể CLB"
+                                onClick={() => setDissolveConfirm(club)}
+                                style={{ padding: '6px' }}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -470,10 +503,10 @@ export default function ClubManagement({ triggerNotification }) {
       {/* DETAIL CLUB MODAL */}
       {showDetailModal && (
         <div className="modal-backdrop">
-          <div className="modal-content glass-card" style={{ maxWidth: '520px', width: '90%' }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '580px', width: '90%' }}>
             <div className="modal-header">
               <h3 className="modal-title"><Landmark size={18} style={{ marginRight: '6px' }} /> Chi tiết Câu lạc bộ</h3>
-              <button className="modal-close" onClick={() => { setShowDetailModal(false); setClubDetail(null); }}><X size={18} /></button>
+              <button className="modal-close" onClick={() => { setShowDetailModal(false); setClubDetail(null); setClubStats(null); }}><X size={18} /></button>
             </div>
             {loadingDetail ? (
               <div style={{ textAlign: 'center', padding: '32px' }}>
@@ -497,12 +530,37 @@ export default function ClubManagement({ triggerNotification }) {
                   </div>
                 </div>
 
+                {/* Club Stats */}
+                {clubStats && (
+                  <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '14px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <BarChart2 size={13} /> Thống kê hoạt động
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                      {[
+                        ['Thành viên', clubStats.totalMembers ?? clubStats.memberCount ?? '—'],
+                        ['Sự kiện đã duyệt', clubStats.approvedEvents ?? clubStats.totalApprovedEvents ?? '—'],
+                        ['Sự kiện chờ duyệt', clubStats.pendingEvents ?? clubStats.totalPendingEvents ?? '—'],
+                        ['Minh chứng chờ duyệt', clubStats.pendingEvidences ?? clubStats.totalPendingEvidences ?? '—'],
+                      ].map(([label, val]) => (
+                        <div key={label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '10px 12px', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{label}</div>
+                          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-heading)', marginTop: '2px' }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {[
                     ['Ngày thành lập', clubDetail.foundedDate ? new Date(clubDetail.foundedDate).toLocaleDateString('vi-VN') : 'N/A'],
-                    ['Người quản lý (Student ID)', clubDetail.managerStudentId || clubDetail.managerUserId || 'N/A'],
+                    ['Người quản lý (Student ID)', clubDetail.managerStudentId || clubDetail.leaderStudentId || clubDetail.managerUserId || clubDetail.leaderUserId || 'N/A'],
                     ['Fanpage Facebook', clubDetail.fanpageUrl ? <a href={clubDetail.fanpageUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{clubDetail.fanpageUrl}</a> : 'N/A'],
-                    ['Trạng thái', <span className={`badge ${clubDetail.status === 'Active' ? 'badge-active' : 'badge-blocked'}`}>{clubDetail.status === 'Active' ? 'Đang hoạt động' : 'Tạm dừng'}</span>],
+                    ['Trạng thái', (() => {
+                      const isDetailActive = clubDetail.status === 'Active' || clubDetail.status === 'Hoạt động' || clubDetail.status === 'Đang hoạt động' || clubDetail.status === 'active';
+                      return <span className={`badge ${isDetailActive ? 'badge-active' : 'badge-blocked'}`}>{isDetailActive ? 'Đang hoạt động' : 'Tạm dừng'}</span>;
+                    })()],
                     ['Mô tả hoạt động', clubDetail.description || 'N/A']
                   ].map(([label, value]) => (
                     <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
@@ -515,6 +573,40 @@ export default function ClubManagement({ triggerNotification }) {
             ) : (
               <p style={{ color: 'var(--text-muted)', padding: '16px 0' }}>Không tải được thông tin câu lạc bộ.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* DISSOLVE CONFIRM MODAL */}
+      {dissolveConfirm && (
+        <div className="modal-backdrop">
+          <div className="modal-content glass-card" style={{ maxWidth: '420px', width: '90%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ color: 'var(--error)' }}><Trash2 size={18} style={{ marginRight: '6px' }} /> Giải thể Câu lạc bộ</h3>
+              <button className="modal-close" onClick={() => setDissolveConfirm(null)}><X size={18} /></button>
+            </div>
+            <div style={{ padding: '16px 0' }}>
+              <p style={{ color: 'var(--text-main)', marginBottom: '12px' }}>
+                Bạn có chắc chắn muốn <strong style={{ color: 'var(--error)' }}>giải thể</strong> câu lạc bộ:
+              </p>
+              <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+                <strong style={{ color: 'var(--text-heading)', fontSize: '15px' }}>{dissolveConfirm.clubName || dissolveConfirm.name}</strong>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                ⚠️ Thao tác này sẽ đổi trạng thái CLB sang <strong>"Giải thể"</strong>. Toàn bộ lịch sử dữ liệu vẫn được giữ lại. Không thể hoàn tác sau khi xác nhận.
+              </p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn btn-danger"
+                  style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  onClick={handleDissolve}
+                  disabled={dissolving}
+                >
+                  <Trash2 size={14} /> {dissolving ? 'Đang giải thể...' : 'Xác nhận Giải thể'}
+                </button>
+                <button className="btn btn-secondary" onClick={() => setDissolveConfirm(null)} disabled={dissolving}>Hủy</button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -33,7 +33,7 @@ export default function SemesterConfig({ triggerNotification }) {
       const sList = Array.isArray(data) ? data : (data?.data ?? []);
       setSemesters(sList);
       if (sList.length > 0) {
-        setNewRp(prev => ({ ...prev, semesterId: String(sList[0].id) }));
+        setNewRp(prev => ({ ...prev, semesterId: String(sList[0].semesterId || sList[0].id) }));
       }
     } catch (err) {
       setSemesters([]);
@@ -73,19 +73,30 @@ export default function SemesterConfig({ triggerNotification }) {
     if (!editingSem) return;
     setIsUpdatingSem(true);
     try {
-      await semesterService.updateSemester(editingSem.id, {
+      const payload = {
         semesterName: editingSem.semesterName,
         description: editingSem.description || null,
-        startDate: editingSem.startDate,
-        endDate: editingSem.endDate,
-        status: editingSem.status
-      });
+        startDate: editingSem.startDate ? editingSem.startDate.slice(0, 10) : '',
+        endDate: editingSem.endDate ? editingSem.endDate.slice(0, 10) : '',
+        status: editingSem.status || 'Planned'
+      };
+      
+      await semesterService.updateSemester(editingSem.semesterId || editingSem.id, payload);
       triggerNotification(`Đã cập nhật học kỳ: ${editingSem.semesterName}`, 'success');
       setShowEditSemModal(false);
       setEditingSem(null);
       await loadSemesters();
     } catch (err) {
-      triggerNotification(err?.response?.data?.message || 'Cập nhật học kỳ thất bại!', 'error');
+      console.error('[SemesterConfig] Lỗi cập nhật học kỳ:', err);
+      const errors = err?.response?.data?.errors;
+      let detailMsg = '';
+      if (errors && typeof errors === 'object') {
+        detailMsg = Object.entries(errors)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('; ') : v}`)
+          .join(', ');
+      }
+      const serverMsg = detailMsg || err?.response?.data?.message || err?.response?.data?.title;
+      triggerNotification(`Cập nhật học kỳ thất bại: ${serverMsg || err.message || 'Lỗi không xác định'}`, 'error');
     } finally {
       setIsUpdatingSem(false);
     }
@@ -204,7 +215,27 @@ export default function SemesterConfig({ triggerNotification }) {
     }
   };
 
-  const activeSemester = semesters.find(s => s.status === 'Active' || s.status === 'Open') || semesters[0];
+  const getSemesterStatus = (s) => {
+    if (!s) return 'Planned';
+    // If backend returns Active, Open or Finished, we can respect it
+    if (s.status === 'Active' || s.status === 'Open') return 'Active';
+    if (s.status === 'Finished') return 'Finished';
+    
+    // Otherwise, compute based on dates
+    if (s.startDate && s.endDate) {
+      const now = new Date();
+      const start = new Date(s.startDate);
+      const end = new Date(s.endDate);
+      start.setHours(0,0,0,0);
+      end.setHours(23,59,59,999);
+      
+      if (now >= start && now <= end) return 'Active';
+      if (now > end) return 'Finished';
+    }
+    return s.status || 'Planned';
+  };
+
+  const activeSemester = semesters.find(s => getSemesterStatus(s) === 'Active' || s.status === 'Open') || semesters[0];
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -317,16 +348,16 @@ export default function SemesterConfig({ triggerNotification }) {
                 </thead>
                 <tbody>
                   {semesters.map(s => (
-                    <tr key={s.id}>
-                      <td><strong>{s.id}</strong></td>
+                    <tr key={s.semesterId || s.id}>
+                      <td><strong>{s.semesterId || s.id}</strong></td>
                       <td>{s.semesterName || s.name}</td>
                       <td>{formatDate(s.startDate)}</td>
                       <td>{formatDate(s.endDate)}</td>
                       <td>
                         <span className={`badge ${
-                          s.status === 'Active' || s.status === 'Open' ? 'badge-active' : s.status === 'Finished' ? 'badge-blocked' : 'badge-pending'
+                          getSemesterStatus(s) === 'Active' || s.status === 'Open' ? 'badge-active' : getSemesterStatus(s) === 'Finished' ? 'badge-blocked' : 'badge-pending'
                         }`}>
-                          {s.status === 'Active' || s.status === 'Open' ? 'Đang diễn ra' : s.status === 'Finished' ? 'Đã kết thúc' : 'Chưa diễn ra'}
+                          {getSemesterStatus(s) === 'Active' || s.status === 'Open' ? 'Đang diễn ra' : getSemesterStatus(s) === 'Finished' ? 'Đã kết thúc' : 'Chưa diễn ra'}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -366,7 +397,7 @@ export default function SemesterConfig({ triggerNotification }) {
                 onChange={e => setNewRp({ ...newRp, semesterId: e.target.value })}
               >
                 {semesters.map(s => (
-                  <option key={s.id} value={s.id}>{s.semesterName || s.name} ({s.id})</option>
+                  <option key={s.semesterId || s.id} value={s.semesterId || s.id}>{s.semesterName || s.name} ({s.semesterId || s.id})</option>
                 ))}
               </select>
             </div>

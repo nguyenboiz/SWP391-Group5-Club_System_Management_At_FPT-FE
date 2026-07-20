@@ -161,3 +161,25 @@ export async function reviewEvidence(evidenceId, dto) {
   const response = await apiClient.patch(`/api/events/evidence/${evidenceId}/review`, dto);
   return response.data;
 }
+
+/**
+ * Lấy danh sách minh chứng đang chờ duyệt toàn hệ thống (API MỚI từ BE)
+ * GET /api/events/evidences/pending
+ * Quyền: [ADMIN, Manager]
+ * Trả về danh sách toàn bộ minh chứng sinh viên nộp đang ở trạng thái "Đang chờ"
+ */
+export async function getPendingEvidences() {
+  const response = await apiClient.get('/api/events/evidences/pending');
+  return response.data;
+}
+
+/**
+ * Lấy danh sách minh chứng theo 1 sự kiện cụ thể
+ * GET /api/events/{eventId}/evidences
+ * Quyền: [ADMIN, Manager]
+ * @param {number|string} eventId
+ */
+export async function getEventEvidences(eventId) {
+  const response = await apiClient.get(`/api/events/${eventId}/evidences`);
+  return response.data;
+}

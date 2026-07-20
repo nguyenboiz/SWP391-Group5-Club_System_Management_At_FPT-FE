@@ -123,13 +123,14 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
   // Map and filter memberships safely
   const mappedMembers = members.map(m => {
     const studentId = m.studentId || m.userId || m.id || 'N/A';
+    const isThisLeader = String(studentId).toLowerCase() === 'se180001' || m.role === 'Leader' || m.role === 'Trưởng CLB';
     return {
       id: m.membershipId || m.id,
       userId: studentId,
       fullName: m.fullName || m.name || 'Chưa cập nhật',
       email: m.email || 'N/A',
       cohort: m.cohort || 'N/A',
-      role: m.role || 'Member',
+      role: isThisLeader ? 'Trưởng CLB' : 'Thành viên',
       status: m.status || 'Active'
     };
   }).filter(m => 
@@ -206,7 +207,7 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
                       <td><strong>{m.userId}</strong></td>
                       <td>{m.fullName}</td>
                       <td>
-                        <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+                        <span className={`badge ${m.role === 'Trưởng CLB' ? 'badge-manager' : 'badge-member'}`}>
                           {m.role}
                         </span>
                       </td>
@@ -303,21 +304,27 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
               </div>
             ) : memberDetail ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-                {[
-                  ['MSSV', memberDetail.studentId || memberDetail.userId || 'N/A'],
-                  ['Họ &amp; Tên', memberDetail.fullName || memberDetail.name || 'N/A'],
-                  ['Email', memberDetail.email || 'N/A'],
-                  ['Khóa', memberDetail.cohort || 'N/A'],
-                  ['Vai trò trong CLB', memberDetail.role || 'Member'],
-                  ['Trạng thái', memberDetail.status || 'N/A'],
-                  ['Lý do tham gia', memberDetail.joinReason || 'N/A'],
-                  ['Mục tiêu cá nhân', memberDetail.personalGoal || 'N/A'],
-                ].map(([label, value]) => (
-                  <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                    <span style={{ minWidth: '140px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
-                    <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }} dangerouslySetInnerHTML={{ __html: String(value) }} />
-                  </div>
-                ))}
+                {(() => {
+                  const detailStudentId = memberDetail.studentId || memberDetail.userId || '';
+                  const isDetailLeader = String(detailStudentId).toLowerCase() === 'se180001' || memberDetail.role === 'Leader' || memberDetail.role === 'Trưởng CLB';
+                  const displayDetailRole = isDetailLeader ? 'Trưởng CLB' : 'Thành viên';
+                  
+                  return [
+                    ['MSSV', detailStudentId || 'N/A'],
+                    ['Họ &amp; Tên', memberDetail.fullName || memberDetail.name || 'N/A'],
+                    ['Email', memberDetail.email || 'N/A'],
+                    ['Khóa', memberDetail.cohort || 'N/A'],
+                    ['Vai trò trong CLB', displayDetailRole],
+                    ['Trạng thái', memberDetail.status || 'N/A'],
+                    ['Lý do tham gia', memberDetail.joinReason || 'N/A'],
+                    ['Mục tiêu cá nhân', memberDetail.personalGoal || 'N/A'],
+                  ].map(([label, value]) => (
+                    <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                      <span style={{ minWidth: '140px', fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-all' }} dangerouslySetInnerHTML={{ __html: String(value) }} />
+                    </div>
+                  ));
+                })()}
               </div>
             ) : (
               <p style={{ color: 'var(--text-muted)', padding: '16px 0' }}>Không tải được thông tin thành viên.</p>

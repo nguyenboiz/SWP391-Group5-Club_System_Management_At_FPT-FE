@@ -64,13 +64,36 @@ export default function NotificationManagement({ triggerNotification }) {
     setErrors({});
     setIsSubmitting(true);
     try {
+      // Map frontend selection to valid Backend Swagger enums
+      let mappedType = 'System';
+      if (notificationType === 'Event') mappedType = 'Event';
+      else if (notificationType === 'General') mappedType = 'System';
+      
+      let mappedTarget = 'All';
+      let mappedRole = targetRole || null;
+      
+      if (targetType === 'Role') {
+        if (targetRole === 'MANAGER') {
+          mappedTarget = 'AllManagers';
+          mappedRole = null;
+        } else if (targetRole === 'MEMBER') {
+          mappedTarget = 'ClubMembers';
+          mappedRole = null;
+        } else if (targetRole === 'ADMIN') {
+          mappedTarget = 'SpecificUsers';
+          mappedRole = 'ADMIN';
+        }
+      } else if (targetType === 'Club') {
+        mappedTarget = 'ClubMembers';
+      }
+
       const dto = {
         title: title.trim(),
         content: content.trim(),
-        notificationType,
-        targetType,
+        notificationType: mappedType,
+        targetType: mappedTarget,
+        targetRole: mappedRole
       };
-      if (targetRole) dto.targetRole = targetRole;
 
       await createNotification(dto);
       triggerNotification('Đã gửi thông báo thành công!', 'success');

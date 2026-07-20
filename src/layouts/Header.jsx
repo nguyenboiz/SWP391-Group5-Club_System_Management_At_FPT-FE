@@ -256,7 +256,7 @@ export default function Header({
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 <span className={`badge ${currentRole === 'ADMIN' ? 'badge-admin' : currentRole === 'MANAGER' ? 'badge-manager' : isLeader ? 'badge-leader' : 'badge-member'}`}
                   style={{ fontSize: '10px', padding: '2px 6px' }}>
-                  {isLeader && currentRole === 'MEMBER' ? 'LEADER' : currentRole}
+                  {currentRole === 'ADMIN' ? 'Quản trị viên' : currentRole === 'MANAGER' ? 'Quản lý hệ thống' : isLeader ? 'Trưởng CLB' : 'Thành viên'}
                 </span>
               </div>
             </div>

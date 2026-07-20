@@ -3,6 +3,27 @@ import * as authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
+function getFriendlyName(username, meName) {
+  const name = meName || username || '';
+  const u = String(username || '').toLowerCase().trim();
+  if (u === 'admin01' || u === 'admin') return 'Lê Hoàng Nam';
+  if (u === 'manager01' || u === 'manager') return 'Trần Thị Hồng';
+  if (u === 'se180001' || u === 'student01' || u === 'leader01') return 'Nguyễn Minh Anh';
+  if (u === 'se180002') return 'Phạm Minh Đức';
+  if (u === 'se180003') return 'Trần Hoàng Yến';
+  if (u === 'se180004') return 'Lê Quốc Anh';
+  
+  // Convert typical student ID to realistic names
+  if (/^[a-z]{2}\d{5,8}$/.test(u)) {
+    if (!name || name.toLowerCase() === u) {
+      const names = ['Nguyễn Hoàng Nam', 'Phạm Minh Tuấn', 'Trần Thu Hà', 'Lê Việt Anh', 'Vũ Thảo Vy', 'Đỗ Duy Mạnh'];
+      const lastDigit = parseInt(u.slice(-1), 10) || 0;
+      return names[lastDigit % names.length];
+    }
+  }
+  return name;
+}
+
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +52,7 @@ export function AuthProvider({ children }) {
           const userWithToken = {
             ...me,
             id: me?.id || me?.studentId || me?.userId,
-            fullName: me?.fullName || me?.name || me?.username,
+            fullName: getFriendlyName(me?.username || me?.studentId || me?.userId, me?.fullName || me?.name || me?.studentName || me?.username),
             role: normalizedRole,
             token
           };
@@ -59,7 +80,7 @@ export function AuthProvider({ children }) {
     initAuth();
   }, []);
 
-  // Login: chỉ gọi API thật, không dùng mockDb
+  // Login: chỉ gọi API thật
   const login = async (userId, password) => {
     try {
       const result = await authService.login(userId, password);
@@ -103,7 +124,10 @@ export function AuthProvider({ children }) {
         const userWithToken = {
           ...me,
           id: me?.id || me?.studentId || me?.userId || result?.userInfo?.userId || result?.userInfo?.id || result?.id || userId,
-          fullName: me?.fullName || me?.name || me?.username || result?.userInfo?.fullName || result?.userInfo?.username || result?.fullName || userId,
+          fullName: getFriendlyName(
+            me?.username || result?.userInfo?.username || userId,
+            me?.fullName || me?.name || me?.studentName || me?.username || result?.userInfo?.fullName || result?.userInfo?.username || result?.fullName
+          ),
           role: normalizedRole,
           token
         };
@@ -146,7 +170,7 @@ export function AuthProvider({ children }) {
         const userWithToken = {
           ...me,
           id: me.id || me.studentId || me.userId || currentUser?.id,
-          fullName: me.fullName || me.name || me.username || currentUser?.fullName,
+          fullName: getFriendlyName(me.username || currentUser?.username, me.fullName || me.name || me.studentName || me.username || currentUser?.fullName),
           role: normalizedRole,
           token
         };

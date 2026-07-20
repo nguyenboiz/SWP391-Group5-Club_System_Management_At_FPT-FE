@@ -181,7 +181,6 @@ a:hover {
   gap: 8px;
 }
 
-/* User Card in Sidebar */
 .user-sidebar-card {
   display: flex;
   align-items: center;
@@ -189,6 +188,14 @@ a:hover {
   padding: 10px;
   border-radius: var(--radius-sm);
   background-color: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+}
+
+.user-sidebar-card:hover,
+.user-sidebar-card.active {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary);
 }
 
 .user-avatar-initial {
@@ -471,6 +478,11 @@ a:hover {
   background-color: rgba(0, 0, 0, 0.3);
 }
 
+select option {
+  background-color: #10121a !important;
+  color: #ffffff !important;
+}
+
 .textarea-field {
   min-height: 100px;
   resize: vertical;
@@ -611,6 +623,7 @@ a:hover {
 .badge-internal { background-color: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
 
 /* Modal overlay & content styles */
+.modal-backdrop,
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -622,7 +635,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   animation: fadeIn 0.2s ease-out;
 }
 

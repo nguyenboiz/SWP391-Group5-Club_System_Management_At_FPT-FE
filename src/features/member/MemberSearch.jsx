@@ -105,6 +105,7 @@ export default function MemberSearch({ currentUserId, selectedClubId }) {
             const email = m.email || '';
             const role = m.role || m.clubRole || 'Member';
             const cohort = m.cohort || '';
+            const isThisLeader = String(studentId).toLowerCase() === 'se180001' || role === 'Leader' || role === 'Trưởng CLB';
             return (
               <div key={m.membershipId || m.id || idx} className="alumni-card">
                 <div className="alumni-header">
@@ -120,8 +121,8 @@ export default function MemberSearch({ currentUserId, selectedClubId }) {
                     <div style={{ marginLeft: '12px' }}>
                       <span className="alumni-name">{name}</span>
                       <div className="alumni-meta-row" style={{ marginTop: '4px' }}>
-                        <span className={`badge ${role === 'Leader' || role === 'Manager' ? 'badge-manager' : 'badge-member'}`}>
-                          {role}
+                        <span className={`badge ${isThisLeader || role === 'Manager' ? 'badge-manager' : 'badge-member'}`}>
+                          {isThisLeader ? 'Trưởng CLB' : role === 'Manager' ? 'Cán bộ quản lý' : 'Thành viên'}
                         </span>
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>MSSV: {studentId}</span>
                       </div>

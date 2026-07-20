@@ -5,13 +5,13 @@ import { updateProfile, getUserActivityHistory } from '../../services/userServic
 import { User, Image as ImageIcon, Send, Clock, Activity, Upload, Phone, Calendar, Users } from 'lucide-react';
 import { validatePhone, validateNoSpecialChars } from '../../utils/validator';
 
-export default function MemberWorkspace({ currentUserId, triggerNotification, selectedClubId }) {
+export default function MemberWorkspace({ currentUserId, triggerNotification, selectedClubId, mode = 'profile' }) {
   const { currentUser } = useAuth();
   const user = currentUser;
   const userId = user?.id || user?.userId || currentUserId;
 
   // Active tab
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState(mode === 'evidence' ? 'evidence' : 'profile');
 
   // Profile state
   const [phone, setPhone] = useState(user?.phone || user?.phoneNumber || '');
@@ -22,6 +22,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
 
   // Events + evidence state
   const [clubEvents, setClubEvents] = useState([]);
+  const [registeredIds, setRegisteredIds] = useState(new Set());
   const [selectedEventId, setSelectedEventId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState(null);
@@ -43,13 +44,28 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     }
   }, [user]);
 
+  useEffect(() => {
+    if (userId) {
+      const saved = localStorage.getItem(`fpt_registered_events_${userId}`);
+      if (saved) {
+        try {
+          setRegisteredIds(new Set(JSON.parse(saved)));
+        } catch (e) {
+          console.error('[MemberWorkspace] Error parsing registered events:', e);
+        }
+      }
+    }
+  }, [userId]);
+
   const loadClubEvents = useCallback(async () => {
     if (!selectedClubId) return;
     try {
       const data = await getEventsByClub(selectedClubId);
-      setClubEvents(Array.isArray(data) ? data : (data?.data ?? []));
+      const raw = Array.isArray(data) ? data : (data?.data || []);
+      setClubEvents(Array.isArray(raw) ? raw : []);
     } catch (err) {
       console.error('[MemberWorkspace] Lỗi tải sự kiện:', err);
+      setClubEvents([]);
     }
   }, [selectedClubId]);
 
@@ -62,7 +78,8 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     setLoadingHistory(true);
     try {
       const data = await getUserActivityHistory(userId);
-      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      const rawList = Array.isArray(data) ? data : (data?.data || []);
+      const list = Array.isArray(rawList) ? rawList : [];
       setActivityHistory(list);
     } catch (err) {
       console.error('[MemberWorkspace] Lỗi tải lịch sử hoạt động:', err);
@@ -173,36 +190,54 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
 
   const TABS = [
     { key: 'profile', label: 'Hồ sơ Cá nhân', icon: <User size={15} /> },
-    { key: 'evidence', label: 'Nộp Chứng nhận', icon: <ImageIcon size={15} /> },
     { key: 'activity', label: 'Lịch sử Hoạt động', icon: <Activity size={15} /> },
   ];
+
+  // Filter events: must be registered and must have ended
+  const eligibleEvents = clubEvents.filter(ev => {
+    const evId = ev.id || ev.eventId;
+    // 1. Must be registered by this user
+    const isRegistered = registeredIds.has(evId);
+    
+    // 2. Must have ended
+    const eTime = ev.startTime || ev.dateTime;
+    const eEndTime = ev.endTime;
+    const start = new Date(eTime);
+    const end = eEndTime ? new Date(eEndTime) : new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2 hours duration fallback
+    const now = new Date();
+    const hasEnded = now > end;
+    
+    return isRegistered && hasEnded;
+  });
 
   return (
     <div className="member-workspace-container">
 
       {/* Tab Nav */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        {TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-              background: activeTab === tab.key ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
-              color: activeTab === tab.key ? '#fff' : 'var(--text-muted)',
-              fontWeight: activeTab === tab.key ? 700 : 400,
-              fontSize: '13px', transition: 'all 0.2s',
-            }}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-      </div>
+      {mode === 'profile' && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                background: activeTab === tab.key ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
+                color: activeTab === tab.key ? '#fff' : 'var(--text-muted)',
+                fontWeight: activeTab === tab.key ? 700 : 400,
+                fontSize: '13px', transition: 'all 0.2s',
+              }}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Tab: Hồ sơ Cá nhân ─────────────────────────────────── */}
       {activeTab === 'profile' && (
-        <div className="dashboard-grid-2col">
+        <div className={selectedClubId ? "dashboard-grid-2col" : ""} style={!selectedClubId ? { maxWidth: '640px' } : {}}>
           <div className="glass-card">
             <div className="glass-card-header">
               <h3 className="glass-card-title"><User size={18} /> Hồ sơ Cá nhân</h3>
@@ -312,7 +347,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
 
       {/* ── Tab: Nộp Chứng nhận ────────────────────────────────── */}
       {activeTab === 'evidence' && (
-        <div style={{ maxWidth: '640px' }}>
+        <div>
           <div className="glass-card">
             <div className="glass-card-header">
               <h3 className="glass-card-title"><ImageIcon size={18} /> Nộp chứng nhận tham gia sự kiện</h3>
@@ -330,7 +365,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                   }}
                 >
                   <option value="">-- Chọn sự kiện --</option>
-                  {clubEvents.map(ev => (
+                  {eligibleEvents.map(ev => (
                     <option key={ev.id || ev.eventId} value={ev.id || ev.eventId}>
                       {ev.eventName || ev.name}
                     </option>

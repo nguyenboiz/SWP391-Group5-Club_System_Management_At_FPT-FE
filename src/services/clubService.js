@@ -20,10 +20,15 @@ export async function getClubs(status = null) {
  * Tạo CLB mới
  * POST /api/clubs
  * @param {Object} dto - CreateClubDto
- *   { clubName, clubCode, description, fanpageUrl, logoImage, foundedDate, managerStudentId }
+ *   { clubName, clubCode, description, fanpageUrl, logoImage, foundedDate, leaderStudentId }
  */
 export async function createClub(dto) {
-  const response = await apiClient.post('/api/clubs', dto);
+  const payload = {
+    ...dto,
+    leaderStudentId: dto.leaderStudentId || dto.managerStudentId
+  };
+  delete payload.managerStudentId;
+  const response = await apiClient.post('/api/clubs', payload);
   return response.data;
 }
 
@@ -57,6 +62,29 @@ export async function updateClubStatus(clubId, status) {
  */
 export async function getClubDetail(clubId) {
   const response = await apiClient.get(`/api/clubs/${clubId}`);
+  return response.data;
+}
+
+/**
+ * Lấy thống kê chi tiết của 1 CLB
+ * GET /api/clubs/{clubId}/stats
+ * @param {number|string} clubId
+ * Trả về: số thành viên, sự kiện (chờ/đã duyệt), báo cáo, minh chứng
+ */
+export async function getClubStats(clubId) {
+  const response = await apiClient.get(`/api/clubs/${clubId}/stats`);
+  return response.data;
+}
+
+/**
+ * Giải thể CLB (Xóa mềm - Soft Delete)
+ * DELETE /api/clubs/{clubId}
+ * @param {number|string} clubId
+ * Đổi trạng thái CLB thành "Giải thể", giữ nguyên lịch sử dữ liệu.
+ * Quyền: [ADMIN]
+ */
+export async function dissolveClub(clubId) {
+  const response = await apiClient.delete(`/api/clubs/${clubId}`);
   return response.data;
 }
 
