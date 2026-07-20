@@ -88,3 +88,15 @@ export async function dissolveClub(clubId) {
   return response.data;
 }
 
+/**
+ * Lấy danh sách cựu thành viên của CLB
+ * GET /api/clubs/{clubId}/alumni
+ * @param {number|string} clubId
+ * @param {string} search
+ */
+export async function getClubAlumni(clubId, search = '') {
+  const params = search ? { search } : {};
+  const response = await apiClient.get(`/api/clubs/${clubId}/alumni`, { params });
+  return response.data;
+}
+
