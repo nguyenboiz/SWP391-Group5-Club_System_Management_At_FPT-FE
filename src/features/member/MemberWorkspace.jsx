@@ -534,7 +534,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                 <p>Chưa có sự kiện nào trong CLB này.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingRight: '6px' }} className="custom-scrollbar">
                 {clubEvents.map(ev => {
                   const eName = ev.eventName || ev.name;
                   const eTime = ev.startTime || ev.dateTime;
