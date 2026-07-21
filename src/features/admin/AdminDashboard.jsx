@@ -4,6 +4,7 @@ import * as semesterService from '../../services/semesterService';
 import * as eventService from '../../services/eventService';
 import * as dashboardService from '../../services/dashboardService';
 import { getReportsPendingCount } from '../../services/reportPeriodService';
+import { parseDateVN } from '../../utils/validator';
 
 export default function AdminDashboard({ triggerNotification }) {
   const [stats, setStats] = useState({
@@ -196,7 +197,7 @@ export default function AdminDashboard({ triggerNotification }) {
                         {ev.club?.clubName || ev.club?.name || `CLB #${ev.clubId}`}
                       </td>
                       <td style={{ fontSize: '12px' }}>
-                        {eTime ? new Date(eTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                         {eTime ? parseDateVN(eTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                       </td>
                       <td>{statusBadge(ev)}</td>
                     </tr>

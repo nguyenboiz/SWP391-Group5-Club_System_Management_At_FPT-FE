@@ -132,7 +132,6 @@ function AdminDashboard({ triggerNotification }) {
       {activeTab === 'semester-config' && <SemesterConfigPage triggerNotification={triggerNotification} />}
       {activeTab === 'report-appraisal' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
       {activeTab === 'notification-management' && <NotificationManagementPage triggerNotification={triggerNotification} />}
-      {activeTab === 'evidence-review' && <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
       {activeTab === 'my-profile' && <MemberWorkspacePage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={null} mode="profile" />}
     </DashboardLayout>
   );

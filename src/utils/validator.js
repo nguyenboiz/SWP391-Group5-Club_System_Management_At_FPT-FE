@@ -54,12 +54,42 @@ export const validatePhone = (phone) => {
  */
 export const parseDateVN = (dateStr) => {
   if (!dateStr) return new Date(0);
-  let str = String(dateStr);
+  let str = String(dateStr).trim();
+  // Normalize space to 'T' if it's like YYYY-MM-DD HH:mm:ss
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(str)) {
+    str = str.replace(/\s+/, 'T');
+  }
   // Backend returns UTC timestamps without 'Z' suffix — append it so JS parses correctly as UTC
   if (str.includes('T') && !str.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
     str += 'Z';
   }
   const d = new Date(str);
   return isNaN(d.getTime()) ? new Date(0) : d;
+};
+
+/**
+ * Formats a Date object or local datetime string into a local ISO string (YYYY-MM-DDTHH:mm:ss)
+ * without timezone shift.
+ * @param {Date|string} dateInput
+ * @returns {string}
+ */
+export const toLocalISOString = (dateInput) => {
+  if (!dateInput) return '';
+  // If it's already a datetime-local string (like "2026-07-21T13:23"), normalize it
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateInput)) {
+    return dateInput + ':00';
+  }
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+  const pad = (num) => String(num).padStart(2, '0');
+  
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}`;
 };
 

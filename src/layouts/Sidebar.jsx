@@ -29,10 +29,6 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
         <ClipboardList size={18} />
         <span>Report Review</span>
       </div>
-      <div className={`nav-item ${activeTab === 'evidence-review' ? 'active' : ''}`} onClick={() => setActiveTab('evidence-review')}>
-        <FileCheck size={18} />
-        <span>Kiểm tra Chứng nhận</span>
-      </div>
       <div className={`nav-item ${activeTab === 'notification-management' ? 'active' : ''}`} onClick={() => setActiveTab('notification-management')}>
         <Bell size={18} />
         <span>Gửi Thông báo</span>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getAllEvents, approveEvent, rejectEvent, requestEditEvent } from '../../services/eventService';
 import { CheckCircle, XCircle, Clock, Calendar, MapPin, DollarSign, Building, Search, RefreshCw, Edit3, X } from 'lucide-react';
+import { parseDateVN } from '../../utils/validator';
 
 const statusConfig = {
   Approved: { label: 'Đã duyệt', className: 'badge-active', icon: <CheckCircle size={12} /> },
@@ -292,7 +293,7 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
                         {eventTime && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             <Calendar size={12} />
-                            {new Date(eventTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
+                             {parseDateVN(eventTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
                           </span>
                         )}
                         {(ev.venue || ev.location) && (
@@ -345,7 +346,7 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {[
                     ['Câu lạc bộ', club ? club.name : `CLB #${ev.clubId}`],
-                    ['Thời gian', eventTime ? new Date(eventTime).toLocaleString('vi-VN') : 'N/A'],
+                    ['Thời gian', eventTime ? parseDateVN(eventTime).toLocaleString('vi-VN') : 'N/A'],
                     ['Địa điểm', ev.venue || ev.location || 'N/A'],
                     ['Ngân sách dự trù', ev.budget || ev.planBudget ? `${Number(ev.budget || ev.planBudget).toLocaleString('vi-VN')} VNĐ` : 'N/A'],
                     ['Số lượng dự kiến', ev.targetParticipants ? `${ev.targetParticipants} người` : 'N/A'],

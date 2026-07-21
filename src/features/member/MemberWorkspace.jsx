@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getEventsByClub, submitEvidence } from '../../services/eventService';
-import { updateProfile, getUserActivityHistory, getUserDetail, getMyProfile } from '../../services/userService';
-import { User, Image as ImageIcon, Send, Clock, Activity, Upload, Phone, Calendar, Users } from 'lucide-react';
-import { validatePhone, validateNoSpecialChars } from '../../utils/validator';
+import { updateProfile, getUserActivityHistory, getUserDetail, getMyProfile, changePassword } from '../../services/userService';
+import { User, Image as ImageIcon, Send, Clock, Activity, Upload, Phone, Calendar, Users, Key } from 'lucide-react';
+import { validatePhone, validateNoSpecialChars, parseDateVN, toLocalISOString } from '../../utils/validator';
 
 export default function MemberWorkspace({ currentUserId, triggerNotification, selectedClubId, mode = 'profile' }) {
   const { currentUser, updateUserAvatar } = useAuth();
@@ -45,6 +45,13 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
   // Validation errors
   const [profileErrors, setProfileErrors] = useState({});
   const [evidenceErrors, setEvidenceErrors] = useState({});
+
+  // Change password state
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState({});
 
   // Fetch full user details on mount to get phone, gender, dob
   useEffect(() => {
@@ -186,9 +193,55 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     if (!userId) return;
     setLoadingHistory(true);
     try {
-      const data = await getUserActivityHistory(userId);
-      const rawList = Array.isArray(data) ? data : (data?.data || []);
-      const list = Array.isArray(rawList) ? rawList : [];
+      const res = await getUserActivityHistory(userId);
+      const rawData = res?.data ?? res;
+      
+      const list = [];
+      if (rawData) {
+        // 1. Process club history
+        if (Array.isArray(rawData.clubHistory)) {
+          rawData.clubHistory.forEach(club => {
+            if (club.joinDate) {
+              list.push({
+                id: `club-join-${club.clubId}`,
+                action: `Tham gia CLB: ${club.clubName} (${club.clubCode || ''})`,
+                detail: `Trạng thái: ${club.status || 'Đang sinh hoạt'} · Mục tiêu: ${club.personalGoal || 'Phát triển kỹ năng'}`,
+                date: club.joinDate
+              });
+            }
+            if (Array.isArray(club.positions)) {
+              club.positions.forEach((pos, idx) => {
+                list.push({
+                  id: `club-pos-${club.clubId}-${idx}`,
+                  action: `Bổ nhiệm chức vụ: ${pos.position} tại ${club.clubName}`,
+                  detail: `Nhiệm kỳ: ${pos.boardName || 'N/A'} · Điểm KPI: ${pos.kpiScore || '0'}`,
+                  date: pos.appointedAt
+                });
+              });
+            }
+          });
+        }
+
+        // 2. Process event history
+        if (Array.isArray(rawData.eventHistory)) {
+          rawData.eventHistory.forEach(ev => {
+            list.push({
+              id: `event-${ev.eventId}-${ev.startTime}`,
+              action: `Tham gia sự kiện: ${ev.eventName}`,
+              detail: `CLB tổ chức: ${ev.clubName} · Vai trò: ${ev.roleInEvent || 'Thành viên'} · Điểm danh: ${ev.attendanceStatus || 'Vắng mặt'}`,
+              date: ev.startTime
+            });
+          });
+        }
+      }
+
+      // Sort by date descending safely
+      list.sort((a, b) => {
+        const dA = a.date ? new Date(a.date).getTime() : 0;
+        const dB = b.date ? new Date(b.date).getTime() : 0;
+        return dB - dA;
+      });
+
       setActivityHistory(list);
     } catch (err) {
       console.error('[MemberWorkspace] Lỗi tải lịch sử hoạt động:', err);
@@ -232,7 +285,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
       const formData = new FormData();
       if (phone) formData.append('PhoneNumber', phone);
       if (gender) formData.append('Gender', gender);
-      if (dateOfBirth) formData.append('DateOfBirth', new Date(dateOfBirth).toISOString());
+      if (dateOfBirth) formData.append('DateOfBirth', toLocalISOString(dateOfBirth));
       if (avatarFile) formData.append('AvatarFile', avatarFile);
 
       const res = await updateProfile(formData);
@@ -294,6 +347,45 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     }
   };
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    const newErrors = {};
+
+    if (!oldPassword) {
+      newErrors.oldPassword = 'Vui lòng nhập mật khẩu hiện tại!';
+    }
+    if (!newPassword) {
+      newErrors.newPassword = 'Vui lòng nhập mật khẩu mới!';
+    } else if (newPassword.length < 6) {
+      newErrors.newPassword = 'Mật khẩu mới phải có tối thiểu 6 ký tự!';
+    }
+    if (newPassword !== confirmPassword) {
+      newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp!';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setPasswordErrors(newErrors);
+      return;
+    }
+
+    setPasswordErrors({});
+    setIsChangingPassword(true);
+
+    try {
+      await changePassword({ oldPassword, newPassword });
+      triggerNotification('✅ Đổi mật khẩu thành công!', 'success');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      console.error('[MemberWorkspace] Lỗi đổi mật khẩu:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Đổi mật khẩu thất bại!';
+      triggerNotification(`❌ ${errMsg}`, 'error');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="empty-state-view">
@@ -306,6 +398,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
   const TABS = [
     { key: 'profile', label: 'Hồ sơ Cá nhân', icon: <User size={15} /> },
     { key: 'activity', label: 'Lịch sử Hoạt động', icon: <Activity size={15} /> },
+    { key: 'change-password', label: 'Đổi mật khẩu', icon: <Key size={15} /> },
   ];
 
   // Filter events: must be registered and must have ended
@@ -449,7 +542,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                   return (
                     <div key={ev.id || ev.eventId} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px' }}>{eName}</div>
-                      {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{new Date(eTime).toLocaleString('vi-VN')}</div>}
+                      {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{parseDateVN(eTime).toLocaleString('vi-VN')}</div>}
                       {eStatus && (
                         <span className={`badge ${eStatus === 'Approved' ? 'badge-active' : eStatus === 'Rejected' ? 'badge-blocked' : 'badge-member'}`} style={{ fontSize: '10px', marginTop: '6px', display: 'inline-block' }}>
                           {eStatus === 'Approved' ? 'Đã duyệt' : eStatus === 'Rejected' ? 'Bị từ chối' : eStatus === 'Pending' ? 'Chờ duyệt' : eStatus}
@@ -567,7 +660,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                       )}
                       {ts && (
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', opacity: 0.7 }}>
-                          {new Date(ts).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
+                          {parseDateVN(ts).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
                         </div>
                       )}
                     </div>
@@ -576,6 +669,68 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Tab: Đổi mật khẩu ─────────────────────────────────────── */}
+      {activeTab === 'change-password' && (
+        <div className="glass-card" style={{ maxWidth: '520px', marginTop: '16px' }}>
+          <div className="glass-card-header" style={{ marginBottom: '16px' }}>
+            <h3 className="glass-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Key size={18} /> Đổi mật khẩu tài khoản</h3>
+          </div>
+          <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} noValidate>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Mật khẩu hiện tại *</label>
+              <input
+                type="password"
+                className="input-field"
+                value={oldPassword}
+                onChange={e => {
+                  setOldPassword(e.target.value);
+                  if (passwordErrors.oldPassword) setPasswordErrors(prev => ({ ...prev, oldPassword: null }));
+                }}
+                placeholder="Nhập mật khẩu hiện tại..."
+                required
+              />
+              {passwordErrors.oldPassword && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{passwordErrors.oldPassword}</span>}
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Mật khẩu mới * (tối thiểu 6 ký tự)</label>
+              <input
+                type="password"
+                className="input-field"
+                value={newPassword}
+                onChange={e => {
+                  setNewPassword(e.target.value);
+                  if (passwordErrors.newPassword) setPasswordErrors(prev => ({ ...prev, newPassword: null }));
+                }}
+                placeholder="Nhập mật khẩu mới..."
+                required
+              />
+              {passwordErrors.newPassword && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{passwordErrors.newPassword}</span>}
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Xác nhận mật khẩu mới *</label>
+              <input
+                type="password"
+                className="input-field"
+                value={confirmPassword}
+                onChange={e => {
+                  setConfirmPassword(e.target.value);
+                  if (passwordErrors.confirmPassword) setPasswordErrors(prev => ({ ...prev, confirmPassword: null }));
+                }}
+                placeholder="Xác nhận mật khẩu mới..."
+                required
+              />
+              {passwordErrors.confirmPassword && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{passwordErrors.confirmPassword}</span>}
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '8px' }} disabled={isChangingPassword}>
+              {isChangingPassword ? 'Đang thực hiện đổi...' : 'Cập nhật mật khẩu'}
+            </button>
+          </form>
         </div>
       )}
 

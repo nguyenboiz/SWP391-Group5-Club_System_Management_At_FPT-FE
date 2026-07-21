@@ -4,6 +4,7 @@ import { getManagerDashboard } from '../../services/dashboardService';
 import { getClubReports } from '../../services/clubReportService';
 import apiClient from '../../utils/apiClient';
 import { Landmark, Users, TrendingUp, RefreshCw, Info, CheckCircle, XCircle, Clock, Calendar, Search, AlertTriangle, FileText, CheckSquare } from 'lucide-react';
+import { parseDateVN } from '../../utils/validator';
 
 const statusMapBEtoFE = {
   'Chờ duyệt': 'Pending', 'Đã duyệt': 'Approved', 'Bị từ chối': 'Rejected',
@@ -282,7 +283,7 @@ export default function ManagerDashboard({ triggerNotification }) {
                   <div key={ev.id || ev.eventId} style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.05)' }}>
                     <div style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{ev.eventName || ev.name}</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      {ev.club?.clubName || ev.club?.name || `CLB #${ev.clubId}`} · {ev.startTime ? new Date(ev.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                      {ev.club?.clubName || ev.club?.name || `CLB #${ev.clubId}`} · {ev.startTime ? parseDateVN(ev.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
                     </div>
                     <button
                       className="btn btn-secondary btn-sm"
@@ -348,7 +349,7 @@ export default function ManagerDashboard({ triggerNotification }) {
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                           {ev.location && <span>📍 {ev.location}</span>}
-                          {ev.startTime && <span>🕐 {new Date(ev.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}</span>}
+                          {ev.startTime && <span>🕐 {parseDateVN(ev.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}</span>}
                           {ev.planBudget && <span>💰 {ev.planBudget}đ</span>}
                         </div>
                         {ev.description && <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '10px 0 0', lineHeight: 1.6 }}>{ev.description}</p>}
@@ -372,7 +373,7 @@ export default function ManagerDashboard({ triggerNotification }) {
                               <h5 style={{ fontWeight: 600, color: 'var(--primary)', marginBottom: '8px' }}>Thông tin chi tiết sự kiện:</h5>
                               <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px' }}>
                                 <span>Tên sự kiện:</span><strong>{eventDetails[eventId]?.eventName || eventDetails[eventId]?.name || ev.eventName}</strong>
-                                <span>Thời gian:</span><span>{eventDetails[eventId]?.startTime ? new Date(eventDetails[eventId]?.startTime).toLocaleString('vi-VN') : ''} → {eventDetails[eventId]?.endTime ? new Date(eventDetails[eventId]?.endTime).toLocaleString('vi-VN') : ''}</span>
+                                <span>Thời gian:</span><span>{eventDetails[eventId]?.startTime ? parseDateVN(eventDetails[eventId]?.startTime).toLocaleString('vi-VN') : ''} → {eventDetails[eventId]?.endTime ? parseDateVN(eventDetails[eventId]?.endTime).toLocaleString('vi-VN') : ''}</span>
                                 <span>Địa điểm:</span><span>{eventDetails[eventId]?.location || eventDetails[eventId]?.venue || 'Chưa rõ'}</span>
                                 <span>Ngân sách dự trù:</span><strong>{eventDetails[eventId]?.planBudget || eventDetails[eventId]?.budget || '0'}đ</strong>
                                 <span>Số người dự kiến:</span><span>{eventDetails[eventId]?.targetParticipants || 0} người</span>

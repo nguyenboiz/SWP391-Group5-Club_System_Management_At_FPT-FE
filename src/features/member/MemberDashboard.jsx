@@ -4,6 +4,7 @@ import { getEventsByClub } from '../../services/eventService';
 import { getClubMembers } from '../../services/membershipService';
 import { getUserActivityHistory } from '../../services/userService';
 import { Users, Calendar, FileText, Clock, TrendingUp } from 'lucide-react';
+import { parseDateVN } from '../../utils/validator';
 
 export default function MemberDashboard({ triggerNotification, selectedClubId }) {
   const { currentUser } = useAuth();
@@ -111,7 +112,7 @@ export default function MemberDashboard({ triggerNotification, selectedClubId })
                     <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px' }}>{eName}</div>
                     {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                       <Clock size={10} style={{ marginRight: '4px' }} />
-                      {new Date(eTime).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      {parseDateVN(eTime).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })}
                     </div>}
                     {ev.location && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>📍 {ev.location}</div>}
                   </div>

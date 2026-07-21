@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createEvent, getEventsByClub, cancelEvent, updateEvent } from '../../services/eventService';
 import { Calendar, Plus, MapPin, AlertTriangle, Edit, X, Save, XCircle } from 'lucide-react';
+import { parseDateVN, toLocalISOString } from '../../utils/validator';
 
 export default function EventManager({ selectedClubId, triggerNotification }) {
 
@@ -126,8 +127,8 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
       formData.append('Location', newEvent.location.trim());
       formData.append('PlanBudget', String(newEvent.planBudget).replace(/,/g, ''));
       formData.append('TargetParticipants', newEvent.targetParticipants || 0);
-      formData.append('StartTime', new Date(newEvent.startTime).toISOString());
-      formData.append('EndTime', newEvent.endTime ? new Date(newEvent.endTime).toISOString() : new Date(newEvent.startTime).toISOString());
+      formData.append('StartTime', toLocalISOString(newEvent.startTime));
+      formData.append('EndTime', newEvent.endTime ? toLocalISOString(newEvent.endTime) : toLocalISOString(newEvent.startTime));
       // Đính kèm files nếu có
       if (newEvent.files && newEvent.files.length > 0) {
         Array.from(newEvent.files).forEach(file => {
@@ -239,8 +240,8 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
         location: editingEvent.location.trim(),
         planBudget: String(editingEvent.planBudget).replace(/,/g, ''),
         targetParticipants: Number(editingEvent.targetParticipants) || 0,
-        startTime: new Date(editingEvent.startTime).toISOString(),
-        endTime: editingEvent.endTime ? new Date(editingEvent.endTime).toISOString() : new Date(editingEvent.startTime).toISOString()
+        startTime: toLocalISOString(editingEvent.startTime),
+        endTime: editingEvent.endTime ? toLocalISOString(editingEvent.endTime) : toLocalISOString(editingEvent.startTime)
       });
       triggerNotification(`Cập nhật sự kiện: ${editingEvent.eventName} thành công!`, 'success');
       setShowEditModal(false);
@@ -452,8 +453,8 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                           </div>
                           {e.startTime && (
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                              ⏱ {new Date(e.startTime).toLocaleString('vi-VN')}
-                              {e.endTime && ` - ${new Date(e.endTime).toLocaleString('vi-VN')}`}
+                              ⏱ {parseDateVN(e.startTime).toLocaleString('vi-VN')}
+                              {e.endTime && ` - ${parseDateVN(e.endTime).toLocaleString('vi-VN')}`}
                             </div>
                           )}
                         </div>
@@ -510,8 +511,8 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[
-                  ['Ngày bắt đầu', selectedEvent.startTime ? new Date(selectedEvent.startTime).toLocaleString('vi-VN') : 'N/A'],
-                  ['Ngày kết thúc', selectedEvent.endTime ? new Date(selectedEvent.endTime).toLocaleString('vi-VN') : 'N/A'],
+                  ['Ngày bắt đầu', selectedEvent.startTime ? parseDateVN(selectedEvent.startTime).toLocaleString('vi-VN') : 'N/A'],
+                  ['Ngày kết thúc', selectedEvent.endTime ? parseDateVN(selectedEvent.endTime).toLocaleString('vi-VN') : 'N/A'],
                   ['Địa điểm', selectedEvent.location || 'N/A'],
                   ['Ngân sách dự toán', selectedEvent.planBudget || selectedEvent.budget ? `${Number(selectedEvent.planBudget || selectedEvent.budget).toLocaleString('vi-VN')} VNĐ` : 'N/A'],
                   ['Số lượng dự kiến', selectedEvent.targetParticipants ? `${selectedEvent.targetParticipants} người` : 'N/A'],

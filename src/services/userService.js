@@ -84,4 +84,15 @@ export async function getUserActivityHistory(userId) {
   return response.data;
 }
 
+/**
+ * Đổi mật khẩu người dùng
+ * PUT /api/users/change-password
+ * @param {Object} dto - ChangePasswordDto { oldPassword, newPassword }
+ */
+export async function changePassword(dto) {
+  const response = await apiClient.put('/api/users/change-password', dto);
+  return response.data;
+}
+
+
 

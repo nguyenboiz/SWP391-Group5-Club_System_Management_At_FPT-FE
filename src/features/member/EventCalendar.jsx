@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getApprovedEventsByClub, getEventDetail, registerEvent } from '../../services/eventService';
 import { Calendar, MapPin, RefreshCw, CheckCircle, Eye, X, UserPlus, Check } from 'lucide-react';
+import { parseDateVN } from '../../utils/validator';
 
 export default function EventCalendar({ currentUserId, triggerNotification, selectedClubId }) {
   const [events, setEvents] = useState([]);
@@ -126,11 +127,9 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
             const eTime = e.startTime || e.dateTime;
             const eEndTime = e.endTime;
             const eDesc = e.description || '';
-
-            // Calculate temporal status based on current time
             const now = new Date();
-            const start = new Date(eTime);
-            const end = eEndTime ? new Date(eEndTime) : new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2 hours duration fallback
+            const start = parseDateVN(eTime);
+            const end = eEndTime ? parseDateVN(eEndTime) : new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2 hours duration fallback
 
             let statusLabel = 'Sắp diễn ra';
             let statusClass = 'badge-active'; // Green
@@ -184,7 +183,7 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                     <div className="event-details-row">
                       <Calendar size={12} />
                       <span>
-                        {new Date(eTime).toLocaleString('vi-VN')}
+                        {parseDateVN(eTime).toLocaleString('vi-VN')}
                       </span>
                     </div>
                   )}
@@ -283,8 +282,8 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                     <>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {[
-                          ['Ngày bắt đầu', eventDetail.startTime ? new Date(eventDetail.startTime).toLocaleString('vi-VN') : 'N/A'],
-                          ['Ngày kết thúc', eventDetail.endTime ? new Date(eventDetail.endTime).toLocaleString('vi-VN') : 'N/A'],
+                          ['Ngày bắt đầu', eventDetail.startTime ? parseDateVN(eventDetail.startTime).toLocaleString('vi-VN') : 'N/A'],
+                          ['Ngày kết thúc', eventDetail.endTime ? parseDateVN(eventDetail.endTime).toLocaleString('vi-VN') : 'N/A'],
                           ['Địa điểm', eventDetail.location || eventDetail.venue || 'N/A'],
                           ['Ngân sách dự toán', eventDetail.planBudget || eventDetail.budget ? `${(eventDetail.planBudget || eventDetail.budget)}đ` : 'N/A'],
                           ['Số lượng dự kiến', eventDetail.targetParticipants ? `${eventDetail.targetParticipants} người` : 'N/A'],

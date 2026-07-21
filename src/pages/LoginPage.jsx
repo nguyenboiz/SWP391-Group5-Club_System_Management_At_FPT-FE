@@ -95,7 +95,7 @@ export default function LoginPage() {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="VD: SE180001, PDP01..."
+                  placeholder="Nhập MSSV hoặc mã cán bộ..."
                   value={userId}
                   onChange={e => {
                     setUserId(e.target.value);
