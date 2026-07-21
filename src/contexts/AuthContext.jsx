@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as authService from '../services/authService';
+import { getMyProfile } from '../services/userService';
 
 const AuthContext = createContext(null);
 
@@ -39,12 +40,22 @@ export function AuthProvider({ children }) {
 
           // Lấy thông tin mới nhất từ BE
           const me = await authService.getMe();
+          let profile = null;
+          try {
+            profile = await getMyProfile();
+          } catch (profileErr) {
+            console.warn('[Auth] Lỗi gọi getMyProfile():', profileErr);
+          }
+
           const rawRole = me?.systemRole || me?.role || me?.roleName || 'MEMBER';
           const normalizedRole = String(rawRole).toUpperCase();
+          const profileData = profile?.data ?? profile ?? {};
           const userWithToken = {
             ...me,
+            ...profileData,
+            avatar: profileData.avatar || me?.avatar || null,
             id: me?.id || me?.studentId || me?.userId,
-            fullName: getFriendlyName(me?.username || me?.studentId || me?.userId, me?.fullName || me?.name || me?.studentName || me?.username),
+            fullName: getFriendlyName(me?.username || me?.studentId || me?.userId, profileData.fullName || me?.fullName || me?.name || me?.studentName || me?.username),
             role: normalizedRole,
             token
           };
@@ -82,12 +93,18 @@ export function AuthProvider({ children }) {
         sessionStorage.setItem('fpt_token', token);
         
         let me = null;
+        let profile = null;
         if (result?.requireClubSelection) {
           // Nếu yêu cầu chọn CLB, không gọi /api/auth/me vì tempToken không có quyền gọi endpoint này
           console.log('[Auth] requireClubSelection is true, skipping getMe() call');
         } else {
           try {
             me = await authService.getMe();
+            try {
+              profile = await getMyProfile();
+            } catch (profileErr) {
+              console.warn('[Auth] Lỗi gọi getMyProfile():', profileErr);
+            }
           } catch (meErr) {
             console.warn('[Auth] Lỗi gọi getMe(), dùng thông tin từ login result:', meErr);
           }
@@ -113,12 +130,15 @@ export function AuthProvider({ children }) {
         const rawRole = me?.systemRole || result?.userInfo?.systemRole || result?.systemRole || me?.role || result?.userInfo?.role || result?.role || me?.roleName || result?.roleName || 'MEMBER';
         const normalizedRole = String(rawRole).toUpperCase();
         
+        const profileData = profile?.data ?? profile ?? {};
         const userWithToken = {
           ...me,
+          ...profileData,
+          avatar: profileData.avatar || me?.avatar || result?.userInfo?.avatar || null,
           id: me?.id || me?.studentId || me?.userId || result?.userInfo?.userId || result?.userInfo?.id || result?.id || userId,
           fullName: getFriendlyName(
             me?.username || result?.userInfo?.username || userId,
-            me?.fullName || me?.name || me?.studentName || me?.username || result?.userInfo?.fullName || result?.userInfo?.username || result?.fullName
+            profileData.fullName || me?.fullName || me?.name || me?.studentName || me?.username || result?.userInfo?.fullName || result?.userInfo?.username || result?.fullName
           ),
           role: normalizedRole,
           token
@@ -158,13 +178,21 @@ export function AuthProvider({ children }) {
     if (token) {
       try {
         const me = await authService.getMe();
+        let profile = null;
+        try {
+          profile = await getMyProfile();
+        } catch (profileErr) {
+          console.warn('[Auth] Lỗi gọi getMyProfile() in refresh:', profileErr);
+        }
         const normalizedRole = (me.systemRole || me.role || 'MEMBER').toUpperCase();
+        const profileData = profile?.data ?? profile ?? {};
         setCurrentUser(prev => {
           const userWithToken = {
             ...me,
-            avatar: me.avatar || prev?.avatar,
+            ...profileData,
+            avatar: profileData.avatar || me.avatar || prev?.avatar,
             id: me.id || me.studentId || me.userId || prev?.id,
-            fullName: getFriendlyName(me.username || prev?.username, me.fullName || me.name || me.studentName || me.username || prev?.fullName),
+            fullName: getFriendlyName(me.username || prev?.username, profileData.fullName || me.fullName || me.name || me.studentName || me.username || prev?.fullName),
             role: normalizedRole,
             token
           };
