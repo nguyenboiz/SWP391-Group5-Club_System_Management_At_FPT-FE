@@ -318,10 +318,10 @@ export default function ClubInfo({ selectedClubId, triggerNotification, readOnly
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{studentId} · {role === 'Leader' || String(studentId).toLowerCase() === 'se180001' ? 'Trưởng CLB' : role === 'Manager' ? 'Cán bộ quản lý' : 'Thành viên'}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{studentId} · {role === 'Leader' ? 'Trưởng CLB' : role === 'Manager' ? 'Cán bộ quản lý' : 'Thành viên'}</div>
                     </div>
-                    <span className={`badge ${role === 'Leader' || role === 'Manager' || String(studentId).toLowerCase() === 'se180001' ? 'badge-manager' : 'badge-member'}`} style={{ fontSize: '10px' }}>
-                      {role === 'Leader' || String(studentId).toLowerCase() === 'se180001' ? 'Trưởng CLB' : role === 'Manager' ? 'Cán bộ quản lý' : 'Thành viên'}
+                    <span className={`badge ${role === 'Leader' || role === 'Manager' ? 'badge-manager' : 'badge-member'}`} style={{ fontSize: '10px' }}>
+                      {role === 'Leader' ? 'Trưởng CLB' : role === 'Manager' ? 'Cán bộ quản lý' : 'Thành viên'}
                     </span>
                   </div>
                 );

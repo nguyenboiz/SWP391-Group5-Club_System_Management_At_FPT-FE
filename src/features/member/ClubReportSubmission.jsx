@@ -108,7 +108,16 @@ export default function ClubReportSubmission({ selectedClubId, triggerNotificati
   const handleSubmitReport = async (e) => {
     e.preventDefault();
     const errors = {};
-    if (!editReportId && !selectedPeriodId) errors.selectedPeriodId = 'Vui lòng chọn đợt báo cáo!';
+    if (!editReportId) {
+      if (!selectedPeriodId) {
+        errors.selectedPeriodId = 'Vui lòng chọn đợt báo cáo!';
+      } else {
+        const alreadySubmitted = reports.some(r => Number(r.reportPeriodId) === Number(selectedPeriodId));
+        if (alreadySubmitted) {
+          errors.selectedPeriodId = 'Đợt báo cáo này đã được nộp báo cáo trước đó!';
+        }
+      }
+    }
     if (!reportTitle.trim()) errors.reportTitle = 'Tiêu đề báo cáo không được trống!';
     if (!summaryContent.trim()) errors.summaryContent = 'Nội dung tóm tắt không được trống!';
     

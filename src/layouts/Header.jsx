@@ -25,10 +25,12 @@ export default function Header({
   const parseDateSafely = (dateStr) => {
     if (!dateStr) return new Date(0);
     let str = String(dateStr);
-    if (str.includes('T') && !str.includes('Z') && !/\+\d{2}(:\d{2})?$/.test(str) && !/-\d{2}(:\d{2})?$/.test(str)) {
+    // Backend returns UTC timestamps without 'Z' suffix — append it so JS parses correctly
+    if (str.includes('T') && !str.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
       str += 'Z';
     }
-    return new Date(str);
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? new Date(0) : d;
   };
 
   const unreadCount = notifications.filter(n => !n.isRead && !n.readAt).length;
@@ -273,7 +275,7 @@ export default function Header({
           {currentUser && (
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                {currentUser.fullName}
+                {currentUser.fullName || currentUser.username || currentUser.studentId || currentUser.id || ''}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 <span className={`badge ${currentRole === 'ADMIN' ? 'badge-admin' : currentRole === 'MANAGER' ? 'badge-manager' : isLeader ? 'badge-leader' : 'badge-member'}`}

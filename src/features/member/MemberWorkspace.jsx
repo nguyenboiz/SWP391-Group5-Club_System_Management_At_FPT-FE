@@ -14,9 +14,19 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
   const [activeTab, setActiveTab] = useState(mode === 'evidence' ? 'evidence' : 'profile');
 
   // Profile state
-  const [phone, setPhone] = useState('');
-  const [gender, setGender] = useState('Other');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [phone, setPhone] = useState(() => {
+    return currentUser?.phone || currentUser?.phoneNumber || currentUser?.Phone || currentUser?.PhoneNumber || '';
+  });
+  const [gender, setGender] = useState(() => {
+    const g = String(currentUser?.gender || currentUser?.Gender || '').toLowerCase();
+    if (g === 'nam' || g === 'male') return 'Male';
+    if (g === 'nữ' || g === 'nu' || g === 'female') return 'Female';
+    return 'Other';
+  });
+  const [dateOfBirth, setDateOfBirth] = useState(() => {
+    const dob = currentUser?.dateOfBirth || currentUser?.DateOfBirth || currentUser?.dob || currentUser?.Dob || currentUser?.birthday || currentUser?.Birthday || currentUser?.birthDate || currentUser?.BirthDate || currentUser?.dateOfbirth || currentUser?.dateofbirth;
+    return dob ? dob.substring(0, 10) : '';
+  });
   const [avatarFile, setAvatarFile] = useState(null);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
@@ -38,30 +48,110 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
 
   // Fetch full user details on mount to get phone, gender, dob
   useEffect(() => {
-    getMyProfile().then(res => {
-      const u = res?.data ?? res;
+    // 1. First, set default values from currentUser if they exist
+    if (currentUser) {
+      setPhone(currentUser.phone || currentUser.phoneNumber || currentUser.Phone || currentUser.PhoneNumber || '');
+      const cg = String(currentUser.gender || currentUser.Gender || '').toLowerCase();
+      if (cg === 'nam' || cg === 'male') setGender('Male');
+      else if (cg === 'nữ' || cg === 'nu' || cg === 'female') setGender('Female');
+      else setGender('Other');
+      
+      const cdob = currentUser.dateOfBirth || currentUser.DateOfBirth || currentUser.dob || currentUser.Dob || currentUser.birthday || currentUser.Birthday || currentUser.birthDate || currentUser.BirthDate;
+      if (cdob) setDateOfBirth(cdob.substring(0, 10));
+    }
+
+    if (!userId) return;
+
+    // Helper to process user object and set states
+    const updateUserStates = (u) => {
       if (u) {
-        setPhone(u.phone || u.phoneNumber || '');
+        if (u.phone || u.phoneNumber || u.Phone || u.PhoneNumber) {
+          setPhone(u.phone || u.phoneNumber || u.Phone || u.PhoneNumber);
+        }
         
-        const g = String(u.gender || '').toLowerCase();
+        const g = String(u.gender || u.Gender || '').toLowerCase();
         if (g === 'nam' || g === 'male') setGender('Male');
         else if (g === 'nữ' || g === 'nu' || g === 'female') setGender('Female');
-        else setGender('Other');
+        else if (g) setGender('Other');
         
-        const dob = u.dateOfBirth || u.dob || u.birthday;
+        const dob = u.dateOfBirth || u.DateOfBirth || u.dob || u.Dob || u.birthday || u.Birthday || u.birthDate || u.BirthDate || u.dateOfbirth || u.dateofbirth;
         if (dob) {
           setDateOfBirth(dob.substring(0, 10));
-        } else {
-          setDateOfBirth('');
+          return true; // Date of birth found
         }
       }
-    }).catch(err => {
-      console.warn('[MemberWorkspace] Lỗi tải thông tin chi tiết user profile:', err);
-      setPhone('');
-      setGender('Other');
-      setDateOfBirth('');
-    });
-  }, []);
+      return false;
+    };
+
+    // Helper to fetch from membership fallback
+    const tryMembershipFallback = async () => {
+      // Find active clubId
+      let activeClubId = selectedClubId || currentUser?.clubId;
+      if (!activeClubId) {
+        const savedClubsStr = sessionStorage.getItem('fpt_available_clubs');
+        if (savedClubsStr) {
+          try {
+            const clubs = JSON.parse(savedClubsStr);
+            if (Array.isArray(clubs) && clubs.length > 0) {
+              activeClubId = clubs[0].clubId || clubs[0].id;
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (activeClubId) {
+        try {
+          const { getClubMembers, getMemberDetail } = await import('../../services/membershipService');
+          const members = await getClubMembers(activeClubId);
+          const list = Array.isArray(members) ? members : (members?.data ?? []);
+          const selfMember = list.find(m => 
+            String(m.studentId).toLowerCase() === String(currentUser?.studentId || '').toLowerCase() || 
+            String(m.username).toLowerCase() === String(currentUser?.username || '').toLowerCase() ||
+            String(m.userId) === String(userId)
+          );
+          if (selfMember) {
+            const membershipId = selfMember.membershipId || selfMember.id;
+            if (membershipId) {
+              const detail = await getMemberDetail(membershipId);
+              const uDetail = detail?.data ?? detail;
+              const dob = uDetail?.dateOfBirth || uDetail?.DateOfBirth || uDetail?.dob;
+              if (dob) {
+                setDateOfBirth(dob.substring(0, 10));
+              }
+            }
+          }
+        } catch (fallbackErr) {
+          console.warn('[MemberWorkspace] Lỗi lấy ngày sinh từ membership fallback:', fallbackErr);
+        }
+      }
+    };
+
+    // 2. Try calling getUserDetail(userId) first
+    getUserDetail(userId)
+      .then(res => {
+        const u = res?.data ?? res;
+        const foundDob = updateUserStates(u);
+        if (!foundDob) {
+          tryMembershipFallback();
+        }
+      })
+      .catch(err => {
+        console.warn('[MemberWorkspace] Lỗi gọi getUserDetail, thử gọi getMyProfile:', err);
+        // 3. Fallback to getMyProfile()
+        getMyProfile()
+          .then(res => {
+            const u = res?.data ?? res;
+            const foundDob = updateUserStates(u);
+            if (!foundDob) {
+              tryMembershipFallback();
+            }
+          })
+          .catch(err2 => {
+            console.warn('[MemberWorkspace] Lỗi gọi getMyProfile:', err2);
+            tryMembershipFallback();
+          });
+      });
+  }, [userId, currentUser, selectedClubId]);
 
   useEffect(() => {
     if (userId) {
@@ -277,7 +367,7 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
                 </div>
                 <div className="form-group">
                   <label>Họ và Tên</label>
-                  <input type="text" className="input-field" value={user?.fullName || user?.name || ''} disabled style={{ opacity: 0.6 }} />
+                  <input type="text" className="input-field" value={user?.fullName || 'Chưa cập nhật'} disabled style={{ opacity: 0.6 }} />
                 </div>
               </div>
 

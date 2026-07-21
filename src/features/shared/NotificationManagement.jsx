@@ -31,10 +31,12 @@ export default function NotificationManagement({ triggerNotification }) {
   const parseDateSafely = useCallback((dateStr) => {
     if (!dateStr) return new Date(0);
     let str = String(dateStr);
-    if (str.includes('T') && !str.includes('Z') && !/\+\d{2}(:\d{2})?$/.test(str) && !/-\d{2}(:\d{2})?$/.test(str)) {
+    // Backend returns UTC timestamps without 'Z' suffix — append it so JS parses correctly
+    if (str.includes('T') && !str.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
       str += 'Z';
     }
-    return new Date(str);
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? new Date(0) : d;
   }, []);
 
   const loadNotifications = useCallback(async () => {

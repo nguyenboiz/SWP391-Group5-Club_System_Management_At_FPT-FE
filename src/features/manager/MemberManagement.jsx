@@ -123,7 +123,7 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
   // Map and filter memberships safely
   const mappedMembers = members.map(m => {
     const studentId = m.studentId || m.userId || m.id || 'N/A';
-    const isThisLeader = String(studentId).toLowerCase() === 'se180001' || m.role === 'Leader' || m.role === 'Trưởng CLB';
+    const isThisLeader = m.role === 'Leader' || m.role === 'Trưởng CLB';
     return {
       id: m.membershipId || m.id,
       userId: studentId,
@@ -306,7 +306,7 @@ export default function MemberManagement({ selectedClubId, triggerNotification }
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
                 {(() => {
                   const detailStudentId = memberDetail.studentId || memberDetail.userId || '';
-                  const isDetailLeader = String(detailStudentId).toLowerCase() === 'se180001' || memberDetail.role === 'Leader' || memberDetail.role === 'Trưởng CLB';
+                  const isDetailLeader = memberDetail.role === 'Leader' || memberDetail.role === 'Trưởng CLB';
                   const displayDetailRole = isDetailLeader ? 'Trưởng CLB' : 'Thành viên';
                   
                   return [

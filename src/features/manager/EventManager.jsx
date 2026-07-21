@@ -314,28 +314,31 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                   <label>Ngân sách dự trù (VNĐ) <span style={{ color: 'var(--error, #ef4444)' }}>*</span></label>
                   <input
                     type="text"
+                    inputMode="numeric"
                     className="input-field"
                     value={newEvent.planBudget}
                     onChange={e => {
-                      setNewEvent({ ...newEvent, planBudget: e.target.value });
+                      const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                      setNewEvent({ ...newEvent, planBudget: cleaned });
                       if (errors.planBudget) setErrors(prev => ({ ...prev, planBudget: null }));
                     }}
-                    placeholder="1,500,000"
+                    placeholder="1500000"
                   />
                   {errors.planBudget && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.planBudget}</span>}
                 </div>
                 <div className="form-group">
                   <label>Số lượng tham gia dự kiến</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     className="input-field"
                     value={newEvent.targetParticipants}
                     onChange={e => {
-                      setNewEvent({ ...newEvent, targetParticipants: e.target.value });
+                      const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                      setNewEvent({ ...newEvent, targetParticipants: cleaned });
                       if (errors.targetParticipants) setErrors(prev => ({ ...prev, targetParticipants: null }));
                     }}
                     placeholder="50"
-                    min="1"
                   />
                   {errors.targetParticipants && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.targetParticipants}</span>}
                 </div>

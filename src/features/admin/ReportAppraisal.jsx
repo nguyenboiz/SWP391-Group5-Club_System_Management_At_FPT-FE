@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, FileText, CheckCircle, Clock, AlertTriangle, Send, Bell, Plus, XCircle, Star, RefreshCw, Calendar } from 'lucide-react';
+import { Award, FileText, CheckCircle, Clock, AlertTriangle, Send, Bell, Plus, XCircle, RefreshCw, Calendar } from 'lucide-react';
 import * as clubReportService from '../../services/clubReportService';
 import * as notificationService from '../../services/notificationService';
 import * as reportPeriodService from '../../services/reportPeriodService';
@@ -115,20 +115,9 @@ export default function ReportAppraisal({ triggerNotification }) {
 
   const handleAppraise = async (report, statusToSubmit) => {
     const reportId = report.clubReportId || report.id;
-    const rawScore = scoreMap[reportId];
-    const score = parseInt(rawScore, 10);
     const rejectionNote = rejectionNotes[reportId] || '';
 
-    if (statusToSubmit === 'Đã duyệt') {
-      if (rawScore === undefined || rawScore === '') {
-        triggerNotification('❌ Vui lòng nhập điểm đánh giá (0–100) trước khi duyệt!', 'warning');
-        return;
-      }
-      if (isNaN(score) || score < 0 || score > 100) {
-        triggerNotification('❌ Điểm đánh giá phải là số nguyên từ 0 đến 100!', 'warning');
-        return;
-      }
-    } else if (statusToSubmit === 'Từ chối') {
+    if (statusToSubmit === 'Từ chối') {
       if (!rejectionNote.trim()) {
         triggerNotification('❌ Vui lòng nhập lý do từ chối!', 'warning');
         return;
@@ -138,14 +127,14 @@ export default function ReportAppraisal({ triggerNotification }) {
     try {
       await clubReportService.reviewClubReport(reportId, {
         status: statusToSubmit,
-        icpdpFeedback: statusToSubmit === 'Đã duyệt' 
-          ? `Điểm: ${score}. Đã duyệt từ Admin.` 
+        icpdpFeedback: statusToSubmit === 'Đã duyệt'
+          ? 'Đã duyệt từ Admin.'
           : rejectionNote.trim()
       });
       triggerNotification(
         statusToSubmit === 'Đã duyệt'
-          ? `✅ Đã duyệt và đánh giá báo cáo: ${score}/100 điểm!`
-          : `❌ Đã từ chối báo cáo thành công!`,
+          ? '✅ Đã phê duyệt báo cáo thành công!'
+          : '❌ Đã từ chối báo cáo thành công!',
         'success'
       );
       setExpandedId(null);
@@ -297,8 +286,8 @@ export default function ReportAppraisal({ triggerNotification }) {
                                 <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '15px' }}>
                                   {report.reportTitle || report.reportPeriodName || report.periodName}
                                 </span>
-                                {isPendingAdmin && <span className="badge badge-active" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}><Clock size={10} /> Chờ Admin duyệt</span>}
-                                {isPendingManager && <span className="badge badge-member"><Clock size={10} /> Chờ Manager duyệt</span>}
+                                {isPendingAdmin && <span className="badge badge-admin"><Clock size={10} /> Đã gửi Admin (Chờ duyệt)</span>}
+                                {isPendingManager && <span className="badge badge-manager"><Clock size={10} /> Chờ Manager duyệt</span>}
                                 {isApproved && <span className="badge badge-active"><CheckCircle size={10} /> Đã duyệt</span>}
                                 {isRejected && <span className="badge badge-blocked"><XCircle size={10} /> Từ chối</span>}
                               </div>
@@ -345,22 +334,6 @@ export default function ReportAppraisal({ triggerNotification }) {
                                   {status === 'Chờ Admin duyệt' ? (
                                     <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
                                       <div className="form-group" style={{ marginBottom: '12px' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <Star size={14} style={{ color: 'var(--primary)' }} />
-                                          Nhập điểm đánh giá (0–100):
-                                        </label>
-                                        <input
-                                          type="number"
-                                          className="input-field"
-                                          min={0} max={100}
-                                          placeholder="Nhập điểm..."
-                                          value={scoreMap[repId] || ''}
-                                          onChange={e => setScoreMap(m => ({ ...m, [repId]: e.target.value }))}
-                                          style={{ maxWidth: '150px' }}
-                                        />
-                                      </div>
-
-                                      <div className="form-group" style={{ marginBottom: '12px' }}>
                                         <label>Phản hồi của Admin / Lý do từ chối (bắt buộc khi Từ chối):</label>
                                         <textarea
                                           className="textarea-field"
@@ -377,7 +350,7 @@ export default function ReportAppraisal({ triggerNotification }) {
                                           style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                                           onClick={() => handleAppraise(report, 'Đã duyệt')}
                                         >
-                                          <Award size={16} /> Phê duyệt &amp; Chấm điểm
+                                          <Award size={16} /> Phê duyệt
                                         </button>
                                         <button
                                           className="btn btn-danger btn-sm"

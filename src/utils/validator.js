@@ -44,3 +44,22 @@ export const validatePhone = (phone) => {
   const regex = /^(0[3|5|7|8|9])[0-9]{8}$/;
   return regex.test(phone);
 };
+
+/**
+ * Safely parses a date string from the backend.
+ * If the string has no timezone info (no Z, no +HH:MM), treats it as Vietnam time (UTC+7).
+ * This prevents incorrect time display when backend returns timestamps without timezone suffix.
+ * @param {string|null|undefined} dateStr
+ * @returns {Date}
+ */
+export const parseDateVN = (dateStr) => {
+  if (!dateStr) return new Date(0);
+  let str = String(dateStr);
+  // Backend returns UTC timestamps without 'Z' suffix — append it so JS parses correctly as UTC
+  if (str.includes('T') && !str.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
+    str += 'Z';
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? new Date(0) : d;
+};
+

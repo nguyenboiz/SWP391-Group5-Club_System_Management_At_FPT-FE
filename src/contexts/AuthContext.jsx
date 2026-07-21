@@ -4,25 +4,17 @@ import * as authService from '../services/authService';
 const AuthContext = createContext(null);
 
 function getFriendlyName(username, meName) {
-  const name = meName || username || '';
-  const u = String(username || '').toLowerCase().trim();
-  if (u === 'admin01' || u === 'admin') return 'Lê Hoàng Nam';
-  if (u === 'manager01' || u === 'manager') return 'Trần Thị Hồng';
-  if (u === 'se180001' || u === 'student01' || u === 'leader01') return 'Nguyễn Minh Anh';
-  if (u === 'se180002') return 'Phạm Minh Đức';
-  if (u === 'se180003') return 'Trần Hoàng Yến';
-  if (u === 'se180004') return 'Lê Quốc Anh';
-  
-  // Convert typical student ID to realistic names
-  if (/^[a-z]{2}\d{5,8}$/.test(u)) {
-    if (!name || name.toLowerCase() === u) {
-      const names = ['Nguyễn Hoàng Nam', 'Phạm Minh Tuấn', 'Trần Thu Hà', 'Lê Việt Anh', 'Vũ Thảo Vy', 'Đỗ Duy Mạnh'];
-      const lastDigit = parseInt(u.slice(-1), 10) || 0;
-      return names[lastDigit % names.length];
-    }
+  // If the name looks like a student ID (e.g. se180001, pe123456), it's not a real name
+  const looksLikeStudentId = (s) => /^[a-z]{2}\d{5,8}$/i.test(String(s || '').trim());
+
+  // Use real name from API if it's different from username and not a student ID format
+  if (meName && !looksLikeStudentId(meName) && meName.trim() !== String(username || '').trim()) {
+    return meName.trim();
   }
-  return name;
+  // If no real name available (backend hasn't set fullName yet), return empty so UI shows placeholder
+  return '';
 }
+
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);

@@ -172,7 +172,7 @@ export default function Sidebar({ currentRole, activeTab, setActiveTab, currentU
               )}
             </div>
             <div className="user-sidebar-info">
-              <span className="user-sidebar-name">{currentUserProfile.fullName}</span>
+              <span className="user-sidebar-name">{currentUserProfile.fullName || currentUserProfile.username || currentUserProfile.studentId || currentUserProfile.id || ''}</span>
               <span className="user-sidebar-role">
                 {getRoleLabel()}
               </span>

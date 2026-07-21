@@ -5,10 +5,10 @@ import * as clubReportService from '../../services/clubReportService';
 const getStatusConfig = (status) => {
   const s = String(status || '');
   if (s === 'Chờ Manager duyệt' || s === 'Submitted' || s === 'Pending' || s === 'Chờ duyệt') {
-    return { label: 'Chờ Manager duyệt', className: 'badge-member', icon: <Clock size={12} /> };
+    return { label: 'Chờ Manager duyệt', className: 'badge-manager', icon: <Clock size={12} /> };
   }
   if (s === 'Chờ Admin duyệt') {
-    return { label: 'Chờ Admin duyệt', className: 'badge-active', style: { backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }, icon: <Clock size={12} /> };
+    return { label: 'Đã gửi Admin (Chờ duyệt)', className: 'badge-admin', icon: <Clock size={12} /> };
   }
   if (s === 'Đã duyệt' || s === 'Approved' || s === 'Appraised') {
     return { label: 'Đã duyệt hoàn toàn', className: 'badge-active', icon: <CheckCircle size={12} /> };
@@ -18,7 +18,6 @@ const getStatusConfig = (status) => {
   }
   return { label: s || 'Chờ duyệt', className: 'badge-member', icon: <Clock size={12} /> };
 };
-
 export default function ReviewClubReports({ triggerNotification }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -27,6 +26,8 @@ export default function ReviewClubReports({ triggerNotification }) {
   const [scoreMap, setScoreMap] = useState({});
   const [remarkMap, setRemarkMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
+  const [modalError, setModalError] = useState(null);
+  const [modalSuccess, setModalSuccess] = useState(null);
 
   const syncReports = useCallback(async () => {
     setLoading(true);
@@ -50,9 +51,10 @@ export default function ReviewClubReports({ triggerNotification }) {
   }, [syncReports]);
 
   const handleManagerReview = async (id, actionStatus) => {
+    setModalError(null);
     const remark = remarkMap[id] || '';
     if (actionStatus === 'Từ chối' && !remark.trim()) {
-      triggerNotification('❌ Vui lòng nhập lý do nhận xét khi từ chối báo cáo!', 'warning');
+      setModalError('❌ Vui lòng nhập lý do nhận xét khi từ chối báo cáo!');
       return;
     }
 
@@ -61,13 +63,28 @@ export default function ReviewClubReports({ triggerNotification }) {
         status: actionStatus,
         managerNote: remark.trim() || 'Manager đã duyệt báo cáo.'
       });
-      triggerNotification(`✅ Đã duyệt báo cáo thành công với trạng thái: ${actionStatus}!`, 'success');
-      setExpandedId(null);
+      if (actionStatus === 'Chờ Admin duyệt') {
+        setModalSuccess({
+          title: 'Duyệt & Gửi Admin thành công!',
+          desc: 'Báo cáo hoạt động của CLB đã được phê duyệt và chuyển tiếp lên Admin để duyệt cuối.'
+        });
+      } else {
+        setModalSuccess({
+          title: 'Từ chối duyệt báo cáo thành công!',
+          desc: 'Báo cáo hoạt động đã bị từ chối duyệt thành công.'
+        });
+      }
       await syncReports();
     } catch (err) {
       console.error('[ReviewClubReports] Lỗi duyệt báo cáo:', err);
-      triggerNotification(err?.response?.data?.message || 'Duyệt báo cáo thất bại!', 'error');
+      setModalError(err?.response?.data?.message || 'Duyệt báo cáo thất bại!');
     }
+  };
+
+  const handleCloseModal = () => {
+    setExpandedId(null);
+    setModalError(null);
+    setModalSuccess(null);
   };
 
   const filteredReports = reports.filter(r => {
@@ -198,71 +215,102 @@ export default function ReviewClubReports({ triggerNotification }) {
             <div className="modal-content glass-card" style={{ maxWidth: '580px', width: '90%' }}>
               <div className="modal-header">
                 <h3 className="modal-title"><ClipboardList size={18} style={{ marginRight: '6px' }} /> Chi tiết &amp; Phê duyệt Báo cáo</h3>
-                <button className="modal-close" onClick={() => setExpandedId(null)}><X size={18} /></button>
+                <button className="modal-close" onClick={handleCloseModal}><X size={18} /></button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-                <h4 style={{ fontSize: '16px', color: 'var(--text-heading)', fontWeight: 700, borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                  {rep.clubName}
-                </h4>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {[
-                    ['Học kỳ', rep.reportPeriodName || 'SU26'],
-                    ['Số sự kiện tổ chức', rep.totalEventsHeld || 0],
-                    ['Số dư tài chính (VND)', rep.financialBalance !== undefined ? rep.financialBalance.toLocaleString('vi-VN') : '0'],
-                    ['Tiêu đề báo cáo', rep.reportTitle],
-                    ['Trạng thái', <span className={`badge ${cfg.className}`}>{cfg.label}</span>],
-                    ['Nộp lúc', rep.submittedAt ? new Date(rep.submittedAt).toLocaleString('vi-VN') : '—']
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                      <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)' }}>{label}</span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{value}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ fontSize: '13px', color: 'var(--text-main)', whiteSpace: 'pre-line', lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', maxHeight: '200px', overflowY: 'auto' }}>
-                  <strong>Nội dung tóm tắt:</strong><br />
-                  {rep.summaryContent || rep.content}
-                </div>
-
-                {isPending ? (
-                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-                    <div className="form-group">
-                      <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nhận xét / Phản hồi của Manager (bắt buộc khi Từ chối):</label>
-                      <textarea
-                        className="textarea-field"
-                        placeholder="Nhập nhận xét hoặc lý do từ chối..."
-                        rows={2}
-                        value={remarkMap[expandedId] || ''}
-                        onChange={e => setRemarkMap({ ...remarkMap, [expandedId]: e.target.value })}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'flex-end' }}>
-                      <button
-                        className="btn btn-success btn-sm"
-                        onClick={() => handleManagerReview(expandedId, 'Chờ Admin duyệt')}
-                      >
-                        Duyệt &amp; Gửi Admin
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleManagerReview(expandedId, 'Từ chối')}
-                      >
-                        Từ chối
-                      </button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => setExpandedId(null)}>Đóng</button>
-                    </div>
+              
+              {modalSuccess ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '24px 0', textAlign: 'center' }}>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(34,197,94,0.1)', color: 'var(--success, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CheckCircle size={32} />
                   </div>
-                ) : (
-                  (rep.managerNote || rep.icpdpFeedback) && (
-                    <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '12px', borderLeft: '3px solid var(--primary)', color: 'var(--text-muted)' }}>
-                      <strong>Nhận xét từ bạn:</strong> {rep.managerNote || rep.icpdpFeedback}
+                  <div>
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '6px' }}>{modalSuccess.title}</h4>
+                    <p style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '380px', lineHeight: 1.5 }}>{modalSuccess.desc}</p>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary btn-sm" 
+                    onClick={handleCloseModal}
+                    style={{ minWidth: '120px', marginTop: '8px' }}
+                  >
+                    Đóng
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+                  <h4 style={{ fontSize: '16px', color: 'var(--text-heading)', fontWeight: 700, borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    {rep.clubName}
+                  </h4>
+                  
+                  {modalError && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: '#f87171', fontSize: '13px' }}>
+                      <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                      <span>{modalError}</span>
                     </div>
-                  )
-                )}
-              </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                      ['Học kỳ', rep.reportPeriodName || 'SU26'],
+                      ['Số sự kiện tổ chức', rep.totalEventsHeld || 0],
+                      ['Số dư tài chính (VND)', rep.financialBalance !== undefined ? rep.financialBalance.toLocaleString('vi-VN') : '0'],
+                      ['Tiêu đề báo cáo', rep.reportTitle],
+                      ['Trạng thái', <span className={`badge ${cfg.className}`}>{cfg.label}</span>],
+                      ['Nộp lúc', rep.submittedAt ? new Date(rep.submittedAt).toLocaleString('vi-VN') : '—']
+                    ].map(([label, value]) => (
+                      <div key={label} style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                        <span style={{ minWidth: '150px', fontSize: '12px', color: 'var(--text-muted)' }}>{label}</span>
+                        <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: '13px', color: 'var(--text-main)', whiteSpace: 'pre-line', lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', maxHeight: '200px', overflowY: 'auto' }}>
+                    <strong>Nội dung tóm tắt:</strong><br />
+                    {rep.summaryContent || rep.content}
+                  </div>
+
+                  {isPending ? (
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                      <div className="form-group">
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nhận xét / Phản hồi của Manager (bắt buộc khi Từ chối):</label>
+                        <textarea
+                          className="textarea-field"
+                          placeholder="Nhập nhận xét hoặc lý do từ chối..."
+                          rows={2}
+                          value={remarkMap[expandedId] || ''}
+                          onChange={e => {
+                            setRemarkMap({ ...remarkMap, [expandedId]: e.target.value });
+                            setModalError(null);
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'flex-end' }}>
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => handleManagerReview(expandedId, 'Chờ Admin duyệt')}
+                        >
+                          Duyệt &amp; Gửi Admin
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleManagerReview(expandedId, 'Từ chối')}
+                        >
+                          Từ chối
+                        </button>
+                        <button className="btn btn-secondary btn-sm" onClick={handleCloseModal}>Đóng</button>
+                      </div>
+                    </div>
+                  ) : (
+                    (rep.managerNote || rep.icpdpFeedback) && (
+                      <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '12px', borderLeft: '3px solid var(--primary)', color: 'var(--text-muted)' }}>
+                        <strong>Nhận xét từ bạn:</strong> {rep.managerNote || rep.icpdpFeedback}
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
             </div>
           </div>
         );
