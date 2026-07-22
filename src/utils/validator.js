@@ -93,3 +93,37 @@ export const toLocalISOString = (dateInput) => {
   return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}`;
 };
 
+/**
+ * Formats a Date object or date string into DD/MM/YYYY HH:mm format (Vietnamese standard: Ngày/Tháng/Năm Giờ:Phút).
+ * @param {Date|string|null|undefined} dateInput
+ * @param {boolean} includeTime whether to include HH:mm
+ * @returns {string}
+ */
+export const formatDateVN = (dateInput, includeTime = true) => {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateInput.trim())) {
+    const [dPart, tPart] = dateInput.trim().split('T');
+    const [yyyy, mm, dd] = dPart.split('-');
+    const timeClean = tPart.substring(0, 5);
+    if (includeTime) {
+      return `${dd}/${mm}/${yyyy} ${timeClean}`;
+    }
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  const date = dateInput instanceof Date ? dateInput : parseDateVN(dateInput);
+  if (isNaN(date.getTime()) || date.getTime() === 0) return '';
+
+  const pad = (num) => String(num).padStart(2, '0');
+  const dd = pad(date.getDate());
+  const mm = pad(date.getMonth() + 1);
+  const yyyy = date.getFullYear();
+  const hh = pad(date.getHours());
+  const min = pad(date.getMinutes());
+
+  if (includeTime) {
+    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  }
+  return `${dd}/${mm}/${yyyy}`;
+};
+

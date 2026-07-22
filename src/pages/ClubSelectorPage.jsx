@@ -122,20 +122,23 @@ export default function ClubSelectorPage() {
     }];
   }
 
+  // Helper: detect status
+  const isSuspended = (s) => s === 'Tạm dừng' || s === 'Suspended' || s === 'suspended';
+  const isDissolved = (s) => s === 'Đã giải thể' || s === 'Giải thể' || s === 'giải thể' || s === 'Dissolved' || s === 'dissolved';
+  const isActive = (s) => !isSuspended(s) && !isDissolved(s);
+
+  // Filter out dissolved clubs completely
+  const activeMemberships = myMemberships.filter(m => !isDissolved(m.clubStatus));
+
   // Separate leader (manager) and regular member clubs
-  const leaderMemberships = myMemberships.filter(m => m.role === 'Leader');
-  const memberMemberships = myMemberships.filter(m => m.role !== 'Leader');
+  const leaderMemberships = activeMemberships.filter(m => m.role === 'Leader');
+  const memberMemberships = activeMemberships.filter(m => m.role !== 'Leader');
 
   const getClubInfo = (m) => ({
     id: m.clubId,
     name: m.clubName || `Câu lạc bộ #${m.clubId}`,
     logo: m.clubLogo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=120&q=80',
   });
-
-  // Helper: detect status
-  const isSuspended = (s) => s === 'Tạm dừng' || s === 'Suspended' || s === 'suspended';
-  const isDissolved = (s) => s === 'Đã giải thể' || s === 'Giải thể' || s === 'giải thể' || s === 'Dissolved' || s === 'dissolved';
-  const isActive = (s) => !isSuspended(s) && !isDissolved(s);
 
   const handleSelectClub = async (clubId, asRole, membership) => {
     // Block entry for non-active clubs

@@ -163,6 +163,17 @@ export async function reviewEvidence(evidenceId, dto) {
 }
 
 /**
+ * Xét duyệt minh chứng dành cho Leader (Trưởng CLB)
+ * PATCH /api/events/evidence/{evidenceId}/leader-review
+ * @param {number|string} evidenceId
+ * @param {Object} dto - { status } // "Hợp lệ" | "Yêu cầu bổ sung" | "Không hợp lệ"
+ */
+export async function reviewEvidenceLeader(evidenceId, dto) {
+  const response = await apiClient.patch(`/api/events/evidence/${evidenceId}/leader-review`, dto);
+  return response.data;
+}
+
+/**
  * Lấy danh sách minh chứng đang chờ duyệt toàn hệ thống (API MỚI từ BE)
  * GET /api/events/evidences/pending
  * Quyền: [ADMIN, Manager]
@@ -174,6 +185,16 @@ export async function getPendingEvidences() {
 }
 
 /**
+ * Lấy danh sách minh chứng đang chờ Leader duyệt theo CLB
+ * GET /api/events/evidences/pending-leader
+ * @param {number|string} clubId
+ */
+export async function getPendingEvidencesLeader(clubId) {
+  const response = await apiClient.get('/api/events/evidences/pending-leader', { params: { clubId } });
+  return response.data;
+}
+
+/**
  * Lấy danh sách minh chứng theo 1 sự kiện cụ thể
  * GET /api/events/{eventId}/evidences
  * Quyền: [ADMIN, Manager]
@@ -181,5 +202,15 @@ export async function getPendingEvidences() {
  */
 export async function getEventEvidences(eventId) {
   const response = await apiClient.get(`/api/events/${eventId}/evidences`);
+  return response.data;
+}
+
+/**
+ * Lấy danh sách thành viên tham gia 1 sự kiện
+ * GET /api/events/{eventId}/participants
+ * @param {number|string} eventId
+ */
+export async function getEventParticipants(eventId) {
+  const response = await apiClient.get(`/api/events/${eventId}/participants`);
   return response.data;
 }

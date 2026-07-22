@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Check, X, Eye, FileText, CheckCircle, Image as ImageIcon, AlertCircle, AlertTriangle, Clock, Search, RefreshCw } from 'lucide-react';
-import { reviewEvidence, getAllEvents, getEventDetail, getEventsByClub, getPendingEvidences } from '../../services/eventService';
+import { 
+  reviewEvidence, 
+  reviewEvidenceLeader,
+  getPendingEvidences, 
+  getPendingEvidencesLeader,
+  getEventEvidences,
+  getAllEvents,
+  getEventsByClub
+} from '../../services/eventService';
 
 export default function EvidenceApproval({ triggerNotification, selectedClubId }) {
   const [evidences, setEvidences] = useState([]);
@@ -14,96 +22,81 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
   const loadEvidences = useCallback(async () => {
     setLoading(true);
     try {
-      let allEvs = [];
-
+      let rawList = [];
       if (selectedClubId) {
-        // Leader: workaround loop vì API /pending trả về toàn hệ thống (sẽ bị 403)
-        const res = await getEventsByClub(selectedClubId);
-        const eventsList = Array.isArray(res) ? res : (res?.data ?? []);
-        await Promise.all(eventsList.map(async (e) => {
-          try {
-            const detail = await getEventDetail(e.id || e.eventId);
-            const detailData = detail?.data ?? detail ?? {};
-            if (String(detailData.clubId) !== String(selectedClubId)) return;
-            const evList = detailData.evidences || detailData.evidenceFiles || [];
-            if (Array.isArray(evList)) {
-              evList.forEach(ev => {
-                allEvs.push({
-                  id: ev.id || ev.evidenceId,
-                  userId: ev.studentId || ev.userId || 'N/A',
-                  userFullName: ev.studentName || ev.userFullName || 'Sinh viên',
-                  clubId: detailData.clubId,
-                  clubName: detailData.clubName || 'CLB',
-                  eventName: detailData.eventName || detailData.name,
-                  evidenceType: ev.evidenceType || 'Check-in Photo',
-                  fileUrl: ev.fileUrl || ev.url || '',
-                  description: ev.feedback || ev.description || '',
-                  submittedAt: ev.submittedAt || detailData.submittedAt || new Date().toISOString(),
-                  status: ev.status || 'Pending'
-                });
-              });
-            }
-          } catch (detailErr) {
-            console.error(`Error loading detail for event ${e.id}:`, detailErr);
-          }
-        }));
+        // Leader: Dùng API GET /api/events/evidences/pending-leader?clubId=...
+        const res = await getPendingEvidencesLeader(selectedClubId);
+        rawList = Array.isArray(res) ? res : (res?.data ?? []);
       } else {
-        // Admin/Manager: dùng API mới GET /api/events/evidences/pending (trả về toàn hệ thống)
-        // Fallback về workaround cũ nếu API mới chưa sẵn sàng
-        try {
-          const res = await getPendingEvidences();
-          const rawList = Array.isArray(res) ? res : (res?.data ?? []);
-          allEvs = rawList.map(ev => ({
-            id: ev.id || ev.evidenceId,
-            userId: ev.studentId || ev.userId || 'N/A',
-            userFullName: ev.studentName || ev.userFullName || 'Sinh viên',
-            clubId: ev.clubId,
-            clubName: ev.clubName || 'CLB',
-            eventName: ev.eventName || ev.name || 'Sự kiện',
-            evidenceType: ev.evidenceType || 'Check-in Photo',
-            fileUrl: ev.fileUrl || ev.url || '',
-            description: ev.feedback || ev.description || '',
-            submittedAt: ev.submittedAt || new Date().toISOString(),
-            status: ev.status || 'Pending'
-          }));
-        } catch (pendingErr) {
-          // Fallback: nếu API /pending chưa sẵn sàng, dùng workaround cũ
-          console.warn('[EvidenceApproval] API /evidences/pending chưa sẵn sàng, fallback workaround:', pendingErr?.response?.status);
-          const res = await getAllEvents();
-          const eventsList = Array.isArray(res) ? res : (res?.data ?? []);
-          await Promise.all(eventsList.map(async (e) => {
-            try {
-              const detail = await getEventDetail(e.id || e.eventId);
-              const detailData = detail?.data ?? detail ?? {};
-              const evList = detailData.evidences || detailData.evidenceFiles || [];
-              if (Array.isArray(evList)) {
-                evList.forEach(ev => {
-                  allEvs.push({
-                    id: ev.id || ev.evidenceId,
-                    userId: ev.studentId || ev.userId || 'N/A',
-                    userFullName: ev.studentName || ev.userFullName || 'Sinh viên',
-                    clubId: detailData.clubId,
-                    clubName: detailData.clubName || 'CLB',
-                    eventName: detailData.eventName || detailData.name,
-                    evidenceType: ev.evidenceType || 'Check-in Photo',
-                    fileUrl: ev.fileUrl || ev.url || '',
-                    description: ev.feedback || ev.description || '',
-                    submittedAt: ev.submittedAt || new Date().toISOString(),
-                    status: ev.status || 'Pending'
-                  });
-                });
-              }
-            } catch (detailErr) {
-              console.error(`Error loading detail for event ${e.id}:`, detailErr);
-            }
-          }));
-        }
+        // Manager/Admin: Dùng API GET /api/events/evidences/pending
+        const res = await getPendingEvidences();
+        rawList = Array.isArray(res) ? res : (res?.data ?? []);
       }
+
+      // Merge evidences from events to get approved and rejected items as well
+      try {
+        const eventsData = selectedClubId ? await getEventsByClub(selectedClubId) : await getAllEvents();
+        const eventsList = Array.isArray(eventsData) ? eventsData : (eventsData?.data ?? []);
+        const recentEvents = eventsList.slice(0, 15);
+
+        const eventEvidencesLists = await Promise.allSettled(
+          recentEvents.map(e => getEventEvidences(e.id || e.eventId))
+        );
+
+        const existingMap = new Map();
+        rawList.forEach(item => {
+          const idKey = String(item.id || item.evidenceId);
+          existingMap.set(idKey, item);
+        });
+
+        eventEvidencesLists.forEach(resObj => {
+          if (resObj.status === 'fulfilled' && resObj.value) {
+            const list = Array.isArray(resObj.value) ? resObj.value : (resObj.value?.data ?? []);
+            list.forEach(item => {
+              const idKey = String(item.id || item.evidenceId);
+              if (!existingMap.has(idKey)) {
+                existingMap.set(idKey, item);
+              }
+            });
+          }
+        });
+
+        rawList = Array.from(existingMap.values());
+      } catch (mergeErr) {
+        console.warn('[EvidenceApproval] Could not merge event evidences:', mergeErr);
+      }
+
+      const allEvs = rawList.map(ev => {
+        const rawStatus = ev.isVerified || ev.status || 'Pending';
+        let normStatus = 'Pending';
+        if (rawStatus === 'Hợp lệ' || rawStatus === 'Approved' || rawStatus === 'Đã duyệt') {
+          normStatus = 'Approved';
+        } else if (rawStatus === 'Không hợp lệ' || rawStatus === 'Rejected' || rawStatus === 'Từ chối' || rawStatus === 'Đã từ chối') {
+          normStatus = 'Rejected';
+        } else {
+          normStatus = 'Pending';
+        }
+
+        return {
+          id: ev.id || ev.evidenceId,
+          userId: ev.studentId || ev.studentCode || ev.userId || 'N/A',
+          userFullName: ev.participantName || ev.studentName || ev.userFullName || ev.fullName || 'Sinh viên',
+          clubId: ev.clubId || selectedClubId,
+          clubName: ev.clubName || 'CLB',
+          eventName: ev.eventName || ev.name || 'Sự kiện',
+          evidenceType: ev.evidenceType || 'Check-in Photo',
+          fileUrl: ev.fileUrl || ev.url || ev.filePath || ev.imagePath || '',
+          description: ev.feedback || ev.description || '',
+          submittedAt: ev.uploadedAt || ev.submittedAt || ev.createdAt || new Date().toISOString(),
+          status: normStatus,
+          rawStatus
+        };
+      });
 
       setEvidences(allEvs);
     } catch (err) {
       console.error('[EvidenceApproval] Lỗi tải minh chứng:', err);
-      triggerNotification('Không tải được danh sách minh chứng!', 'error');
+      triggerNotification('Không tải được danh sách minh chứng từ hệ thống!', 'error');
       setEvidences([]);
     } finally {
       setLoading(false);
@@ -114,10 +107,13 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
     loadEvidences();
   }, [loadEvidences]);
 
-
   const handleApprove = async (ev) => {
     try {
-      await reviewEvidence(ev.id, { status: 'Hợp lệ' });
+      if (selectedClubId) {
+        await reviewEvidenceLeader(ev.id, { status: 'Chờ Manager duyệt' });
+      } else {
+        await reviewEvidence(ev.id, { status: 'Đã duyệt' });
+      }
       triggerNotification(`✅ Đã duyệt chứng nhận của ${ev.userFullName}!`, 'success');
       await loadEvidences();
     } catch (err) {
@@ -134,7 +130,11 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
       return;
     }
     try {
-      await reviewEvidence(ev.id, { status: 'Không hợp lệ', rejectReason: remark });
+      if (selectedClubId) {
+        await reviewEvidenceLeader(ev.id, { status: 'Từ chối' });
+      } else {
+        await reviewEvidence(ev.id, { status: 'Từ chối' });
+      }
       triggerNotification(`❌ Đã từ chối chứng nhận của ${ev.userFullName}!`, 'success');
       await loadEvidences();
     } catch (err) {
@@ -146,15 +146,37 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
 
   const filtered = evidences.filter(ev => {
     const matchClub = !selectedClubId || String(ev.clubId) === String(selectedClubId);
-    const matchStatus = filterStatus === 'ALL' || ev.status === filterStatus;
+    
+    let matchStatus = false;
+    if (filterStatus === 'ALL') {
+      matchStatus = true;
+    } else if (filterStatus === 'Pending') {
+      if (selectedClubId) {
+        // Leader view: chỉ hiện những item đang chờ Leader duyệt
+        matchStatus = ev.rawStatus === 'Đang chờ' || ev.rawStatus === 'Pending' || ev.rawStatus === 'Đang chờ Leader duyệt';
+      } else {
+        // Manager view: CHỈ HỆN những item đã được Leader thông qua (Chờ Manager duyệt)
+        matchStatus = ev.rawStatus === 'Chờ Manager duyệt';
+      }
+    } else if (filterStatus === 'Approved') {
+      matchStatus = ev.status === 'Approved' || ev.rawStatus === 'Hợp lệ' || ev.rawStatus === 'Đã duyệt';
+    } else if (filterStatus === 'Rejected') {
+      matchStatus = ev.status === 'Rejected' || ev.rawStatus === 'Không hợp lệ' || ev.rawStatus === 'Từ chối' || ev.rawStatus === 'Đã từ chối';
+    }
+
     const q = searchQuery.toLowerCase();
     const matchSearch = !q || ev.userFullName.toLowerCase().includes(q) || ev.userId.toLowerCase().includes(q) || ev.eventName.toLowerCase().includes(q);
     return matchClub && matchStatus && matchSearch;
   });
 
-  const pendingCount = evidences.filter(e => e.status === 'Pending').length;
-  const approvedCount = evidences.filter(e => e.status === 'Approved').length;
-  const rejectedCount = evidences.filter(e => e.status === 'Rejected').length;
+  const pendingCount = evidences.filter(ev => {
+    if (selectedClubId) {
+      return ev.rawStatus === 'Đang chờ' || ev.rawStatus === 'Pending' || ev.rawStatus === 'Đang chờ Leader duyệt';
+    }
+    return ev.rawStatus === 'Chờ Manager duyệt';
+  }).length;
+  const approvedCount = evidences.filter(e => e.status === 'Approved' || e.rawStatus === 'Hợp lệ' || e.rawStatus === 'Đã duyệt').length;
+  const rejectedCount = evidences.filter(e => e.status === 'Rejected' || e.rawStatus === 'Không hợp lệ' || e.rawStatus === 'Từ chối' || e.rawStatus === 'Đã từ chối').length;
 
   return (
     <div className="evidence-approval-container">
@@ -225,9 +247,17 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
                         <span style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '14px' }}>{ev.userFullName}</span>
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>({ev.userId})</span>
-                        {ev.status === 'Pending' && <span className="badge badge-member"><Clock size={10} /> Chờ duyệt</span>}
-                        {ev.status === 'Approved' && <span className="badge badge-active"><CheckCircle size={10} /> Đã duyệt</span>}
-                        {ev.status === 'Rejected' && <span className="badge badge-blocked"><X size={10} /> Từ chối</span>}
+                        {ev.status === 'Pending' && (
+                          !selectedClubId && ev.rawStatus !== 'Chờ Manager duyệt' ? (
+                            <span className="badge badge-warning" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+                              <Clock size={10} /> Chờ Leader duyệt trước
+                            </span>
+                          ) : (
+                            <span className="badge badge-member"><Clock size={10} /> Chờ duyệt</span>
+                          )
+                        )}
+                        {(ev.status === 'Approved' || ev.status === 'Hợp lệ' || ev.status === 'Đã duyệt') && <span className="badge badge-active"><CheckCircle size={10} /> Đã duyệt</span>}
+                        {(ev.status === 'Rejected' || ev.status === 'Không hợp lệ' || ev.status === 'Đã từ chối') && <span className="badge badge-blocked"><X size={10} /> Từ chối</span>}
                       </div>
                       <div style={{ fontSize: '13px', color: 'var(--text-main)', marginBottom: '4px' }}>
                         <strong>Sự kiện:</strong> {ev.eventName} · <strong>Loại:</strong> {ev.evidenceType}
@@ -254,25 +284,32 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
       {expandedId && (() => {
         const ev = filtered.find(e => e.id === expandedId);
         if (!ev) return null;
+        const isWaitingLeader = !selectedClubId && ev.status === 'Pending' && ev.rawStatus !== 'Chờ Manager duyệt';
         return (
           <div className="modal-backdrop">
             <div className="modal-content glass-card" style={{ maxWidth: '540px', width: '90%' }}>
               <div className="modal-header">
                 <h3 className="modal-title"><FileText size={18} style={{ marginRight: '6px' }} /> Chi tiết &amp; Phê duyệt Minh chứng</h3>
-                <button className="modal-close" onClick={() => setExpandedId(null)}><X size={18} /></button>
+                <button className="close-btn" onClick={() => setExpandedId(null)}><X size={18} /></button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-                <h4 style={{ fontSize: '16px', color: 'var(--text-heading)', fontWeight: 700, borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                  Sinh viên: {ev.userFullName} ({ev.userId})
-                </h4>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {[
+                    ['Sinh viên nộp', `${ev.userFullName} (${ev.userId})`],
+                    ['Câu lạc bộ', ev.clubName],
                     ['Sự kiện', ev.eventName],
                     ['Loại minh chứng', ev.evidenceType],
                     ['Thời điểm nộp', new Date(ev.submittedAt).toLocaleString('vi-VN')],
                     ['Trạng thái', (() => {
-                      if (ev.status === 'Pending') return <span className="badge badge-member"><Clock size={10} /> Chờ duyệt</span>;
+                      if (ev.status === 'Pending') {
+                        return isWaitingLeader ? (
+                          <span className="badge badge-warning" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+                            <Clock size={10} /> Chờ Trưởng CLB (Leader) duyệt trước
+                          </span>
+                        ) : (
+                          <span className="badge badge-member"><Clock size={10} /> Đã qua Leader (Sẵn sàng duyệt)</span>
+                        );
+                      }
                       if (ev.status === 'Approved') return <span className="badge badge-active"><CheckCircle size={10} /> Đã duyệt</span>;
                       return <span className="badge badge-blocked"><X size={10} /> Từ chối</span>;
                     })()]
@@ -297,7 +334,7 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
                 )}
 
                 {ev.fileUrl && (
-                  <div style={{ textCenter: 'center', marginBottom: '8px' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '8px' }}>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Hình ảnh minh chứng: (Click để xem kích thước lớn)</div>
                     <img
                       src={ev.fileUrl}
@@ -305,6 +342,12 @@ export default function EvidenceApproval({ triggerNotification, selectedClubId }
                       style={{ width: '100%', maxHeight: '220px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer' }}
                       onClick={() => setPreviewUrl(ev.fileUrl)}
                     />
+                  </div>
+                )}
+
+                {isWaitingLeader && (
+                  <div style={{ fontSize: '12px', color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    ⚠️ Minh chứng này đang ở trạng thái <strong>"Đang chờ"</strong>. Trưởng CLB (Leader) phải bấm duyệt trước thì Manager mới có thể phê duyệt cấp cuối!
                   </div>
                 )}
 

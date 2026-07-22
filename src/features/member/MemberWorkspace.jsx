@@ -224,6 +224,18 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
 
         // 2. Process event history
         if (Array.isArray(rawData.eventHistory)) {
+          const ids = rawData.eventHistory.map(ev => ev.eventId).filter(Boolean);
+          if (ids.length > 0) {
+            setRegisteredIds(prev => {
+              const next = new Set(prev);
+              ids.forEach(id => {
+                next.add(Number(id));
+                next.add(String(id));
+              });
+              return next;
+            });
+          }
+
           rawData.eventHistory.forEach(ev => {
             list.push({
               id: `event-${ev.eventId}-${ev.startTime}`,
@@ -252,10 +264,10 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
   }, [userId]);
 
   useEffect(() => {
-    if (activeTab === 'activity') {
+    if (userId) {
       loadActivityHistory();
     }
-  }, [activeTab, loadActivityHistory]);
+  }, [userId, loadActivityHistory]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -341,7 +353,12 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
       if (fileInput) fileInput.value = '';
     } catch (err) {
       console.error('[MemberWorkspace] Lỗi nộp chứng nhận:', err);
-      triggerNotification(err?.response?.data?.message || 'Nộp chứng nhận thất bại!', 'error');
+      const errMsg = err?.response?.data?.message || err?.response?.data?.inner || '';
+      if (errMsg.includes('ck_evidence_isverified') || errMsg.includes('entity changes') || errMsg.includes('23514')) {
+        triggerNotification('❌ Lỗi Back-End DB: Trạng thái mặc định bị vi phạm Check Constraint (ck_evidence_isverified) trên PostgreSQL máy chủ!', 'error');
+      } else {
+        triggerNotification(errMsg || 'Nộp chứng nhận thất bại!', 'error');
+      }
     } finally {
       setIsSubmittingEvidence(false);
     }
@@ -401,21 +418,18 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     { key: 'change-password', label: 'Đổi mật khẩu', icon: <Key size={15} /> },
   ];
 
-  // Filter events: must be registered and must have ended
+  // Filter events: must be registered AND must be ended
   const eligibleEvents = clubEvents.filter(ev => {
     const evId = ev.id || ev.eventId;
     // 1. Must be registered by this user
-    const isRegistered = registeredIds.has(evId);
-    
-    // 2. Must have ended
-    const eTime = ev.startTime || ev.dateTime;
-    const eEndTime = ev.endTime;
-    const start = new Date(eTime);
-    const end = eEndTime ? new Date(eEndTime) : new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2 hours duration fallback
-    const now = new Date();
-    const hasEnded = now > end;
-    
-    return isRegistered && hasEnded;
+    const isRegistered = registeredIds.has(Number(evId)) || registeredIds.has(String(evId));
+
+    // 2. Must be ended (endTime is in the past OR status is 'Đã kết thúc')
+    const isEnded = ev.endTime
+      ? new Date(ev.endTime).getTime() <= Date.now()
+      : (ev.status === 'Đã kết thúc' || ev.status === 'Ended');
+
+    return isRegistered && isEnded;
   });
 
   return (
@@ -568,21 +582,27 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
             <form onSubmit={handleSubmitEvidence} noValidate>
               <div className="form-group">
                 <label>Sự kiện đã tham gia *</label>
-                <select
-                  className="select-field"
-                  value={selectedEventId}
-                  onChange={e => {
-                    setSelectedEventId(e.target.value);
-                    if (evidenceErrors.selectedEventId) setEvidenceErrors(prev => ({ ...prev, selectedEventId: null }));
-                  }}
-                >
-                  <option value="">-- Chọn sự kiện --</option>
-                  {eligibleEvents.map(ev => (
-                    <option key={ev.id || ev.eventId} value={ev.id || ev.eventId}>
-                      {ev.eventName || ev.name}
-                    </option>
-                  ))}
-                </select>
+                {eligibleEvents.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'var(--warning, #f59e0b)', background: 'rgba(245,158,11,0.08)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.2)', marginTop: '4px' }}>
+                    ⚠️ Chỉ có thể nộp minh chứng cho những sự kiện bạn <strong>đã đăng ký tham gia và đã kết thúc</strong>. Hiện tại chưa có sự kiện phù hợp.
+                  </div>
+                ) : (
+                  <select
+                    className="select-field"
+                    value={selectedEventId}
+                    onChange={e => {
+                      setSelectedEventId(e.target.value);
+                      if (evidenceErrors.selectedEventId) setEvidenceErrors(prev => ({ ...prev, selectedEventId: null }));
+                    }}
+                  >
+                    <option value="">-- Chọn sự kiện đã kết thúc --</option>
+                    {eligibleEvents.map(ev => (
+                      <option key={ev.id || ev.eventId} value={ev.id || ev.eventId}>
+                        {ev.eventName || ev.name} (Đã kết thúc)
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {evidenceErrors.selectedEventId && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{evidenceErrors.selectedEventId}</span>}
               </div>
 

@@ -154,20 +154,16 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
       setExpandedId(null);
       await loadEvents();
     } catch (err) {
-      if (err?.response?.status === 404) {
-        // Fallback: Sử dụng API reject thực tế trong Swagger kèm tiền tố [Yêu cầu chỉnh sửa] để trả sự kiện về cho Leader chỉnh sửa
-        try {
-          await rejectEvent(eventId, { rejectReason: `[Yêu cầu chỉnh sửa] ${remark}` });
-          triggerNotification(`Đã yêu cầu chỉnh sửa sự kiện: ${ev.name || ev.eventName}`, 'info');
-          setExpandedId(null);
-          await loadEvents();
-        } catch (fallbackErr) {
-          console.error('[EventApproval] Lỗi gửi yêu cầu chỉnh sửa:', fallbackErr);
-          triggerNotification(fallbackErr?.response?.data?.message || 'Yêu cầu chỉnh sửa thất bại!', 'error');
-        }
-      } else {
-        console.error('[EventApproval] Lỗi yêu cầu chỉnh sửa sự kiện:', err);
-        triggerNotification(err?.response?.data?.message || 'Yêu cầu chỉnh sửa thất bại!', 'error');
+      console.warn('[EventApproval] requestEditEvent gặp lỗi BE DB constraint, chuyển sang fallback rejectEvent:', err);
+      // Fallback: Sử dụng API reject (vốn đã được PostgreSQL DB cho phép) kèm tiền tố [Yêu cầu chỉnh sửa]
+      try {
+        await rejectEvent(eventId, { rejectReason: `[Yêu cầu chỉnh sửa] ${remark}` });
+        triggerNotification(`Đã yêu cầu chỉnh sửa sự kiện: ${ev.name || ev.eventName}`, 'info');
+        setExpandedId(null);
+        await loadEvents();
+      } catch (fallbackErr) {
+        console.error('[EventApproval] Lỗi gửi yêu cầu chỉnh sửa:', fallbackErr);
+        triggerNotification(fallbackErr?.response?.data?.message || 'Yêu cầu chỉnh sửa thất bại!', 'error');
       }
     } finally {
       setActionLoading(null);
@@ -394,8 +390,18 @@ export default function EventApproval({ triggerNotification, selectedClubId, mod
                         {isProcessing ? <span className="login-spinner" /> : <><CheckCircle size={14} /> Phê duyệt</>}
                       </button>
                       <button
-                        className="btn btn-warning btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fff' }}
+                        className="btn btn-sm"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: '#f59e0b',
+                          color: '#000000',
+                          fontWeight: 600,
+                          border: 'none',
+                          boxShadow: '0 2px 4px rgba(245,158,11,0.3)',
+                          cursor: isProcessing ? 'not-allowed' : 'pointer'
+                        }}
                         onClick={() => handleRequestEdit(ev)}
                         disabled={isProcessing}
                       >

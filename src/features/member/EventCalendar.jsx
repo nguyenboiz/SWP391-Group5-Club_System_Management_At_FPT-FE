@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getApprovedEventsByClub, getEventDetail, registerEvent } from '../../services/eventService';
+import { getUserActivityHistory } from '../../services/userService';
 import { Calendar, MapPin, RefreshCw, CheckCircle, Eye, X, UserPlus, Check } from 'lucide-react';
-import { parseDateVN } from '../../utils/validator';
+import { parseDateVN, formatDateVN } from '../../utils/validator';
 
 export default function EventCalendar({ currentUserId, triggerNotification, selectedClubId }) {
   const [events, setEvents] = useState([]);
@@ -16,18 +17,50 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
   const [registeredIds, setRegisteredIds] = useState(new Set());
   const [registeringId, setRegisteringId] = useState(null);
 
+  const fetchUserRegisteredEvents = useCallback(async () => {
+    if (!currentUserId) return;
+    try {
+      const res = await getUserActivityHistory(currentUserId);
+      const rawData = res?.data ?? res;
+      if (rawData && Array.isArray(rawData.eventHistory)) {
+        const ids = rawData.eventHistory.map(ev => ev.eventId).filter(Boolean);
+        setRegisteredIds(prev => {
+          const next = new Set(prev);
+          ids.forEach(id => {
+            next.add(Number(id));
+            next.add(String(id));
+          });
+          return next;
+        });
+      }
+    } catch (err) {
+      console.warn('[EventCalendar] Lỗi lấy lịch sử hoạt động để kiểm tra đăng ký:', err);
+    }
+  }, [currentUserId]);
+
   useEffect(() => {
     if (currentUserId) {
       const saved = localStorage.getItem(`fpt_registered_events_${currentUserId}`);
       if (saved) {
         try {
-          setRegisteredIds(new Set(JSON.parse(saved)));
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setRegisteredIds(prev => {
+              const next = new Set(prev);
+              parsed.forEach(id => {
+                next.add(Number(id));
+                next.add(String(id));
+              });
+              return next;
+            });
+          }
         } catch (e) {
           console.error(e);
         }
       }
+      fetchUserRegisteredEvents();
     }
-  }, [currentUserId]);
+  }, [currentUserId, fetchUserRegisteredEvents]);
 
   const loadEvents = useCallback(async () => {
     if (!selectedClubId) return;
@@ -74,9 +107,13 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
       await registerEvent(eventId, { roleInEvent: 'Participant' });
       triggerNotification(`Đăng ký tham gia sự kiện "${eventName}" thành công!`, 'success');
       
-      const nextSet = new Set([...registeredIds, eventId]);
-      setRegisteredIds(nextSet);
-      localStorage.setItem(`fpt_registered_events_${currentUserId}`, JSON.stringify(Array.from(nextSet)));
+      setRegisteredIds(prev => {
+        const next = new Set(prev);
+        next.add(Number(eventId));
+        next.add(String(eventId));
+        localStorage.setItem(`fpt_registered_events_${currentUserId}`, JSON.stringify(Array.from(next)));
+        return next;
+      });
     } catch (err) {
       console.error('[EventCalendar] Lỗi đăng ký sự kiện:', err);
       triggerNotification(err?.response?.data?.message || 'Đăng ký tham gia sự kiện thất bại!', 'error');
@@ -183,7 +220,7 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                     <div className="event-details-row">
                       <Calendar size={12} />
                       <span>
-                        {parseDateVN(eTime).toLocaleString('vi-VN')}
+                        {formatDateVN(eTime)}
                       </span>
                     </div>
                   )}
@@ -198,7 +235,7 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                     <Eye size={12} /> Chi tiết
                   </button>
 
-                  {registeredIds.has(eId) ? (
+                  {registeredIds.has(Number(eId)) || registeredIds.has(String(eId)) ? (
                     <button
                       className="btn btn-secondary btn-sm"
                       style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'default', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.2)' }}
@@ -282,8 +319,8 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                     <>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {[
-                          ['Ngày bắt đầu', eventDetail.startTime ? parseDateVN(eventDetail.startTime).toLocaleString('vi-VN') : 'N/A'],
-                          ['Ngày kết thúc', eventDetail.endTime ? parseDateVN(eventDetail.endTime).toLocaleString('vi-VN') : 'N/A'],
+                          ['Ngày bắt đầu', eventDetail.startTime ? formatDateVN(eventDetail.startTime) : 'N/A'],
+                          ['Ngày kết thúc', eventDetail.endTime ? formatDateVN(eventDetail.endTime) : 'N/A'],
                           ['Địa điểm', eventDetail.location || eventDetail.venue || 'N/A'],
                           ['Ngân sách dự toán', eventDetail.planBudget || eventDetail.budget ? `${(eventDetail.planBudget || eventDetail.budget)}đ` : 'N/A'],
                           ['Số lượng dự kiến', eventDetail.targetParticipants ? `${eventDetail.targetParticipants} người` : 'N/A'],
@@ -298,7 +335,7 @@ export default function EventCalendar({ currentUserId, triggerNotification, sele
                       </div>
 
                       <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
-                        {registeredIds.has(eventDetail.id || eventDetail.eventId) ? (
+                        {registeredIds.has(Number(eventDetail.id || eventDetail.eventId)) || registeredIds.has(String(eventDetail.id || eventDetail.eventId)) ? (
                           <button
                             className="btn btn-secondary"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'default', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.2)' }}
