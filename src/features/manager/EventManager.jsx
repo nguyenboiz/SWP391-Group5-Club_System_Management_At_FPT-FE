@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createEvent, getEventsByClub, cancelEvent, updateEvent, getEventParticipants, getEventEvidences } from '../../services/eventService';
-import { Calendar, Plus, MapPin, AlertTriangle, Edit, X, Save, XCircle, Users, CheckCircle, Clock, Search } from 'lucide-react';
+import { Calendar, Plus, MapPin, AlertTriangle, Edit, X, Save, XCircle, Users, CheckCircle, Clock, Search, Paperclip, FileText, Download } from 'lucide-react';
 import { parseDateVN, toLocalISOString, formatDateVN } from '../../utils/validator';
 import VietnameseDateTimePicker from '../../components/VietnameseDateTimePicker';
 
@@ -258,14 +258,48 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
       formData.append('TargetParticipants', newEvent.targetParticipants || 0);
       formData.append('StartTime', toLocalISOString(newEvent.startTime));
       formData.append('EndTime', newEvent.endTime ? toLocalISOString(newEvent.endTime) : toLocalISOString(newEvent.startTime));
-      // Đính kèm files nếu có
+      
+      // Save file list & data URLs for Manager preview & download
+      const fileDataList = [];
       if (newEvent.files && newEvent.files.length > 0) {
-        Array.from(newEvent.files).forEach(file => {
+        for (let i = 0; i < newEvent.files.length; i++) {
+          const file = newEvent.files[i];
           formData.append('Files', file);
-        });
+          try {
+            const dataUrl = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = e => resolve(e.target.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+            fileDataList.push({
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              url: dataUrl
+            });
+          } catch (err) {
+            console.warn('Could not read attached file:', file.name);
+          }
+        }
       }
 
-      await createEvent(formData);
+      if (fileDataList.length > 0) {
+        try {
+          localStorage.setItem(`fpt_event_files_${newEvent.eventName.trim()}`, JSON.stringify(fileDataList));
+        } catch (e) {
+          console.warn('Could not set localStorage for event files', e);
+        }
+      }
+
+      const result = await createEvent(formData);
+      const createdId = result?.eventId || result?.id || result;
+      if (createdId && fileDataList.length > 0) {
+        try {
+          localStorage.setItem(`fpt_event_files_${createdId}`, JSON.stringify(fileDataList));
+        } catch (e) {}
+      }
+
       triggerNotification(`✅ Đã tạo kế hoạch sự kiện: ${newEvent.eventName}`, 'success');
       setNewEvent({
         eventName: '',
@@ -556,6 +590,102 @@ export default function EventManager({ selectedClubId, triggerNotification }) {
                     <strong style={{ color: '#ef4444' }}>Lý do / Phản hồi từ Manager:</strong> {selectedEvent.rejectReason || selectedEvent.approvalRemark}
                   </div>
                 )}
+
+                {/* File đính kèm / Kế hoạch & Hình ảnh */}
+                {(() => {
+                  const eId = selectedEvent.id || selectedEvent.eventId;
+                  const eName = selectedEvent.eventName || selectedEvent.name;
+                  let attachedFiles = selectedEvent.files || selectedEvent.documents || selectedEvent.attachments || [];
+                  if (!Array.isArray(attachedFiles) || attachedFiles.length === 0) {
+                    const byId = localStorage.getItem(`fpt_event_files_${eId}`);
+                    const byName = localStorage.getItem(`fpt_event_files_${eName}`);
+                    const str = byId || byName;
+                    if (str) {
+                      try { attachedFiles = JSON.parse(str); } catch {}
+                    }
+                  }
+
+                  if (!attachedFiles || attachedFiles.length === 0) return null;
+
+                  const isImageFile = (file) => {
+                    const name = (file.name || file.fileName || file.url || file.path || '').toLowerCase();
+                    const type = (file.type || '').toLowerCase();
+                    return type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
+                  };
+
+                  return (
+                    <div style={{ padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <strong style={{ fontSize: '13px', color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                        <Paperclip size={14} style={{ color: 'var(--primary)' }} /> Tài liệu &amp; Hình ảnh đính kèm ({attachedFiles.length}):
+                      </strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {attachedFiles.map((file, idx) => {
+                          const fileName = file.name || file.fileName || `Tài_liệu_${idx + 1}`;
+                          const fileSize = file.size ? `${(file.size / 1024).toFixed(1)} KB` : '';
+                          const fileUrl = file.url || file.fileUrl || file.path;
+                          const isImg = isImageFile(file);
+
+                          const handleDownload = () => {
+                            if (!fileUrl) {
+                              alert('Không tìm thấy đường dẫn file!');
+                              return;
+                            }
+                            const a = document.createElement('a');
+                            a.href = fileUrl;
+                            a.download = fileName;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                          };
+
+                          if (isImg) {
+                            return (
+                              <div key={idx} style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600 }}>🖼️ {fileName}</span>
+                                  {fileUrl && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary btn-sm"
+                                      onClick={handleDownload}
+                                      style={{ fontSize: '11px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                    >
+                                      <Download size={12} /> Tải ảnh
+                                    </button>
+                                  )}
+                                </div>
+                                {fileUrl && (
+                                  <div style={{ textAlign: 'center', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '8px' }}>
+                                    <img src={fileUrl} alt={fileName} style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '4px', objectFit: 'contain' }} />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                <FileText size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                                <span style={{ fontSize: '12px', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {fileName} {fileSize && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({fileSize})</span>}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={handleDownload}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', padding: '4px 10px', flexShrink: 0 }}
+                              >
+                                <Download size={12} /> Tải về
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

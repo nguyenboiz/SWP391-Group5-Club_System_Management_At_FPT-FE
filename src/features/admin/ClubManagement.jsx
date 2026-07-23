@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as clubService from '../../services/clubService';
 import apiClient from '../../utils/apiClient';
 import { PlusCircle, Landmark, Image, Link, Tag, UserCheck, List, Info, RefreshCw, Edit2, Lock, Unlock, X, Save, Eye, Trash2, BarChart2 } from 'lucide-react';
+import VietnameseDatePicker from '../../components/VietnameseDatePicker';
 
 export default function ClubManagement({ triggerNotification }) {
   const [activeView, setActiveView] = useState('list');
@@ -80,10 +81,6 @@ export default function ClubManagement({ triggerNotification }) {
       triggerNotification('❌ Mã CLB chỉ gồm chữ, số, gạch dưới, dài 2–10 ký tự (ví dụ: MCC, FPT_CHESS)!', 'warning');
       return;
     }
-    if (form.foundedDate && new Date(form.foundedDate) > new Date()) {
-      triggerNotification('❌ Ngày thành lập không thể là ngày trong tương lai!', 'warning');
-      return;
-    }
     if (form.fanpageUrl && !/^https?:\/\//.test(form.fanpageUrl.trim())) {
       triggerNotification('❌ Đường dẫn Fanpage không hợp lệ, phải bắt đầu bằng http:// hoặc https://!', 'warning');
       return;
@@ -95,7 +92,7 @@ export default function ClubManagement({ triggerNotification }) {
         clubCode: form.clubCode?.trim() || null,
         description: form.description || null,
         fanpageUrl: form.fanpageUrl?.trim() || null,
-        logoImage: form.logoImage || null,
+        logoImage: null,
         foundedDate: form.foundedDate || null,
         managerStudentId: form.managerStudentId?.trim() || null,
       });
@@ -124,7 +121,7 @@ export default function ClubManagement({ triggerNotification }) {
       clubCode: club.clubCode || club.code || '',
       description: club.description || '',
       fanpageUrl: club.fanpageUrl || '',
-      logoImage: club.logoImage || '',
+      logoImage: '',
       foundedDate: club.foundedDate || '',
     });
     setShowEditModal(true);
@@ -148,7 +145,7 @@ export default function ClubManagement({ triggerNotification }) {
     const cId = editingClub.id || editingClub.clubId;
     setIsSubmitting(true);
     try {
-      await clubService.updateClub(cId, editForm);
+      await clubService.updateClub(cId, { ...editForm, logoImage: null });
       triggerNotification(`Cập nhật thông tin CLB "${editForm.clubName}" thành công!`, 'success');
       setShowEditModal(false);
       await loadClubs();
@@ -372,20 +369,6 @@ export default function ClubManagement({ triggerNotification }) {
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Logo preview */}
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                {form.logoImage ? (
-                  <img src={form.logoImage} alt="Preview" style={{ width: '72px', height: '72px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
-                ) : (
-                  <div style={{ width: '72px', height: '72px', borderRadius: '50%', border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexShrink: 0 }}>
-                    <Image size={24} />
-                  </div>
-                )}
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}><Image size={12} style={{ marginRight: '4px' }} /> URL Ảnh Logo CLB</label>
-                  <input type="text" className="input-field" placeholder="https://example.com/logo.png" value={form.logoImage} onChange={e => handleChange('logoImage', e.target.value)} />
-                </div>
-              </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label><Landmark size={14} /> Tên Câu Lạc Bộ <span style={{ color: 'var(--error)' }}>*</span></label>
@@ -403,8 +386,8 @@ export default function ClubManagement({ triggerNotification }) {
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Ngày thành lập</label>
-                <input type="date" className="input-field" value={form.foundedDate} onChange={e => handleChange('foundedDate', e.target.value)} />
+                <label>Ngày thành lập (Ngày / Tháng / Năm)</label>
+                <VietnameseDatePicker value={form.foundedDate} onChange={val => handleChange('foundedDate', val)} />
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -461,18 +444,6 @@ export default function ClubManagement({ triggerNotification }) {
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={18} /></button>
             </div>
             <form onSubmit={handleUpdateClub} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-              
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                {editForm.logoImage ? (
-                  <img src={editForm.logoImage} alt="Logo" style={{ width: '64px', height: '64px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
-                ) : (
-                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexShrink: 0 }}><Image size={20} /></div>
-                )}
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>URL Logo CLB</label>
-                  <input type="text" className="input-field" value={editForm.logoImage} onChange={e => setEditForm({ ...editForm, logoImage: e.target.value })} />
-                </div>
-              </div>
 
               <div className="form-group">
                 <label>Tên Câu Lạc Bộ *</label>
@@ -490,8 +461,8 @@ export default function ClubManagement({ triggerNotification }) {
               </div>
 
               <div className="form-group">
-                <label>Ngày thành lập</label>
-                <input type="date" className="input-field" value={editForm.foundedDate} onChange={e => setEditForm({ ...editForm, foundedDate: e.target.value })} />
+                <label>Ngày thành lập (Ngày / Tháng / Năm)</label>
+                <VietnameseDatePicker value={editForm.foundedDate} onChange={val => setEditForm({ ...editForm, foundedDate: val })} />
               </div>
 
               <div className="form-group">

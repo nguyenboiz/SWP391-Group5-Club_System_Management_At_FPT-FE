@@ -95,6 +95,14 @@ export default function ClubSelectorPage() {
       const isLeader = rawRole === 'MANAGER' || rawRole === 'LEADER';
       // Priority: status from API call (clubStatusMap) > from login response > default
       const clubStatus = clubStatusMap[clubId] || club.clubStatus || club.status || 'Đang hoạt động';
+
+      // Read persistent custom info from localStorage if updated
+      const customLocalStr = localStorage.getItem(`fpt_custom_club_info_${clubId}`);
+      let customLocal = null;
+      if (customLocalStr) {
+        try { customLocal = JSON.parse(customLocalStr); } catch {}
+      }
+
       return {
         id: `be-${clubId}-${idx}`,
         userId: currentUser.id,
@@ -103,13 +111,19 @@ export default function ClubSelectorPage() {
         clubStatus,
         joinedSemester: club.joinedSemester || '',
         // Preserve club info for display
-        clubName: club.clubName || club.name || `CLB #${clubId}`,
-        clubLogo: club.logoImage || club.logo || '',
+        clubName: customLocal?.clubName || club.clubName || club.name || `CLB #${clubId}`,
+        clubLogo: customLocal?.logoImage || club.logoImage || club.logo || '',
       };
     });
   } else if (currentUser.clubId) {
     // Fallback: single club from user profile
     const clubId = String(currentUser.clubId);
+    const customLocalStr = localStorage.getItem(`fpt_custom_club_info_${clubId}`);
+    let customLocal = null;
+    if (customLocalStr) {
+      try { customLocal = JSON.parse(customLocalStr); } catch {}
+    }
+
     myMemberships = [{
       id: `be-${clubId}`,
       userId: currentUser.id,
@@ -117,8 +131,8 @@ export default function ClubSelectorPage() {
       role: currentUser.role === 'MANAGER' ? 'Leader' : 'Member',
       clubStatus: clubStatusMap[clubId] || 'Đang hoạt động',
       joinedSemester: '',
-      clubName: currentUser.clubName || `CLB #${clubId}`,
-      clubLogo: currentUser.clubLogo || '',
+      clubName: customLocal?.clubName || currentUser.clubName || `CLB #${clubId}`,
+      clubLogo: customLocal?.logoImage || currentUser.clubLogo || '',
     }];
   }
 
@@ -137,7 +151,7 @@ export default function ClubSelectorPage() {
   const getClubInfo = (m) => ({
     id: m.clubId,
     name: m.clubName || `Câu lạc bộ #${m.clubId}`,
-    logo: m.clubLogo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=120&q=80',
+    logo: m.clubLogo || '',
   });
 
   const handleSelectClub = async (clubId, asRole, membership) => {

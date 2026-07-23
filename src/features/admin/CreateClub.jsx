@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createClub } from '../../services/clubService';
 import { PlusCircle, Landmark, Image, Link, Tag, UserCheck } from 'lucide-react';
 import { validateNoSpecialChars } from '../../utils/validator';
+import VietnameseDatePicker from '../../components/VietnameseDatePicker';
 
 export default function CreateClub({ triggerNotification }) {
   const [form, setForm] = useState({
@@ -42,16 +43,8 @@ export default function CreateClub({ triggerNotification }) {
       newErrors.clubCode = 'Mã CLB chỉ gồm chữ, số, gạch dưới, dài 2–10 ký tự!';
     }
 
-    if (form.foundedDate && new Date(form.foundedDate) > new Date()) {
-      newErrors.foundedDate = 'Ngày thành lập không thể là ngày trong tương lai!';
-    }
-
     if (form.fanpageUrl && !/^https?:\/\//.test(form.fanpageUrl.trim())) {
       newErrors.fanpageUrl = 'Đường dẫn Fanpage không hợp lệ (phải bắt đầu bằng http:// hoặc https://)!';
-    }
-
-    if (form.logoImage && !/^https?:\/\//.test(form.logoImage.trim())) {
-      newErrors.logoImage = 'Đường dẫn logo không hợp lệ!';
     }
 
     if (form.managerStudentId && !/^[a-zA-Z0-9_-]+$/.test(form.managerStudentId.trim())) {
@@ -76,7 +69,7 @@ export default function CreateClub({ triggerNotification }) {
         clubCode: form.clubCode?.trim() || null,
         description: form.description || null,
         fanpageUrl: form.fanpageUrl?.trim() || null,
-        logoImage: form.logoImage || null,
+        logoImage: null,
         foundedDate: form.foundedDate || null,
         managerStudentId: form.managerStudentId?.trim() || null,
       });
@@ -115,34 +108,6 @@ export default function CreateClub({ triggerNotification }) {
           </div>
 
           <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Logo preview */}
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              {form.logoImage ? (
-                <img
-                  src={form.logoImage}
-                  alt="Preview"
-                  style={{ width: '72px', height: '72px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover', flexShrink: 0 }}
-                  onError={e => { e.target.style.display = 'none'; }}
-                />
-              ) : (
-                <div style={{ width: '72px', height: '72px', borderRadius: '50%', border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexShrink: 0 }}>
-                  <Image size={24} />
-                </div>
-              )}
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                  <Image size={12} style={{ marginRight: '4px' }} /> URL Ảnh Logo CLB
-                </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="https://example.com/logo.png"
-                  value={form.logoImage}
-                  onChange={e => handleChange('logoImage', e.target.value)}
-                />
-                {errors.logoImage && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.logoImage}</span>}
-              </div>
-            </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label><Landmark size={14} /> Tên Câu Lạc Bộ <span style={{ color: 'var(--error)' }}>*</span></label>
@@ -181,12 +146,10 @@ export default function CreateClub({ triggerNotification }) {
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Ngày thành lập</label>
-              <input
-                type="date"
-                className="input-field"
+              <label>Ngày thành lập (Ngày / Tháng / Năm)</label>
+              <VietnameseDatePicker
                 value={form.foundedDate}
-                onChange={e => handleChange('foundedDate', e.target.value)}
+                onChange={val => handleChange('foundedDate', val)}
               />
               {errors.foundedDate && <span style={{ fontSize: '11px', color: 'var(--error, #ef4444)', marginTop: '4px', display: 'block' }}>{errors.foundedDate}</span>}
             </div>

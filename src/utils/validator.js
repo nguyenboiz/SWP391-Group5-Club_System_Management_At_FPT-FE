@@ -55,13 +55,8 @@ export const validatePhone = (phone) => {
 export const parseDateVN = (dateStr) => {
   if (!dateStr) return new Date(0);
   let str = String(dateStr).trim();
-  // Normalize space to 'T' if it's like YYYY-MM-DD HH:mm:ss
   if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(str)) {
     str = str.replace(/\s+/, 'T');
-  }
-  // Backend returns UTC timestamps without 'Z' suffix — append it so JS parses correctly as UTC
-  if (str.includes('T') && !str.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
-    str += 'Z';
   }
   const d = new Date(str);
   return isNaN(d.getTime()) ? new Date(0) : d;
@@ -75,22 +70,16 @@ export const parseDateVN = (dateStr) => {
  */
 export const toLocalISOString = (dateInput) => {
   if (!dateInput) return '';
-  // If it's already a datetime-local string (like "2026-07-21T13:23"), normalize it
-  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateInput)) {
-    return dateInput + ':00';
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateInput)) {
+    const [dPart, tPart] = dateInput.split('T');
+    const [y, m, d] = dPart.split('-').map(Number);
+    const [h, min] = tPart.split(':').map(Number);
+    const dateObj = new Date(y, m - 1, d, h, min, 0);
+    return dateObj.toISOString();
   }
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return '';
-  const pad = (num) => String(num).padStart(2, '0');
-  
-  const yyyy = date.getFullYear();
-  const mm = pad(date.getMonth() + 1);
-  const dd = pad(date.getDate());
-  const hh = pad(date.getHours());
-  const min = pad(date.getMinutes());
-  const ss = pad(date.getSeconds());
-  
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}`;
+  return date.toISOString();
 };
 
 /**
@@ -101,29 +90,41 @@ export const toLocalISOString = (dateInput) => {
  */
 export const formatDateVN = (dateInput, includeTime = true) => {
   if (!dateInput) return '';
-  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateInput.trim())) {
-    const [dPart, tPart] = dateInput.trim().split('T');
-    const [yyyy, mm, dd] = dPart.split('-');
-    const timeClean = tPart.substring(0, 5);
-    if (includeTime) {
-      return `${dd}/${mm}/${yyyy} ${timeClean}`;
+
+  if (dateInput instanceof Date || typeof dateInput === 'number') {
+    const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (isNaN(date.getTime())) return '';
+    const pad = (num) => String(num).padStart(2, '0');
+    const dd = pad(date.getDate());
+    const mm = pad(date.getMonth() + 1);
+    const yyyy = date.getFullYear();
+    const hh = pad(date.getHours());
+    const min = pad(date.getMinutes());
+    return includeTime ? `${dd}/${mm}/${yyyy} ${hh}:${min}` : `${dd}/${mm}/${yyyy}`;
+  }
+
+  // If dateInput is string containing Z or timezone offset (e.g. "2026-07-25T05:00:00Z")
+  if (typeof dateInput === 'string' && (dateInput.includes('Z') || /[+-]\d{2}:?\d{2}$/.test(dateInput.trim()))) {
+    const date = new Date(dateInput);
+    if (!isNaN(date.getTime())) {
+      const pad = (num) => String(num).padStart(2, '0');
+      const dd = pad(date.getDate());
+      const mm = pad(date.getMonth() + 1);
+      const yyyy = date.getFullYear();
+      const hh = pad(date.getHours());
+      const min = pad(date.getMinutes());
+      return includeTime ? `${dd}/${mm}/${yyyy} ${hh}:${min}` : `${dd}/${mm}/${yyyy}`;
     }
-    return `${dd}/${mm}/${yyyy}`;
   }
 
-  const date = dateInput instanceof Date ? dateInput : parseDateVN(dateInput);
-  if (isNaN(date.getTime()) || date.getTime() === 0) return '';
-
-  const pad = (num) => String(num).padStart(2, '0');
-  const dd = pad(date.getDate());
-  const mm = pad(date.getMonth() + 1);
-  const yyyy = date.getFullYear();
-  const hh = pad(date.getHours());
-  const min = pad(date.getMinutes());
-
-  if (includeTime) {
-    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  // If dateInput is a local ISO datetime string without timezone (e.g. "2026-07-25T12:00:00" or "2026-07-25 12:00")
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateInput.trim())) {
+    const [dPart, tPart] = dateInput.trim().split(/[T\s]+/);
+    const [yyyy, mm, dd] = dPart.split('-');
+    const timeClean = tPart ? tPart.substring(0, 5) : '00:00';
+    return includeTime ? `${dd}/${mm}/${yyyy} ${timeClean}` : `${dd}/${mm}/${yyyy}`;
   }
-  return `${dd}/${mm}/${yyyy}`;
+
+  return '';
 };
 
