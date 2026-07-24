@@ -538,36 +538,38 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
             </form>
           </div>
 
-          {/* Events list */}
-          <div className="glass-card" style={{ height: 'fit-content' }}>
-            <div className="glass-card-header">
-              <h3 className="glass-card-title"><Clock size={18} /> Sự kiện CLB của tôi</h3>
+          {/* Events list (Only show when selectedClubId is active for member/leader) */}
+          {selectedClubId && (
+            <div className="glass-card" style={{ height: 'fit-content' }}>
+              <div className="glass-card-header">
+                <h3 className="glass-card-title"><Clock size={18} /> Sự kiện CLB của tôi</h3>
+              </div>
+              {clubEvents.length === 0 ? (
+                <div className="empty-state-view" style={{ minHeight: '120px' }}>
+                  <p>Chưa có sự kiện nào trong CLB này.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingRight: '6px' }} className="custom-scrollbar">
+                  {clubEvents.map(ev => {
+                    const eName = ev.eventName || ev.name;
+                    const eTime = ev.startTime || ev.dateTime;
+                    const eStatus = ev.status || ev.approvalStatus;
+                    return (
+                      <div key={ev.id || ev.eventId} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px' }}>{eName}</div>
+                        {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{parseDateVN(eTime).toLocaleString('vi-VN')}</div>}
+                        {eStatus && (
+                          <span className={`badge ${eStatus === 'Approved' ? 'badge-active' : eStatus === 'Rejected' ? 'badge-blocked' : 'badge-member'}`} style={{ fontSize: '10px', marginTop: '6px', display: 'inline-block' }}>
+                            {eStatus === 'Approved' ? 'Đã duyệt' : eStatus === 'Rejected' ? 'Bị từ chối' : eStatus === 'Pending' ? 'Chờ duyệt' : eStatus}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            {clubEvents.length === 0 ? (
-              <div className="empty-state-view" style={{ minHeight: '120px' }}>
-                <p>Chưa có sự kiện nào trong CLB này.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingRight: '6px' }} className="custom-scrollbar">
-                {clubEvents.map(ev => {
-                  const eName = ev.eventName || ev.name;
-                  const eTime = ev.startTime || ev.dateTime;
-                  const eStatus = ev.status || ev.approvalStatus;
-                  return (
-                    <div key={ev.id || ev.eventId} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px' }}>{eName}</div>
-                      {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{parseDateVN(eTime).toLocaleString('vi-VN')}</div>}
-                      {eStatus && (
-                        <span className={`badge ${eStatus === 'Approved' ? 'badge-active' : eStatus === 'Rejected' ? 'badge-blocked' : 'badge-member'}`} style={{ fontSize: '10px', marginTop: '6px', display: 'inline-block' }}>
-                          {eStatus === 'Approved' ? 'Đã duyệt' : eStatus === 'Rejected' ? 'Bị từ chối' : eStatus === 'Pending' ? 'Chờ duyệt' : eStatus}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       )}
 

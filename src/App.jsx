@@ -123,6 +123,7 @@ function DashboardLayout({ role, activeTab, setActiveTab, children, triggerNotif
 
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard({ triggerNotification }) {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   return (
     <DashboardLayout role="ADMIN" activeTab={activeTab} setActiveTab={setActiveTab} triggerNotification={triggerNotification}>
@@ -132,7 +133,7 @@ function AdminDashboard({ triggerNotification }) {
       {activeTab === 'semester-config' && <SemesterConfigPage triggerNotification={triggerNotification} />}
       {activeTab === 'report-appraisal' && <ReportAppraisalPage triggerNotification={triggerNotification} />}
       {activeTab === 'notification-management' && <NotificationManagementPage triggerNotification={triggerNotification} />}
-      {activeTab === 'my-profile' && <MemberWorkspacePage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={null} mode="profile" />}
+      {activeTab === 'my-profile' && <MemberWorkspacePage currentUserId={currentUser?.id || currentUser?.userId || currentUser?.username} triggerNotification={triggerNotification} selectedClubId={null} mode="profile" />}
     </DashboardLayout>
   );
 }
@@ -157,7 +158,7 @@ function ManagerDashboard({ triggerNotification }) {
       {activeTab === 'evidence-review' && <EvidenceApprovalPage triggerNotification={triggerNotification} selectedClubId={null} />}
       {activeTab === 'club-report-review' && <ReviewMemberReportsPage triggerNotification={triggerNotification} />}
       {activeTab === 'notification-management' && <NotificationManagementPage triggerNotification={triggerNotification} />}
-      {activeTab === 'my-profile' && <MemberWorkspacePage currentUserId={currentUser.id} triggerNotification={triggerNotification} selectedClubId={null} mode="profile" />}
+      {activeTab === 'my-profile' && <MemberWorkspacePage currentUserId={currentUser?.id || currentUser?.userId || currentUser?.username} triggerNotification={triggerNotification} selectedClubId={null} mode="profile" />}
     </DashboardLayout>
   );
 }
