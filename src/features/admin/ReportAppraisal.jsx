@@ -232,10 +232,6 @@ export default function ReportAppraisal({ triggerNotification }) {
                 style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                 <Calendar size={14} /> Quản lý Đợt Báo cáo
               </button>
-              <button className={`role-switch-btn ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => setActiveTab('announcements')}
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                <Bell size={14} /> Gửi Thông báo hệ thống
-              </button>
             </div>
           </div>
 
@@ -479,53 +475,6 @@ export default function ReportAppraisal({ triggerNotification }) {
                             "{p.description}"
                           </p>
                         )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'announcements' && (
-            <div className="dashboard-grid-2col">
-              <div className="glass-card">
-                <div className="glass-card-header">
-                  <h3 className="glass-card-title"><Plus size={18} /> Phát hành Thông báo hệ thống</h3>
-                </div>
-                <form onSubmit={handleCreateAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Tiêu đề thông báo *</label>
-                    <input type="text" className="input-field" value={newAnn.title} onChange={e => setNewAnn({ ...newAnn, title: e.target.value })} placeholder="Nhập tiêu đề thông báo..." required />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Nội dung thông báo toàn hệ thống *</label>
-                    <textarea className="textarea-field" value={newAnn.content} onChange={e => setNewAnn({ ...newAnn, content: e.target.value })} placeholder="Nhập nội dung thông báo..." rows={6} required />
-                  </div>
-                  <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                    <Send size={16} /> Đăng &amp; Phát hành
-                  </button>
-                </form>
-              </div>
-
-              <div className="glass-card" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                <div className="glass-card-header">
-                  <h3 className="glass-card-title"><Bell size={18} /> Thông báo đã phát hành ({announcements.length})</h3>
-                </div>
-                {announcements.length === 0 ? (
-                  <div className="empty-state-view">
-                    <Bell className="empty-state-icon" />
-                    <p>Chưa có thông báo nào.</p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
-                    {announcements.map(ann => (
-                      <div key={ann.id} style={{ padding: '14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '14px', marginBottom: '6px' }}>{ann.title}</div>
-                        <p style={{ fontSize: '13px', color: 'var(--text-main)', fontStyle: 'italic', marginBottom: '8px', whiteSpace: 'pre-line' }}>"{ann.content}"</p>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right' }}>
-                          {new Date(ann.createdAt).toLocaleString('vi-VN')}
-                        </div>
                       </div>
                     ))}
                   </div>
