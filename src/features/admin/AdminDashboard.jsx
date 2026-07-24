@@ -58,7 +58,20 @@ export default function AdminDashboard({ triggerNotification }) {
       try {
         const semData = await semesterService.getSemesters();
         const semList = Array.isArray(semData) ? semData : (semData?.data ?? []);
-        const active = semList.find(s => s.status === 'Active' || s.status === 'Open') || semList[0];
+        
+        const active = semList.find(s => {
+          const st = String(s.status || '').trim().toLowerCase();
+          if (st === 'đang diễn ra' || st === 'active' || st === 'open') return true;
+          if (s.startDate && s.endDate) {
+            const now = new Date();
+            const start = new Date(s.startDate);
+            const end = new Date(s.endDate);
+            start.setHours(0,0,0,0);
+            end.setHours(23,59,59,999);
+            return now >= start && now <= end;
+          }
+          return false;
+        }) || semList[0];
         activeSemesterName = active ? (active.semesterName || active.name) : 'N/A';
       } catch {}
 

@@ -60,7 +60,19 @@ export default function ClubReportSubmission({ selectedClubId, triggerNotificati
       const semestersList = Array.isArray(semestersRes) ? semestersRes : (semestersRes?.data ?? []);
       let activeSemesterId = null;
       if (semestersList.length > 0) {
-        const activeSem = semestersList.find(s => s.status === 'Active' || s.status === 'ActiveSemester' || s.status === 'Đang diễn ra') || semestersList[0];
+        const activeSem = semestersList.find(s => {
+          const st = String(s.status || '').trim().toLowerCase();
+          if (st === 'đang diễn ra' || st === 'active' || st === 'open') return true;
+          if (s.startDate && s.endDate) {
+            const now = new Date();
+            const start = new Date(s.startDate);
+            const end = new Date(s.endDate);
+            start.setHours(0,0,0,0);
+            end.setHours(23,59,59,999);
+            return now >= start && now <= end;
+          }
+          return false;
+        }) || semestersList[0];
         activeSemesterId = activeSem.id || activeSem.semesterId;
       }
       
