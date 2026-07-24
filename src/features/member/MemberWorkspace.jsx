@@ -412,9 +412,11 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     );
   }
 
+  const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'Quản trị viên';
+
   const TABS = [
     { key: 'profile', label: 'Hồ sơ Cá nhân', icon: <User size={15} /> },
-    { key: 'activity', label: 'Lịch sử Hoạt động', icon: <Activity size={15} /> },
+    ...(!isAdmin ? [{ key: 'activity', label: 'Lịch sử Hoạt động', icon: <Activity size={15} /> }] : []),
     { key: 'change-password', label: 'Đổi mật khẩu', icon: <Key size={15} /> },
   ];
 
