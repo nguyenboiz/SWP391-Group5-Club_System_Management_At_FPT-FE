@@ -115,9 +115,10 @@ export default function SemesterConfig({ triggerNotification }) {
 
   const getSemesterStatus = (s) => {
     if (!s) return 'Planned';
-    // If backend returns Active, Open or Finished, we can respect it
-    if (s.status === 'Active' || s.status === 'Open') return 'Active';
-    if (s.status === 'Finished') return 'Finished';
+    // Support Vietnamese and English active statuses from Backend
+    const st = String(s.status || '').trim().toLowerCase();
+    if (st === 'đang diễn ra' || st === 'active' || st === 'open') return 'Active';
+    if (st === 'đã kết thúc' || st === 'finished' || st === 'closed') return 'Finished';
     
     // Otherwise, compute based on dates
     if (s.startDate && s.endDate) {
@@ -133,7 +134,10 @@ export default function SemesterConfig({ triggerNotification }) {
     return s.status || 'Planned';
   };
 
-  const activeSemester = semesters.find(s => getSemesterStatus(s) === 'Active' || s.status === 'Open') || semesters[0];
+  const activeSemester = semesters.find(s => {
+    const st = String(s.status || '').trim().toLowerCase();
+    return st === 'đang diễn ra' || st === 'active' || st === 'open' || getSemesterStatus(s) === 'Active';
+  }) || semesters[0];
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
