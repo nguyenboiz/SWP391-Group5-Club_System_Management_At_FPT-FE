@@ -412,11 +412,12 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
     );
   }
 
-  const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'Quản trị viên';
+  const role = String(currentUser?.role || '').toUpperCase();
+  const isSystemRole = role === 'ADMIN' || role === 'MANAGER' || role === 'QUẢN TRỊ VIÊN' || role === 'QUẢN LÝ';
 
   const TABS = [
     { key: 'profile', label: 'Hồ sơ Cá nhân', icon: <User size={15} /> },
-    ...(!isAdmin ? [{ key: 'activity', label: 'Lịch sử Hoạt động', icon: <Activity size={15} /> }] : []),
+    ...(!isSystemRole ? [{ key: 'activity', label: 'Lịch sử Hoạt động', icon: <Activity size={15} /> }] : []),
     { key: 'change-password', label: 'Đổi mật khẩu', icon: <Key size={15} /> },
   ];
 
@@ -546,30 +547,43 @@ export default function MemberWorkspace({ currentUserId, triggerNotification, se
               <div className="glass-card-header">
                 <h3 className="glass-card-title"><Clock size={18} /> Sự kiện CLB của tôi</h3>
               </div>
-              {clubEvents.length === 0 ? (
-                <div className="empty-state-view" style={{ minHeight: '120px' }}>
-                  <p>Chưa có sự kiện nào trong CLB này.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingRight: '6px' }} className="custom-scrollbar">
-                  {clubEvents.map(ev => {
-                    const eName = ev.eventName || ev.name;
-                    const eTime = ev.startTime || ev.dateTime;
-                    const eStatus = ev.status || ev.approvalStatus;
-                    return (
-                      <div key={ev.id || ev.eventId} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px' }}>{eName}</div>
-                        {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{parseDateVN(eTime).toLocaleString('vi-VN')}</div>}
-                        {eStatus && (
-                          <span className={`badge ${eStatus === 'Approved' ? 'badge-active' : eStatus === 'Rejected' ? 'badge-blocked' : 'badge-member'}`} style={{ fontSize: '10px', marginTop: '6px', display: 'inline-block' }}>
-                            {eStatus === 'Approved' ? 'Đã duyệt' : eStatus === 'Rejected' ? 'Bị từ chối' : eStatus === 'Pending' ? 'Chờ duyệt' : eStatus}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              {(() => {
+                const clubRole = sessionStorage.getItem('fpt_club_role')?.toUpperCase();
+                const isLeaderInClub = clubRole === 'LEADER' || clubRole === 'MANAGER' || clubRole === 'CHAIRMAN';
+                const displayEvents = isLeaderInClub ? clubEvents : clubEvents.filter(ev => {
+                  const s = ev.status || ev.approvalStatus;
+                  return s !== 'Rejected' && s !== 'Bị từ chối' && s !== 'Pending' && s !== 'Chờ duyệt';
+                });
+
+                if (displayEvents.length === 0) {
+                  return (
+                    <div className="empty-state-view" style={{ minHeight: '120px' }}>
+                      <p>Chưa có sự kiện nào trong CLB này.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingRight: '6px' }} className="custom-scrollbar">
+                    {displayEvents.map(ev => {
+                      const eName = ev.eventName || ev.name;
+                      const eTime = ev.startTime || ev.dateTime;
+                      const eStatus = ev.status || ev.approvalStatus;
+                      return (
+                        <div key={ev.id || ev.eventId} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px' }}>{eName}</div>
+                          {eTime && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{parseDateVN(eTime).toLocaleString('vi-VN')}</div>}
+                          {eStatus && (
+                            <span className={`badge ${eStatus === 'Approved' ? 'badge-active' : eStatus === 'Rejected' ? 'badge-blocked' : 'badge-member'}`} style={{ fontSize: '10px', marginTop: '6px', display: 'inline-block' }}>
+                              {eStatus === 'Approved' ? 'Đã duyệt' : eStatus === 'Rejected' ? 'Bị từ chối' : eStatus === 'Pending' ? 'Chờ duyệt' : eStatus}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

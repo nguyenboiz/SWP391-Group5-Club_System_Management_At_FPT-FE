@@ -191,7 +191,6 @@ export default function ManagerDashboard({ triggerNotification }) {
 
   const tabs = [
     { key: 'overview', label: 'Tổng quan', icon: <TrendingUp size={14} /> },
-    { key: 'event-approval', label: 'Duyệt sự kiện', icon: <CheckCircle size={14} /> },
     { key: 'club-monitoring', label: 'Theo dõi CLB', icon: <Landmark size={14} /> },
   ];
 
@@ -285,13 +284,7 @@ export default function ManagerDashboard({ triggerNotification }) {
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
                       {ev.club?.clubName || ev.club?.name || `CLB #${ev.clubId}`} · {ev.startTime ? parseDateVN(ev.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
                     </div>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      style={{ marginTop: '8px' }}
-                      onClick={() => setActiveTab('event-approval')}
-                    >
-                      Xem xét duyệt →
-                    </button>
+                    <div style={{ paddingBottom: '4px' }}></div>
                   </div>
                 ))}
               </div>
@@ -301,129 +294,7 @@ export default function ManagerDashboard({ triggerNotification }) {
         </div>
       )}
 
-      {/* Event Approval tab */}
-      {activeTab === 'event-approval' && (
-        <div className="glass-card">
-          <div className="glass-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 className="glass-card-title"><CheckCircle size={18} /> Duyệt Sự kiện</h3>
-            <button className="btn btn-secondary btn-sm" onClick={loadEvents} disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <RefreshCw size={14} className={loading ? 'spin' : ''} /> Làm mới
-            </button>
-          </div>
 
-          <div className="search-filter-row">
-            <div className="search-input-wrapper" style={{ flex: 1 }}>
-              <Search className="search-icon" size={18} />
-              <input type="text" className="input-field" placeholder="Tìm theo tên sự kiện..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            </div>
-            <select className="select-field" value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ width: '160px' }}>
-              <option value="ALL">Tất cả</option>
-              <option value="Pending">Chờ duyệt</option>
-              <option value="Approved">Đã duyệt</option>
-              <option value="Rejected">Từ chối</option>
-            </select>
-          </div>
-
-          {loading ? (
-            <div className="empty-state-view"><span className="login-spinner" style={{ width: '28px', height: '28px' }} /></div>
-          ) : filteredEvents.length === 0 ? (
-            <div className="empty-state-view"><Calendar className="empty-state-icon" /><p>Không có sự kiện nào phù hợp.</p></div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              {filteredEvents.map(ev => {
-                const eventId = ev.id || ev.eventId;
-                const eventName = ev.eventName || ev.name;
-                const approvalStatus = ev.status || 'Pending';
-                const isExpanded = expandedId === eventId;
-                const isProcessing = actionLoading === eventId;
-
-                return (
-                  <div key={eventId} className="glass-card" style={{ padding: '16px', marginBottom: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                          <h4 style={{ fontSize: '15px', color: 'var(--text-heading)', margin: 0 }}>{eventName}</h4>
-                          {approvalStatus === 'Approved' && <span className="badge badge-active"><CheckCircle size={10} /> Đã duyệt</span>}
-                          {approvalStatus === 'Rejected' && <span className="badge badge-blocked"><XCircle size={10} /> Từ chối</span>}
-                          {approvalStatus === 'Pending' && <span className="badge badge-member"><Clock size={10} /> Chờ duyệt</span>}
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                          {ev.location && <span>📍 {ev.location}</span>}
-                          {ev.startTime && <span>🕐 {parseDateVN(ev.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}</span>}
-                          {ev.planBudget && <span>💰 {ev.planBudget}đ</span>}
-                        </div>
-                        {ev.description && <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '10px 0 0', lineHeight: 1.6 }}>{ev.description}</p>}
-                      </div>
-                      {approvalStatus === 'Pending' && (
-                        <button className="btn btn-secondary btn-sm" onClick={() => handleExpandEvent(eventId)} disabled={isProcessing}>
-                          {isExpanded ? 'Đóng' : 'Xem xét'}
-                        </button>
-                      )}
-                    </div>
-
-                    {isExpanded && approvalStatus === 'Pending' && (
-                      <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-                        {loadingDetails[eventId] ? (
-                          <div style={{ textAlign: 'center', padding: '12px' }}>
-                            <span className="login-spinner" style={{ width: '20px', height: '20px', margin: '0 auto' }} />
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.6, marginBottom: '16px' }}>
-                              <h5 style={{ fontWeight: 600, color: 'var(--primary)', marginBottom: '8px' }}>Thông tin chi tiết sự kiện:</h5>
-                              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px' }}>
-                                <span>Tên sự kiện:</span><strong>{eventDetails[eventId]?.eventName || eventDetails[eventId]?.name || ev.eventName}</strong>
-                                <span>Thời gian:</span><span>{eventDetails[eventId]?.startTime ? parseDateVN(eventDetails[eventId]?.startTime).toLocaleString('vi-VN') : ''} → {eventDetails[eventId]?.endTime ? parseDateVN(eventDetails[eventId]?.endTime).toLocaleString('vi-VN') : ''}</span>
-                                <span>Địa điểm:</span><span>{eventDetails[eventId]?.location || eventDetails[eventId]?.venue || 'Chưa rõ'}</span>
-                                <span>Ngân sách dự trù:</span><strong>{eventDetails[eventId]?.planBudget || eventDetails[eventId]?.budget || '0'}đ</strong>
-                                <span>Số người dự kiến:</span><span>{eventDetails[eventId]?.targetParticipants || 0} người</span>
-                                {eventDetails[eventId]?.description && (
-                                  <>
-                                    <span>Mô tả kế hoạch:</span><p style={{ margin: 0, whiteSpace: 'pre-line' }}>{eventDetails[eventId]?.description}</p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="form-group" style={{ marginBottom: '12px' }}>
-                              <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Lý do từ chối (bắt buộc nếu từ chối):</label>
-                              <textarea
-                                className="textarea-field"
-                                rows={2}
-                                placeholder="Nhập lý do từ chối..."
-                                value={remarkMap[eventId] || ''}
-                                onChange={e => setRemarkMap(m => ({ ...m, [eventId]: e.target.value }))}
-                              />
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button
-                                className="btn btn-success btn-sm"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => handleApprove(ev)}
-                                disabled={isProcessing}
-                              >
-                                {isProcessing ? <span className="login-spinner" /> : <><CheckCircle size={14} /> Phê duyệt</>}
-                              </button>
-                              <button
-                                className="btn btn-danger btn-sm"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => handleReject(ev)}
-                                disabled={isProcessing}
-                              >
-                                {isProcessing ? <span className="login-spinner" /> : <><XCircle size={14} /> Từ chối</>}
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Club Monitoring tab */}
       {activeTab === 'club-monitoring' && (
